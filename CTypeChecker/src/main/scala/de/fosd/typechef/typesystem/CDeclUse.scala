@@ -231,7 +231,6 @@ trait CDeclUse extends CEnv with CEnvCache {
 
 
     def addUse(entry: AST, feature: FeatureExpr, env: Env) {
-
         def addUseOne(one: One[AST], use: Id, env: Env) {
             one match {
                 case One(InitDeclaratorI(declarator, _, _)) => addToDeclUseMap(declarator.getId, use)
@@ -800,7 +799,6 @@ trait CDeclUse extends CEnv with CEnvCache {
             if (allIds.contains(x)) {
                 duplicateLB += x
             } else {
-
                 allIds.put(x, null)
             }
         })

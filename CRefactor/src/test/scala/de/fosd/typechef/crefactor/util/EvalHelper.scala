@@ -1,36 +1,39 @@
 package de.fosd.typechef.crefactor.util
 
 import java.io.{FileReader, BufferedReader, FileWriter, File}
-import de.fosd.typechef.parser.c.{PrettyPrinter, AST}
+import de.fosd.typechef.parser.c.{GnuAsmExpr, Id, PrettyPrinter, AST}
 import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr, SingleFeatureExpr, FeatureModel}
 import java.util.regex.Pattern
 import scala.io.Source
 import de.fosd.typechef.crefactor.Logging
 import de.fosd.typechef.ProductGeneration.SimpleConfiguration
+import de.fosd.typechef.Frontend
+import java.util.IdentityHashMap
+import java.util
 
 trait EvalHelper extends Logging {
 
 
     val caseStudyPath = "../busybox/"
-
     val completeBusyBoxPath = new File(caseStudyPath).getCanonicalPath
-
     val busyBoxFiles: String = completeBusyBoxPath + "/busybox_files"
-
     val busyBoxPath = completeBusyBoxPath + "/busybox-1.18.5/"
-
     val busyBoxPathUntouched = completeBusyBoxPath + caseStudyPath + "/busybox-1.18.5_untouched/"
-
     val result = "/result/"
 
-    val filterFeatures = List("def(CONFIG_SELINUX)")
-
+    val filterFeatures = List("def(CONFIG_SELINUX)", "CONFIG_SELINUX")
     val allFeaturesFile = getClass.getResource("/BusyBoxAllFeatures.config").getFile
     val allFeatures = getAllFeaturesFromConfigFile(null, new File(allFeaturesFile))
 
+    private val systemProperties: String = completeBusyBoxPath + "/redhat.properties"
+    private val includeHeader: String = completeBusyBoxPath + "/config.h"
+    private val includeDir: String = completeBusyBoxPath + "/busybox-1.18.5/include"
+    private val featureModel: String = completeBusyBoxPath + "/featureModel"
+
     def writeAST(ast: AST, filePath: String) {
         val writer = new FileWriter(filePath)
-        PrettyPrinter.printW(ast, writer)
+        val prettyPrinted = PrettyPrinter.print(ast)
+        writer.write(prettyPrinted.replaceAll("definedEx", "defined"))
         writer.flush()
         writer.close()
     }
@@ -40,7 +43,7 @@ trait EvalHelper extends Logging {
         val out = new java.io.FileWriter(dir.getCanonicalPath + File.separatorChar + getFileName(originalFilePath) + ".stats")
         stats.foreach(stat => {
             out.write(stat.toString)
-            out.write("\\n")
+            out.write("\n")
         })
         out.flush()
         out.close()
@@ -48,14 +51,17 @@ trait EvalHelper extends Logging {
 
     def writeConfig(config: List[SingleFeatureExpr], dir: File, name: String) {
         val out = new java.io.FileWriter(dir.getCanonicalPath + File.separatorChar + name)
-        val disabledFeatures = allFeatures.diff(config)
+        val disabledFeatures = allFeatures._1.diff(config)
         config.foreach(feature => {
-            val ft = feature.feature.substring(4, feature.feature.size)
+            val ft = feature.feature
             out.write(ft + "=y")
+            out.write("\n")
         })
         disabledFeatures.foreach(feature => {
-            val ft = feature.feature.substring(4, feature.feature.size)
-            out.write(ft + "=n")
+            val ft = feature.feature
+            if (allFeatures._2.containsKey(feature.feature)) out.write(ft + "=" + allFeatures._2.get(feature.feature))
+            else out.write("# " + ft + " is not set")
+            out.write("\n")
         })
         out.flush()
         out.close()
@@ -69,6 +75,25 @@ trait EvalHelper extends Logging {
         if (!result.exists()) result.mkdirs()
         result
     }
+
+    def parse(file: File): (AST, FeatureModel) = {
+        def getTypeChefArguments(file: String) = Array(file, "-c", systemProperties, "-x", "CONFIG_", "--include", includeHeader, "-I", includeDir, "--featureModelFExpr", featureModel, "--debugInterface", "--recordTiming", "--parserstatistics", "-U", "HAVE_LIBDMALLOC", "-DCONFIG_FIND", "-U", "CONFIG_FEATURE_WGET_LONG_OPTIONS", "-U", "ENABLE_NC_110_COMPAT", "-U", "CONFIG_EXTRA_COMPAT", "-D_GNU_SOURCE")
+        Frontend.main(getTypeChefArguments(file.getAbsolutePath))
+        (Frontend.getAST, Frontend.getFeatureModel)
+    }
+
+    def getAllRelevantIds(a: Any): List[Id] = {
+        a match {
+            case id: Id => if (!(id.name.startsWith("__builtin"))) List(id) else List()
+            case gae: GnuAsmExpr => List()
+            case l: List[_] => l.flatMap(x => getAllRelevantIds(x))
+            case p: Product => p.productIterator.toList.flatMap(x => getAllRelevantIds(x))
+            case k => List()
+        }
+    }
+
+    def analsyeDeclUse(map: IdentityHashMap[Id, List[Id]]): List[Int] = map.keySet().toArray(Array[Id]()).map(key => map.get(key).length).toList
+
 
     def getEnabledFeaturesFromConfigFile(fm: FeatureModel, file: File): List[SingleFeatureExpr] = {
         val correctFeatureModelIncompatibility = false
@@ -147,7 +172,7 @@ trait EvalHelper extends Logging {
         files
     }
 
-    def getAllFeaturesFromConfigFile(fm: FeatureModel, file: File): List[SingleFeatureExpr] = {
+    def getAllFeaturesFromConfigFile(fm: FeatureModel, file: File): (List[SingleFeatureExpr], IdentityHashMap[String, String]) = {
         val correctFeatureModelIncompatibility = false
         var ignoredFeatures = 0
         var changedAssignment = 0
@@ -155,15 +180,18 @@ trait EvalHelper extends Logging {
         var fileEx: FeatureExpr = FeatureExprFactory.True
         var trueFeatures: Set[SingleFeatureExpr] = Set()
         var falseFeatures: Set[SingleFeatureExpr] = Set()
+        val assignValues = new util.IdentityHashMap[String, String]()
 
         val enabledPattern: Pattern = java.util.regex.Pattern.compile("([^=]*)=.*")
-        val disabledPattern: Pattern = java.util.regex.Pattern.compile("([^=]*)=n")
+        val disabledPattern: Pattern = java.util.regex.Pattern.compile("([^=]*) is*")
         for (line <- Source.fromFile(file).getLines().filterNot(_.startsWith("#")).filterNot(_.isEmpty)) {
             totalFeatures += 1
             var matcher = enabledPattern.matcher(line)
             if (matcher.matches()) {
                 val name = matcher.group(1)
+                val value = line.substring(line.lastIndexOf('=') + 1).trim
                 val feature = FeatureExprFactory.createDefinedExternal(name)
+                if (!value.equals("y")) assignValues.put(feature.feature, value)
                 var fileExTmp = fileEx.and(feature)
                 if (correctFeatureModelIncompatibility) {
                     val isSat = fileExTmp.isSatisfiable(fm)
@@ -208,7 +236,7 @@ trait EvalHelper extends Logging {
                 }
             }
         }
-        trueFeatures.toList
+        (trueFeatures.toList, assignValues)
     }
 
     def loadConfigurationsFromCSVFile(csvFile: File, dimacsFile: File, features: List[SingleFeatureExpr], fm: FeatureModel, fnamePrefix: String = ""): (List[SimpleConfiguration], String) = {

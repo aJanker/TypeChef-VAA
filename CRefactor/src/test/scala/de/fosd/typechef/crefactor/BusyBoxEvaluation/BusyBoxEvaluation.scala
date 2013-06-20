@@ -1,61 +1,120 @@
 package de.fosd.typechef.crefactor.BusyBoxEvaluation
 
-import de.fosd.typechef.parser.c.AST
-import de.fosd.typechef.FrontendInstance
-import java.io.{FilenameFilter, File}
-import de.fosd.typechef.featureexpr.{FeatureExpr, FeatureModel}
+import java.io._
+import de.fosd.typechef.featureexpr.FeatureModel
 import org.junit.Test
 import de.fosd.typechef.crefactor.util.EvalHelper
 
 
 trait BusyBoxEvaluation extends EvalHelper {
 
+    val FORCE_VARIABILITY = true
+    val MAX_DEPTH = 27
 
-    private val systemProperties: String = completeBusyBoxPath + "/redhat.properties"
+    val amountOfRefactorings = 3
 
-    private val includeHeader: String = completeBusyBoxPath + "/config.h"
-    private val includeDir: String = completeBusyBoxPath + "/busybox-1.18.5/include"
-    private val featureModel: String = completeBusyBoxPath + "/featureModel"
-
-
-    // private val typeChefArguments = List("-c", systemProperties, "-x", "CONFIG_", "--include", includeHeader, "-I", includeDir, "--featureModelFExpr", featureModel, "--debugInterface", "--recordTiming", "--parserstatistics", "-U", "HAVE_LIBDMALLOC", "-DCONFIG_FIND", "-U", "CONFIG_FEATURE_WGET_LONG_OPTIONS", "-U", "ENABLE_NC_110_COMPAT", "-U", "CONFIG_EXTRA_COMPAT ", "-D_GNU_SOURCE")
     @Test
     def evaluate()
-
-    def performRefactor(fileToRefactor: File): Boolean
-
-    def parse(file: File): (AST, FeatureModel) = {
-        val frontend = new FrontendInstance
-        frontend.main(getTypeChefArguments(file.getAbsolutePath))
-        (frontend.getAST, frontend.getFeatureModel)
-    }
-
-    def getTypeChefArguments(file: String): Array[String] = Array(file, "-c", systemProperties, "-x", "CONFIG_", "--include", includeHeader, "-I", includeDir, "--featureModelFExpr", featureModel, "--debugInterface", "--recordTiming", "--parserstatistics", "-U", "HAVE_LIBDMALLOC", "-DCONFIG_FIND", "-U", "CONFIG_FEATURE_WGET_LONG_OPTIONS", "-U", "ENABLE_NC_110_COMPAT", "-U", "CONFIG_EXTRA_COMPAT", "-D_GNU_SOURCE")
-
-    protected def analyseDir(dirToAnalyse: File): Boolean = {
-        if (dirToAnalyse.isDirectory) {
-            val piFiles = dirToAnalyse.listFiles(new FilenameFilter {
-                def accept(input: File, file: String): Boolean = file.endsWith(".pi")
-            })
-            val dirs = dirToAnalyse.listFiles(new FilenameFilter {
-                def accept(input: File, file: String) = input.isDirectory
-            })
-
-            // perform refactoring on all found .pi - files
-            val filesSucc = piFiles.map(performRefactor(_))
-            // continue on all found directories
-            val dirSucc = dirs.map(analyseDir(_)) ++ filesSucc
-            !dirSucc.exists(_ == false)
-        } else true
-    }
-
-
 }
 
 
-object RefactorVerification {
+object RefactorVerification extends EvalHelper {
 
-    def verify(refactored: File, originalFile: File, affectedFeatures: List[FeatureExpr], fm: FeatureModel) {
+    def copyFile(file1: File, file2: File) = new FileOutputStream(file2) getChannel() transferFrom(new FileInputStream(file1) getChannel, 0, Long.MaxValue)
 
+    def verify(bbFile: File, run: Int, fm: FeatureModel): Boolean = {
+        val verfiyPath = bbFile.getCanonicalPath
+        val orgFile = new File(bbFile.getCanonicalPath.replaceAll("busybox-1.18.5", "busybox-1.18.5_untouched"))
+        val refFile = new File(bbFile.getCanonicalPath.replaceAll("busybox-1.18.5", "result") + "/" + run + "/" + bbFile.getName)
+        val verfiyDir = new File(bbFile.getCanonicalPath.replaceAll("busybox-1.18.5", "result") + "/" + run + "/")
+
+        val configs = verfiyDir.listFiles(new FilenameFilter {
+            def accept(input: File, file: String): Boolean = file.endsWith(".config")
+        })
+
+        configs.forall(config => {
+            val configBuild = new File(busyBoxPath + ".config")
+            copyFile(config, configBuild)
+
+            val orgBuild = buildBusyBox
+            val org = runTest
+            writeResult(orgBuild, verfiyDir.getCanonicalPath + "/" + config.getName + "_org" + ".build")
+            writeResult(org, verfiyDir.getCanonicalPath + "/" + config.getName + "_org" + ".test")
+            bbFile.delete()
+
+            val buildRefFile = new File(verfiyPath)
+            copyFile(refFile, buildRefFile)
+
+            val refBuild = buildBusyBox
+            val ref = runTest
+            writeResult(refBuild, verfiyDir.getCanonicalPath + "/" + config.getName + "_ref" + ".build")
+            writeResult(ref, verfiyDir.getCanonicalPath + "/" + config.getName + "_ref" + ".test")
+            buildRefFile.delete()
+            copyFile(orgFile, new File(verfiyPath))
+
+            configBuild.delete()
+            println("Result " + org.equals(ref))
+            org.equals(ref)
+        })
+    }
+
+    def writeResult(result: String, file: String) = {
+        var out: FileWriter = null
+        if (file.startsWith(".")) out = new java.io.FileWriter(file.replaceFirst(".", ""))
+        else out = new java.io.FileWriter(file)
+
+        out.write(result)
+        out.flush()
+        out.close()
+    }
+
+    def runTest: String = {
+        var error = false
+        val pb = new ProcessBuilder("./runtest")
+        pb.directory(new File(busyBoxPath + "testsuite/"))
+        val p = pb.start()
+        p.waitFor()
+
+        val reader = new BufferedReader(new InputStreamReader(p.getInputStream()))
+        val sb = new StringBuilder
+        while (reader.ready()) {
+            val line = reader.readLine()
+            sb.append(line)
+            println(line)
+        }
+
+        val reader2 = new BufferedReader(new InputStreamReader(p.getErrorStream()))
+        while (reader2.ready()) {
+            error = true
+            val line = reader2.readLine()
+            sb.append(line)
+            println(line)
+        }
+        sb.toString()
+    }
+
+    def buildBusyBox: String = {
+        var error = false
+        val pb = new ProcessBuilder("./buildBusyBox.sh")
+        pb.directory(new File(busyBoxPath))
+        val p = pb.start()
+        p.waitFor()
+
+        val reader = new BufferedReader(new InputStreamReader(p.getInputStream()))
+        val sb = new StringBuilder
+        while (reader.ready()) {
+            val line = reader.readLine()
+            sb.append(line)
+            println(line)
+        }
+
+        val reader2 = new BufferedReader(new InputStreamReader(p.getErrorStream()))
+        while (reader2.ready()) {
+            error = true
+            val line = reader2.readLine()
+            sb.append(line)
+            println(line)
+        }
+        sb.toString()
     }
 }
