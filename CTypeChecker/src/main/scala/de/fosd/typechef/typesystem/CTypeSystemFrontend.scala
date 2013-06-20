@@ -4,6 +4,7 @@ import de.fosd.typechef.parser.c._
 import de.fosd.typechef.featureexpr._
 import de.fosd.typechef.conditional._
 import linker.CInferInterface
+import de.fosd.typechef.error._
 
 /**
  * checks an AST (from CParser) for type errors (especially dangling references)
@@ -13,8 +14,13 @@ import linker.CInferInterface
  * @author kaestner
  *
  */
-class CTypeSystemFrontend(iast: TranslationUnit, featureModel: FeatureModel = FeatureExprFactory.default.featureModelFactory.empty) extends CTypeSystem with CInferInterface with EnforceTreeHelper {
 
+class CTypeSystemFrontend(iast: TranslationUnit,
+                          featureModel: FeatureModel = FeatureExprFactory.default.featureModelFactory.empty,
+                          options: ICTypeSysOptions = LinuxDefaultOptions) extends CTypeSystem with CInferInterface {
+
+    //overwrites the default options
+    override protected def opts: ICTypeSysOptions = options
 
     def prettyPrintType(ctype: Conditional[CType]): String =
         Conditional.toOptList(ctype).map(o => o.feature.toString + ": \t" + o.entry).mkString("\n")
@@ -22,7 +28,7 @@ class CTypeSystemFrontend(iast: TranslationUnit, featureModel: FeatureModel = Fe
     private def indentAllLines(s: String): String =
         s.lines.map("\t\t" + _).foldLeft("")(_ + "\n" + _)
 
-    var errors: List[TypeError] = List()
+    var errors: List[TypeChefError] = List()
 
     var isSilent = false
 
@@ -36,40 +42,41 @@ class CTypeSystemFrontend(iast: TranslationUnit, featureModel: FeatureModel = Fe
 
 
     var externalDefCounter: Int = 0
-
     override def checkingExternal(externalDef: ExternalDef) = {
         externalDefCounter = externalDefCounter + 1
         if (verbose)
             println("check " + externalDefCounter + "/" + iast.defs.size + ". line " + externalDef.getPositionFrom.getLine + ". err " + errors.size)
     }
-
-    override def issueTypeError(severity: Severity.Severity, condition: FeatureExpr, msg: String, where: AST) =
-    //first check without feature model for performance reasons
+    override def issueTypeError(severity: Severity.Severity, condition: FeatureExpr, msg: String, where: AST, severityExtra: String = "") =
+    	//first check without feature model for performance reasons
         if (condition.isSatisfiable() && condition.isSatisfiable(featureModel)) {
-            val e = new TypeError(severity, condition, msg, where)
+            val e = new TypeChefError(severity, condition, msg, where, severityExtra)
             errors = e :: errors
             if (!isSilent) {
-                println("  - " + e)
-            }
-        }
+            	println("  - " + e)
+        	}
+    }
 
 
     /**
      * Returns true iff no errors were found.
      * @return
      */
-    def checkAST: Boolean = {
+    def checkAST(ignoreWarnings: Boolean = true): Boolean = {
+
         errors = List() // clear error list
         typecheckTranslationUnit(iast)
-        if (errors.isEmpty)
+        val merrors = if (ignoreWarnings)
+            errors.filterNot(Set(Severity.Warning, Severity.SecurityWarning) contains _.severity)
+        else errors
+        if (merrors.isEmpty)
             println("No type errors found.")
         else {
-            println("Found " + errors.size + " type errors: ");
+            println("Found " + merrors.size + " type errors: ");
         }
         //println("\n")
-        return errors.isEmpty
+        return merrors.isEmpty
     }
-
     def checkASTSilent: Boolean = {
         isSilent = true
         errors = List() // clear error list
@@ -83,11 +90,4 @@ class CTypeSystemFrontend(iast: TranslationUnit, featureModel: FeatureModel = Fe
         typecheckTranslationUnit(iast)
         return errors
     }
-}
-
-
-class TypeError(val severity: Severity.Severity, val condition: FeatureExpr, val msg: String, val where: AST) {
-    override def toString =
-        severity.toString.take(1) + " [" + condition + "] " +
-                (if (where == null) "" else where.getPositionFrom + "--" + where.getPositionTo) + "\n\t" + msg
 }

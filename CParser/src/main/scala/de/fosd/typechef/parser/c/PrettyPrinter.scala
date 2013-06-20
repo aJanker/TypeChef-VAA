@@ -100,6 +100,7 @@ object PrettyPrinter {
                         prettyPrint(b, f.not :: list_feature_expr) *
                         "#endif"
             }
+
         case Choice(f, a: Conditional[_], b: Conditional[_]) =>
             if (newLineForIfdefs) {
                 line ~
@@ -193,7 +194,6 @@ object PrettyPrinter {
         def commaSep(l: List[Opt[AST]]) = sep(l, _ ~ "," ~~ _)
         def spaceSep(l: List[Opt[AST]]) = sep(l, _ ~~ _)
         def opt(o: Option[AST]): Doc = if (o.isDefined) o.get else Empty
-        def optCond(o: Option[Conditional[AST]]): Doc = if (o.isDefined) o.get else Empty
         def optExt(o: Option[AST], ext: (Doc) => Doc): Doc = if (o.isDefined) ext(o.get) else Empty
         def optCondExt(o: Option[Conditional[AST]], ext: (Doc) => Doc): Doc = if (o.isDefined) ext(o.get) else Empty
 
@@ -211,14 +211,17 @@ object PrettyPrinter {
             case SizeOfExprT(typeName) => "sizeof(" ~ typeName ~ ")"
             case SizeOfExprU(e) => "sizeof(" ~ e ~ ")"
             case CastExpr(typeName, expr) => "((" ~ typeName ~ ")" ~~ expr ~ ")"
+
             case PointerDerefExpr(castExpr) => "(*" ~ castExpr ~ ")"
             case PointerCreationExpr(castExpr) => "(&" ~ castExpr ~ ")"
+
             case UnaryOpExpr(kind, castExpr) => "(" ~ kind ~~ castExpr ~ ")"
             case NAryExpr(e, others) => "(" ~ e ~~ sep(others, _ ~~ _) ~ ")"
             case NArySubExpr(op: String, e: Expr) => op ~~ e
             case ConditionalExpr(condition: Expr, thenExpr, elseExpr: Expr) => "(" ~ condition ~~ "?" ~~ opt(thenExpr) ~~ ":" ~~ elseExpr ~ ")"
             case AssignExpr(target: Expr, operation: String, source: Expr) => "(" ~ target ~~ operation ~~ source ~ ")"
             case ExprList(exprs) => sep(exprs, _ ~~ "," ~~ _)
+
             case CompoundStatement(innerStatements) =>
                 block(sep(innerStatements, _ * _))
             case EmptyStatement() => ";"
@@ -251,10 +254,12 @@ object PrettyPrinter {
             case LongSpecifier() => "long"
             case CharSpecifier() => "char"
             case DoubleSpecifier() => "double"
+
             case TypedefSpecifier() => "typedef"
             case TypeDefTypeSpecifier(name: Id) => name
             case SignedSpecifier() => "signed"
             case UnsignedSpecifier() => "unsigned"
+
             case InlineSpecifier() => "inline"
             case AutoSpecifier() => "auto"
             case RegisterSpecifier() => "register"
@@ -263,11 +268,14 @@ object PrettyPrinter {
             case ConstSpecifier() => "const"
             case RestrictSpecifier() => "__restrict"
             case StaticSpecifier() => "static"
+
             case AtomicAttribute(n: String) => n
             case AttributeSequence(attributes) => sep(attributes, _ ~~ _)
             case CompoundAttribute(inner) => "(" ~ sep(inner, _ ~ "," ~~ _) ~ ")"
+
             case Declaration(declSpecs, init) =>
                 sep(declSpecs, _ ~~ _) ~~ sepVaware(init, ",") ~ ";"
+
             case InitDeclaratorI(declarator, lst, Some(i)) =>
                 if (!lst.isEmpty) {
                     declarator ~~ sep(lst, _ ~~ _) ~~ "=" ~~ i
@@ -281,14 +289,17 @@ object PrettyPrinter {
                     declarator
                 }
             case InitDeclaratorE(declarator, _, e: Expr) => declarator ~ ":" ~~ e
+
             case AtomicNamedDeclarator(pointers, id, extensions) =>
                 sep(pointers, _ ~ _) ~ id ~ sep(extensions, _ ~ _)
+
             case NestedNamedDeclarator(pointers, nestedDecl, extensions) =>
                 sep(pointers, _ ~ _) ~ "(" ~ nestedDecl ~ ")" ~ sep(extensions, _ ~ _)
             case AtomicAbstractDeclarator(pointers, extensions) =>
                 sep(pointers, _ ~ _) ~ sep(extensions, _ ~ _)
             case NestedAbstractDeclarator(pointers, nestedDecl, extensions) =>
                 sep(pointers, _ ~ _) ~ "(" ~ nestedDecl ~ ")" ~ sep(extensions, _ ~ _)
+
             case DeclIdentifierList(idList) => "(" ~ commaSep(idList) ~ ")"
             case DeclParameterDeclList(parameterDecls) => "(" ~ sepVaware(parameterDecls, ",") ~ ")"
             case DeclArrayAccess(expr) => "[" ~ opt(expr) ~ "]"
@@ -317,6 +328,7 @@ object PrettyPrinter {
             case EmptyExternalDef() => ";"
             case TypelessDeclaration(declList) => commaSep(declList) ~ ";"
             case TypeName(specifiers, decl) => spaceSep(specifiers) ~~ opt(decl)
+
             case GnuAttributeSpecifier(attributeList) => "__attribute__((" ~ commaSep(attributeList) ~ "))"
             case AsmAttributeSpecifier(stringConst) => "__asm__( " ~ stringConst ~ ")"
             case LcurlyInitializer(inits) => "{" ~ commaSep(inits) ~ "}"
@@ -337,13 +349,14 @@ object PrettyPrinter {
             case InitializerDesignatorC(id: Id) => id ~ ":"
             case InitializerAssigment(desgs) => spaceSep(desgs) ~~ "="
             case BuiltinOffsetof(typeName: TypeName, offsetofMemberDesignator) => "__builtin_offsetof(" ~ typeName ~ "," ~~ spaceSep(offsetofMemberDesignator) ~ ")"
-            case OffsetofMemberDesignatorID(id: Id) => id
+      		case OffsetofMemberDesignatorID(id: Id) => "." ~ id
             case OffsetofMemberDesignatorExpr(expr: Expr) => "[" ~ expr ~ "]"
             case BuiltinTypesCompatible(typeName1: TypeName, typeName2: TypeName) => "__builtin_types_compatible_p(" ~ typeName1 ~ "," ~~ typeName2 ~ ")"
             case BuiltinVaArgs(expr: Expr, typeName: TypeName) => "__builtin_va_arg(" ~ expr ~ "," ~~ typeName ~ ")"
             case CompoundStatementExpr(compoundStatement: CompoundStatement) => "(" ~ compoundStatement ~ ")"
             case Pragma(command: StringLit) => "_Pragma(" ~ command ~ ")"
-            case e => assert(false, "match not exhaustive: " + e); ""
+
+      		case e => assert(assertion = false, message = "match not exhaustive: " + e); ""
         }
     }
 

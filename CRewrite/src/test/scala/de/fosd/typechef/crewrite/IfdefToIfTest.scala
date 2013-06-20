@@ -1,6 +1,6 @@
 package de.fosd.typechef.crewrite
 
-import org.junit.Test
+import org.junit.{Ignore, Test}
 import org.kiama.rewriting.Rewriter._
 import de.fosd.typechef.featureexpr.sat._
 import de.fosd.typechef.parser.c._
@@ -121,7 +121,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
 
             val csvEnding = "," + timeToParseAndTypeCheck + "," + timeToTransform + "," + timeToPrettyPrint
             writeToTextFile(singleFilePath ++ fileNameWithoutExtension ++ ".csv", getCSVHeader() + csvBeginning + new_ast._2 + csvEnding)
-            if (!i.getTypeSystem(getAstFromPi(new File(singleFilePath ++ fileNameWithoutExtension ++ ".ifdeftoif"))).checkAST) {
+            if (!i.getTypeSystem(getAstFromPi(new File(singleFilePath ++ fileNameWithoutExtension ++ ".ifdeftoif"))).checkAST()) {
                 println("\t--TypeCheck: " + false + "--\n")
             }
         }
@@ -947,17 +947,17 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         testFile(file)
     }
 
-    @Test def test_applets_pi() {
+    @Ignore def test_applets_pi() {
         val file = new File(busyBoxPath + "applets/applets.pi")
         testFile(file)
     }
 
-    @Test def test_stat_pi() {
+    @Ignore def test_stat_pi() {
         val file = new File(busyBoxPath + "coreutils/stat.pi")
         testFile(file)
     }
 
-    @Test def test_alex_pi() {
+    @Ignore def test_alex_pi() {
         val file = new File(linuxPath + "linux-3.4/drivers/usb/gadget/r8a66597-udc.pi")
         val macroFilter = new util.ArrayList[String]()
         macroFilter.add("x:CONFIG_")
@@ -971,7 +971,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println("Parsing took: " + ((System.currentTimeMillis() - parse) / 1000) + "s")
     }
 
-    @Test def test_cpio_pi() {
+    @Ignore def test_cpio_pi() {
         val file = new File(busyBoxPath + "archival/cpio.pi")
         testFile(file)
 
@@ -980,82 +980,82 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         i.ifdeftoif(ast, defuse)*/
     }
 
-    @Test def test_update_passwd_pi() {
+    @Ignore def test_update_passwd_pi() {
         val file = new File(busyBoxPath + "libbb/update_passwd.pi")
         testFile(file)
     }
 
-    @Test def test_tr_pi() {
+    @Ignore def test_tr_pi() {
         val file = new File(busyBoxPath + "coreutils/tr.pi")
         testFile(file)
     }
 
-    @Test def test_fold_pi() {
+    @Ignore def test_fold_pi() {
         val file = new File(busyBoxPath + "coreutils/fold.pi")
         testFile(file)
     }
 
-    @Test def test_lzop_pi() {
+    @Ignore def test_lzop_pi() {
         val file = new File(busyBoxPath + "archival/lzop.pi")
         testFile(file)
     }
 
-    @Test def test_rpm2cpio_pi() {
+    @Ignore def test_rpm2cpio_pi() {
         val file = new File(busyBoxPath + "archival/rpm2cpio.pi")
         testFile(file)
     }
 
-    @Test def test_filter_accept_all_pi() {
+    @Ignore def test_filter_accept_all_pi() {
         val file = new File(busyBoxPath + "archival/libarchive/filter_accept_all.pi")
         testFile(file)
     }
 
-    @Test def test_decompress_unzip_pi() {
+    @Ignore def test_decompress_unzip_pi() {
         val file = new File(busyBoxPath + "archival/libarchive/decompress_unzip.pi")
         testFile(file)
     }
 
-    @Test def test_ar_pi() {
+    @Ignore def test_ar_pi() {
         val file = new File(busyBoxPath + "archival/ar.pi")
         testFile(file)
     }
 
-    @Test def test_file() {
+    @Ignore def test_file() {
         val file = new File(busyBoxPath + "archival/rpm.pi")
         testFile(file)
     }
 
-    @Test def test_tar_pi() {
+    @Ignore def test_tar_pi() {
         val file = new File(busyBoxPath + "archival/tar.pi")
         testFile(file)
     }
 
-    @Test def test_bbunzip_pi() {
+    @Ignore def test_bbunzip_pi() {
         val file = new File(busyBoxPath + "archival/bbunzip.pi")
         testFile(file)
     }
 
-    @Test def test_chpst_pi() {
+    @Ignore def test_chpst_pi() {
         val file = new File(busyBoxPath + "runit/chpst.pi")
         testFile(file)
     }
 
-    @Test def test_diff_pi() {
+    @Ignore def test_diff_pi() {
         val file = new File(busyBoxPath + "editors/diff.pi")
         testFile(file)
     }
 
-    @Test def test_ls_pi() {
+    @Ignore def test_ls_pi() {
         val file = new File(busyBoxPath + "coreutils/ls.pi")
         testFile(file)
     }
 
-    @Test def test_sed_pi() {
+    @Ignore def test_sed_pi() {
         val file = new File(busyBoxPath + "editors/sed.pi")
         testFile(file)
     }
 
-    @Test def test_lineedit_pi() {
+    @Ignore def test_lineedit_pi() {
         val file = new File(busyBoxPath + "libbb/lineedit.pi")
         testFile(file)
     }
@@ -1613,7 +1613,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println("\n\nDouble lifted:\n" + PrettyPrinter.print(newNewAst))
     }
 
-    @Test def option_ftest() {
+    @Ignore def option_ftest() {
         val source_ast = getAST( """
       #include "opt.h"
       extern struct sOpt opt;
@@ -1622,19 +1622,19 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println("+++Pretty printed+++\n" + PrettyPrinter.print(source_ast))
     }
 
-    @Test def nocontext_variableids_test() {
+    @Ignore def nocontext_variableids_test() {
         println(testAst(getAstFromPi(new File(ifdeftoifTestPath + "nocontext_variableids.c"))))
     }
 
-    @Test def context_variableids_test() {
+    @Ignore def context_variableids_test() {
         println(testAst(getAstFromPi(new File(ifdeftoifTestPath + "context_variableids.c"))))
     }
 
-    @Test def variable_struct_member_test() {
+    @Ignore def variable_struct_member_test() {
         println(testAst(getAstFromPi(new File(ifdeftoifTestPath + "typedef_in_struct.c"))))
     }
 
-    @Test def busy_box_test() {
+    @Ignore def busy_box_test() {
         val busybox = new File(busyBoxPath + "")
         transformDir(busybox)
     }
@@ -1822,7 +1822,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println("Right: " + fix.implies(FeatureExprFactory.True).isTautology)
     }
 
-    @Test def pretty_printer_test() {
+    @Ignore def pretty_printer_test() {
         val file = new File(busyBoxPath + "applets/applets.pi")
         //testFile(file)
         val newFullFilePath = singleFilePath ++ getFileNameWithoutExtension(file) ++ ".ifdeftoif"
@@ -1830,7 +1830,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         typecheckTranslationUnit(source_ast)
     }
 
-    @Test def file_test() {
+    @Ignore def file_test() {
         val file = new File(ifdeftoifTestPath + "variable_enumerator.c")
 
         val source_ast = getAstFromPi(file)
@@ -1863,7 +1863,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println(i.countNumberOfDeclarations(source_ast))
     }
 
-    @Test def compareTypeCheckingTimes() {
+    @Ignore def compareTypeCheckingTimes() {
         val applets = new File(busyBoxPath + "applets/applets.pi")
         val tr = new File(busyBoxPath + "coreutils/tr.pi")
         val bbunzip = new File(busyBoxPath + "archival/bbunzip.pi")

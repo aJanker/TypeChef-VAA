@@ -1,6 +1,6 @@
 package de.fosd.typechef.crewrite
 
-import org.junit.Test
+import org.junit.{Ignore, Test}
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.crewrite.CASTEnv._
 import de.fosd.typechef.typesystem._
@@ -137,7 +137,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
     }
 
-    @Test def test_forward_declared_struct {
+    @Ignore def test_forward_declared_struct {
         val source_ast = getAstFromPi(new File(decluseTestPath + "struct_forwarddeclared.c"))
         println(source_ast)
         val result = runDefUseOnAst(source_ast)
@@ -157,7 +157,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
     }
 
-    @Test def test_sizeof_tags {
+    @Ignore def test_sizeof_tags {
         val source_ast = getAstFromPi(new File(decluseTestPath + "sizeof_tags.c"))
         println(source_ast)
         val result = runDefUseOnAst(source_ast)
@@ -217,12 +217,12 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
     }
 
-    @Test def test_gzip_pi {
+    @Ignore def test_gzip_pi {
         val source_ast = getAstFromPi(new File("../TypeChef-BusyboxAnalysis/busybox-1.18.5/" + "archival/rpm.pi"))
         runDefUseOnAst(source_ast)
     }
 
-    @Test def test_decompress_unxz_pi {
+    @Ignore def test_decompress_unxz_pi {
         val source_ast = getAstFromPi(new File("../TypeChef-BusyboxAnalysis/busybox-1.18.5/archival/libarchive/decompress_unxz.pi"))
         runDefUseOnAst(source_ast)
     }

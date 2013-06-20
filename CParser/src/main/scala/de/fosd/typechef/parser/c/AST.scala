@@ -1,7 +1,7 @@
 package de.fosd.typechef.parser.c
 
 import de.fosd.typechef.conditional._
-import de.fosd.typechef.parser.{WithPosition, Position}
+import de.fosd.typechef.error.{WithPosition, Position}
 
 /**
  * AST for C
@@ -53,11 +53,11 @@ InitializerAssigment - designators
 
 LocalLabelDeclaration -- label names
 
- *
- */
+  *
+  */
 
 //Expressions
-trait AST extends Product with Cloneable with WithPosition {
+trait AST extends Product with Serializable with Cloneable with WithPosition {
     override def clone(): AST.this.type = super.clone().asInstanceOf[AST.this.type]
 }
 
@@ -92,7 +92,7 @@ case class ArrayAccess(expr: Expr) extends PostfixSuffix
 case class PostfixExpr(p: Expr, s: PostfixSuffix) extends Expr {
     //hack to propagate position information
     override def setPositionRange(from: Position, to: Position) = {
-        if (!p.hasPosition) p.setPositionRange(from, to);
+        if (!p.hasPosition) p.setPositionRange(from, to)
         super.setPositionRange(from, to)
     }
 }
@@ -209,6 +209,8 @@ case class ExternSpecifier() extends OtherSpecifier()
 case class ConstSpecifier() extends OtherSpecifier()
 
 case class RestrictSpecifier() extends OtherSpecifier()
+
+case class ThreadSpecifier() extends OtherSpecifier()
 
 case class StaticSpecifier() extends OtherSpecifier()
 

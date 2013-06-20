@@ -24,7 +24,21 @@ object BuildSettings {
         testListeners <<= target.map(t => Seq(new eu.henkelmann.sbt.JUnitXmlTestsListener(t.getAbsolutePath))),
 
         javacOptions ++= Seq("-Xlint:unchecked"),
-        scalacOptions ++= Seq("-deprecation", "-unchecked", "-optimise", "-explaintypes"),
+        scalacOptions ++= Seq("-deprecation", "-unchecked", "-optimise"),
+
+        // suppress feature warnings in Scala 2.10.x
+        // (we do not actually change the code to allow cross builds with prior scala versions)
+        scalacOptions <++= scalaVersion map {
+            sv =>
+                if (sv startsWith "2.10") List(
+                    "-Yinline-warnings",
+                    "-feature",
+                    "-language:postfixOps",
+                    "-language:higherkinds",
+                    "-language:implicitConversions"
+                )
+                else Nil
+        },
 
         crossScalaVersions := Seq("2.9.1", "2.9.2", "2.10.1"),
 
@@ -33,7 +47,7 @@ object BuildSettings {
         parallelExecution := false, //run into memory problems on hudson otherwise
 
         homepage := Some(url("https://github.com/ckaestne/TypeChef")),
-        licenses := Seq("GNU General Public License v3.0" -> url("http://www.gnu.org/licenses/gpl.txt")),
+        licenses := Seq("GNU Lesser General Public License v3.0" -> url("http://www.gnu.org/licenses/lgpl.txt")),
 
         //maven
         publishTo <<= version {
@@ -50,20 +64,20 @@ object BuildSettings {
             _ => false
         },
         pomExtra :=
-                <parent>
-                    <groupId>org.sonatype.oss</groupId>
-                    <artifactId>oss-parent</artifactId>
-                    <version>7</version>
-                </parent> ++
-                        <scm>
-                            <connection>scm:git:git@github.com:ckaestne/TypeChef.git</connection>
-                            <url>git@github.com:ckaestne/TypeChef.git</url>
-                        </scm> ++
-                        <developers>
-                            <developer>
-                                <id>ckaestne</id> <name>Christian Kaestner</name> <url>http://www.cs.cmu.edu/~ckaestne/</url>
-                            </developer>
-                        </developers>,
+            <parent>
+                <groupId>org.sonatype.oss</groupId>
+                <artifactId>oss-parent</artifactId>
+                <version>7</version>
+            </parent> ++
+                <scm>
+                    <connection>scm:git:git@github.com:ckaestne/TypeChef.git</connection>
+                    <url>git@github.com:ckaestne/TypeChef.git</url>
+                </scm> ++
+                <developers>
+                    <developer>
+                        <id>ckaestne</id> <name>Christian Kaestner</name> <url>http://www.cs.cmu.edu/~ckaestne/</url>
+                    </developer>
+                </developers>,
 
         credentials += Credentials(Path.userHome / ".ivy2" / ".credentials")
     )
@@ -73,9 +87,7 @@ object ShellPrompt {
 
     object devnull extends ProcessLogger {
         def info(s: => String) {}
-
         def error(s: => String) {}
-
         def buffer[T](f: => T): T = f
     }
 
@@ -97,7 +109,6 @@ object ShellPrompt {
 }
 
 object Dependencies {
-
     val junit = "junit" % "junit" % "4.8.2" % "test"
     val junitInterface = "com.novocode" % "junit-interface" % "0.6" % "test"
     val scalacheck = "org.scalacheck" %% "scalacheck" % "1.10.0" % "test"
@@ -128,12 +139,12 @@ object VersionGen {
                 val file = sourceManaged / vgp.replace(".", "/") / ("%s.scala" format vgc)
                 val code =
                     (
-                            if (vgp != null && vgp.nonEmpty) "package " + vgp + "\n"
-                            else ""
-                            ) +
-                            "class " + vgc + " extends VersionInfo {\n" +
-                            "  def getVersion:String = \"" + version + "_" + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()) + "\"\n" +
-                            "}\n"
+                        if (vgp != null && vgp.nonEmpty) "package " + vgp + "\n"
+                        else ""
+                        ) +
+                        "class " + vgc + " extends VersionInfo {\n" +
+                        "  def getVersion:String = \"" + version + "_" + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()) + "\"\n" +
+                        "}\n"
                 IO write(file, code)
                 Seq(file)
         },
@@ -150,17 +161,16 @@ object TypeChef extends Build {
         file("."),
         settings = buildSettings
     ) aggregate(
-            featureexpr,
-            conditionallib,
-            parserexp,
-            jcpp,
-            cparser,
-            ctypechecker,
-            javaparser,
-            crewrite,
-            crefactor,
-            frontend
-            )
+        featureexpr,
+        conditionallib,
+        parserexp,
+        jcpp,
+        cparser,
+        ctypechecker,
+        javaparser,
+        crewrite,
+        frontend
+        )
 
     lazy val featureexpr = Project(
         "FeatureExprLib",
@@ -168,10 +178,15 @@ object TypeChef extends Build {
         settings = buildSettings
     )
 
-
     lazy val conditionallib = Project(
         "ConditionalLib",
         file("ConditionalLib"),
+        settings = buildSettings
+    ) dependsOn (featureexpr)
+
+    lazy val errorlib = Project(
+        "ErrorLib",
+        file("ErrorLib"),
         settings = buildSettings
     ) dependsOn (featureexpr)
 
@@ -179,61 +194,69 @@ object TypeChef extends Build {
         "ParserFramework",
         file("ParserFramework"),
         settings = buildSettings
-    ) dependsOn(featureexpr, conditionallib)
+    ) dependsOn(featureexpr, conditionallib, errorlib)
 
     lazy val jcpp = Project(
         "PartialPreprocessor",
         file("PartialPreprocessor"),
         settings = buildSettings
-    ) dependsOn (featureexpr)
+    ) dependsOn(featureexpr, errorlib)
 
     lazy val cparser = Project(
         "CParser",
         file("CParser"),
-        settings = buildSettings ++
-                Seq(parallelExecution in Test := false,
-                    libraryDependencies <+= scalaVersion(kiamaDependency(_, true)))
-    ) dependsOn(featureexpr, jcpp, parserexp, conditionallib)
+        settings = buildSettings ++ 
+          Seq(parallelExecution in Test := false,
+            libraryDependencies <+= scalaVersion(kiamaDependency(_,true)))
+    ) dependsOn(featureexpr, jcpp, parserexp, conditionallib, errorlib)
 
 
     lazy val frontend = Project(
         "Frontend",
         file("Frontend"),
         settings = buildSettings ++ VersionGen.settings
-    ) dependsOn(featureexpr, jcpp, cparser % "test->test;compile->compile", ctypechecker, conditionallib, crewrite, javaparser)
+    ) dependsOn(featureexpr, jcpp, cparser % "test->test;compile->compile", ctypechecker, conditionallib, crewrite, javaparser, errorlib)
 
     lazy val ctypechecker = Project(
         "CTypeChecker",
         file("CTypeChecker"),
         settings = buildSettings ++
-                Seq(libraryDependencies <+= scalaVersion(kiamaDependency(_)))
-    ) dependsOn(cparser % "test->test;compile->compile", conditionallib)
+            Seq(libraryDependencies <+= scalaVersion(kiamaDependency(_)))
+    ) dependsOn(cparser % "test->test;compile->compile", conditionallib, errorlib)
 
     lazy val javaparser = Project(
         "JavaParser",
         file("JavaParser"),
         settings = buildSettings
-    ) dependsOn(featureexpr, parserexp, conditionallib)
+    ) dependsOn(featureexpr, parserexp, conditionallib, errorlib)
 
     lazy val crewrite = Project(
         "CRewrite",
         file("CRewrite"),
         settings = buildSettings ++
-                Seq(libraryDependencies <+= scalaVersion(kiamaDependency(_)))
-    ) dependsOn(cparser % "test->test;compile->compile", ctypechecker, conditionallib)
+            Seq(libraryDependencies <+= scalaVersion(kiamaDependency(_)))
+    ) dependsOn(cparser % "test->test;compile->compile", ctypechecker, conditionallib, errorlib)
 
     lazy val crefactor = Project(
         "CRefactor",
         file("CRefactor"),
         settings = buildSettings
-    ) dependsOn(cparser % "test->test;compile->compile", ctypechecker, conditionallib, crewrite, frontend)
+    ) dependsOn(cparser % "test->test;compile->compile", ctypechecker, conditionallib, crewrite, frontend, errorlib)
 
-    def kiamaDependency(scalaVersion: String, testOnly: Boolean = false) = {
-        val x = scalaVersion match {
-            case "2.9.1" => "com.googlecode.kiama" %% "kiama" % "1.2.0"
-            case _ => "com.googlecode.kiama" %% "kiama" % "1.4.0"
-        }
-        if (testOnly) x % "test" else x
+    lazy val sampling = Project(
+        "Sampling",
+        file("Sampling"),
+        settings = buildSettings ++
+            Seq(libraryDependencies <+= scalaVersion(kiamaDependency(_)))
+    ) dependsOn(cparser % "test->test;compile->compile", ctypechecker, crewrite, conditionallib, frontend, errorlib)
+
+
+    def kiamaDependency(scalaVersion: String, testOnly:Boolean=false) = {
+      val x=scalaVersion match {
+        case "2.9.1" => "com.googlecode.kiama" %% "kiama" % "1.2.0"
+        case _ => "com.googlecode.kiama" %% "kiama" % "1.4.0"
+      }
+      if (testOnly) x % "test" else x
     }
 }
 

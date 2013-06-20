@@ -386,13 +386,13 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     if (finalFeature.equals(FeatureExprFactory.False)) {
                         List()
                     } else {
-                        if (!nextFeatures.isEmpty) {
-                            nextFeatures.map(x => (finalFeature.and(x), replaceOptAndId(something, x)))
-                        } else {
-                            List((finalFeature, replaceOptAndId(something, finalFeature)))
-                        }
+                    if (!nextFeatures.isEmpty) {
+                        nextFeatures.map(x => (finalFeature.and(x), replaceOptAndId(something, x)))
+                    } else {
+                        List((finalFeature, replaceOptAndId(something, finalFeature)))
                     }
             }
+        }
         }
         conditionalHelper(start, currentContext)
     }
@@ -915,9 +915,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         val result_ast = TranslationUnit(featureStruct.defs ++ new_ast.asInstanceOf[TranslationUnit].defs)
         val transformTime = (tb.getCurrentThreadCpuTime() - time) / nstoms
 
-        val errors = getTypeSystem(result_ast).getASTerrors
+        val errors = getTypeSystem(result_ast).checkAST()
 
-        if (errors.isEmpty) {
+        if (!errors) {
             if (!(new File(path ++ "statistics.csv").exists)) {
                 writeToFile(path ++ "statistics.csv", getCSVHeader)
             }
@@ -927,6 +927,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
             (Some(result_ast), transformTime)
         } else {
+			/*
             val errorHeader = "-+ TypeErrors in " + fileName + " +-\n"
             val errorString = errors mkString "\n"
             if (!(new File(path ++ "type_errors.txt").exists)) {
@@ -934,6 +935,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             } else {
                 appendToFile(path ++ "type_errors.txt", errorHeader + errorString + "\n\n")
             }
+			*/
             (None, 0)
         }
     }
@@ -1877,7 +1879,6 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             handleIfStatementsTest(replaceOptAndId(opt, opt.feature), opt.feature)
         }
     }
-
     def handleIfStatementsTest(opt: Opt[_], currentContext: FeatureExpr = trueF): List[Opt[_]] = {
         val optIf = convertThenBody(opt)
         //println(PrettyPrinter.print(optIf.entry.asInstanceOf[AST]))
@@ -1902,10 +1903,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     if (conditionalTuple.size == 1 && conditionalTuple.head._1.equals(trueF)) {
                         List(optIf)
                     } else {
-                        conditionalTuple.map(x => Opt(trueF, ElifStatement(One(NAryExpr(featureToCExpr(x._1), List(Opt(trueF, NArySubExpr("&&", x._2))))), transformRecursive(replaceOptAndId(thenBranch, x._1), x._1))))
-                    }
+                    	conditionalTuple.map(x => Opt(trueF, ElifStatement(One(NAryExpr(featureToCExpr(x._1), List(Opt(trueF, NArySubExpr("&&", x._2))))), transformRecursive(replaceOptAndId(thenBranch, x._1), x._1))))
+            		}
             }
-
         } else {
             handleIfStatementsTest(replaceFeatureByTrue(optIf, optIf.feature))
         }

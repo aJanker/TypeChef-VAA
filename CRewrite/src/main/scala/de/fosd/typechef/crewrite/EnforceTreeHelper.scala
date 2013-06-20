@@ -1,9 +1,9 @@
 package de.fosd.typechef.crewrite
 
-import de.fosd.typechef.parser.WithPosition
 import org.kiama.rewriting.Rewriter._
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.conditional.{Opt, One}
+import de.fosd.typechef.error.WithPosition
 
 
 /**
@@ -18,7 +18,7 @@ trait EnforceTreeHelper {
   /**
    * unfortunately cloning loses position information, so we have to reassign it
    */
-  private def copyPositions(source: Product, target: Product) {
+  def copyPositions(source: Product, target: Product) {
     assert(source.getClass == target.getClass, "cloned tree should match exactly the original, typewise")
     if (source.isInstanceOf[WithPosition])
       target.asInstanceOf[WithPosition].range = source.asInstanceOf[WithPosition].range
@@ -59,7 +59,9 @@ trait EnforceTreeHelper {
     assert(ast != null)
 
     val removedead = manytd(rule {
-      case l: List[Opt[_]] => l.filter({x => env.featureExpr(x).isSatisfiable()})
+            case l: List[Opt[_]] => l.filter({
+                x => env.featureExpr(x).isSatisfiable()
+            })
     })
 
     val cast = removedead(ast).get.asInstanceOf[T]
