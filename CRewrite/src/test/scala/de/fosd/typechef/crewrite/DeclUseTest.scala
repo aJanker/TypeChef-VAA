@@ -222,7 +222,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         runDefUseOnAst(source_ast)
     }
 
-    @Ignore def test_decompress_unxz_pi {
+    @Test def test_decompress_unxz_pi {
         val source_ast = getAstFromPi(new File("../TypeChef-BusyboxAnalysis/busybox-1.18.5/archival/libarchive/decompress_unxz.pi"))
         runDefUseOnAst(source_ast)
     }
