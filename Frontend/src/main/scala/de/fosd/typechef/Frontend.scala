@@ -156,7 +156,40 @@ object Frontend {
 
                     stopWatch.start("typechecking")
                     println("type checking.")
-                    ts.checkAST()
+                    val typeCheckStatus = ts.checkAST()
+                    if (opt.decluse) {
+                        if (typeCheckStatus) {
+                            val i = new IfdefToIf
+                            val fw = new FileWriter(i.outputStemToFileName(opt.getOutputStem()) + ".decluse")
+                            fw.write(ts.checkDefuse(ast, ts.getDeclUseMap, fm_ts)._1)
+                            fw.close()
+                            //println(ts.checkDefuse(ts.prepareAST(ast), ts.getDeclUseMap, fm_ts)._1)
+                        } else {
+                            println("generating the declaration-usage map unsuccessful because of type errors in source file")
+                        }
+                    }
+                    if (opt.ifdeftoif) {
+                        if (typeCheckStatus) {
+                            //ProductGeneration.typecheckProducts(fm,fm_ts,ast,opt,
+                            //logMessage=("Time for lexing(ms): " + (t2-t1) + "\nTime for parsing(ms): " + (t3-t2) + "\n"))
+                            //ProductGeneration.estimateNumberOfVariants(ast, fm_ts)
+                            val i = new IfdefToIf
+                            val defUseMap = ts.getDeclUseMap
+                            val fileName = i.outputStemToFileName(opt.getOutputStem())
+                            val tuple = i.ifdeftoif(ast, defUseMap, fm, opt.getOutputStem(), stopWatch.get("lexing") + stopWatch.get("parsing"))
+                            tuple._1 match {
+                                case None =>
+                                    println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")
+                                case Some(x) =>
+                                    if (!opt.getOutputStem().isEmpty()) {
+                                        PrettyPrinter.printF(x, opt.getOutputStem() ++ ".ifdeftoif")
+                                        println("++Transformed: " ++ fileName ++ "++\t\t --in " + tuple._2 ++ " ms--")
+                                    }
+                            }
+                        } else {
+                            println("#ifdef to if transformation unsuccessful because of type errors in source file")
+                        }
+                    }
                     ts.errors.map(errorXML.renderTypeError(_))
                 }
                 if (opt.writeInterface) {

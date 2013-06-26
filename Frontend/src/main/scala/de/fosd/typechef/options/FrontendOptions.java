@@ -47,13 +47,15 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_XFREE = Options.genOptionId();
     private final static char F_DANGLINGSWITCHCODE = Options.genOptionId();
     private final static char F_SERIALIZEAST = Options.genOptionId();
-    private final static char F_REUSEAST = Options.genOptionId();  
-	private final static char F_RECORDTIMING = Options.genOptionId();
+    private final static char F_REUSEAST = Options.genOptionId();
+    private final static char F_RECORDTIMING = Options.genOptionId();
     private final static char F_FILEPC = Options.genOptionId();
     private final static char F_PARSERSTATS = Options.genOptionId();
     private final static char F_HIDEPARSERRESULTS = Options.genOptionId();
     private final static char F_BDD = Options.genOptionId();
     private final static char F_ERRORXML = Options.genOptionId();
+    private final static char F_IFDEFTOIF = Options.genOptionId();
+    private final static char F_DECLUSE = Options.genOptionId();
     private Function3<FeatureExpr, String, Position, Object> _renderParserError;
 
 
@@ -80,6 +82,12 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                         "Lex, parse, and check for usages of uninitialized variables."),
                 new Option("xfree", LongOpt.NO_ARGUMENT, F_XFREE, null,
                         "Lex, parse, and check for usages of freeing statically allocated memory."),
+
+                new Option("ifdeftoif", LongOpt.NO_ARGUMENT, F_IFDEFTOIF, null,
+                        "Make #ifdef to if transformation."),
+
+                new Option("decluse", LongOpt.NO_ARGUMENT, F_DECLUSE, null,
+                        "Test the declaration use map."),
 
                 new Option("output", LongOpt.REQUIRED_ARGUMENT, 'o', "file",
                         "Path to output files (no extension, creates .pi, .macrodbg etc files)."),
@@ -131,6 +139,10 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             parse = typecheck = writeInterface = true;
         } else if (c == F_DUMPCFG) {
             parse = dumpcfg = true;
+        } else if (c == F_IFDEFTOIF) {
+            parse = typecheck = ifdeftoif = true;
+        } else if (c == F_DECLUSE) {
+            parse = typecheck = decluse = true;
         } else if (c == F_DOUBLEFREE) {
             parse = doublefree = true;
         } else if (c == F_UNINITIALIZEDMEMORY) {
