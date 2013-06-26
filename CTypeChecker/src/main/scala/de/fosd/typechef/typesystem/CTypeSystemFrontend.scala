@@ -48,14 +48,14 @@ class CTypeSystemFrontend(iast: TranslationUnit,
             println("check " + externalDefCounter + "/" + iast.defs.size + ". line " + externalDef.getPositionFrom.getLine + ". err " + errors.size)
     }
     override def issueTypeError(severity: Severity.Severity, condition: FeatureExpr, msg: String, where: AST, severityExtra: String = "") =
-    	//first check without feature model for performance reasons
+    //first check without feature model for performance reasons
         if (condition.isSatisfiable() && condition.isSatisfiable(featureModel)) {
             val e = new TypeChefError(severity, condition, msg, where, severityExtra)
             errors = e :: errors
             if (!isSilent) {
-            	println("  - " + e)
-        	}
-    }
+                println("  - " + e)
+            }
+        }
 
 
     /**
@@ -83,11 +83,11 @@ class CTypeSystemFrontend(iast: TranslationUnit,
         typecheckTranslationUnit(iast)
         return errors.isEmpty
     }
-
+    /*
     def getASTerrors: List[TypeError] = {
         isSilent = true
         errors = List() // clear error list
         typecheckTranslationUnit(iast)
         return errors
-    }
+    } */
 }
