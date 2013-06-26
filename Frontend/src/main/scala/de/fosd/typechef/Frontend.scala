@@ -129,20 +129,20 @@ object Frontend {
 
             if (ast == null) {
                 //no parsing and serialization if read serialized ast
-            	val parserMain = new ParserMain(new CParser(fm))
-            	val ast = parserMain.parserMain(in, opt)
+                val parserMain = new ParserMain(new CParser(fm))
+                val ast = parserMain.parserMain(in, opt)
 
-            	stopWatch.start("serialize")
-            	if (ast != null && opt.serializeAST)
-                	serializeAST(ast, opt.getSerializedASTFilename)
+                stopWatch.start("serialize")
+                if (ast != null && opt.serializeAST)
+                    serializeAST(ast, opt.getSerializedASTFilename)
             }
 
             if (ast != null) {
                 val fm_ts = opt.getTypeSystemFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
                 val cachedTypes = opt.xfree // just an example
                 val ts = if (cachedTypes)
-                    new CTypeSystemFrontend(ast.asInstanceOf[TranslationUnit], fm_ts, opt) with CTypeCache
-                else new CTypeSystemFrontend(ast.asInstanceOf[TranslationUnit], fm_ts, opt)
+                        new CTypeSystemFrontend(ast.asInstanceOf[TranslationUnit], fm_ts, opt) with CTypeCache
+                    else new CTypeSystemFrontend(ast.asInstanceOf[TranslationUnit], fm_ts, opt)
 
                 /** I did some experiments with the TypeChef FeatureModel of Linux, in case I need the routines again, they are saved here. */
                 //Debug_FeatureModelExperiments.experiment(fm_ts)
@@ -226,4 +226,6 @@ object Frontend {
     }
 
     def getAST = storedAst
+
+    def getFeatureModel = featureModel
 }
