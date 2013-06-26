@@ -139,6 +139,8 @@ object Frontend {
 
             if (ast != null) {
                 val fm_ts = opt.getTypeSystemFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
+                storedAst = ast
+                featureModel = fm_ts
                 val cachedTypes = opt.xfree // just an example
                 val ts = if (cachedTypes)
                         new CTypeSystemFrontend(ast.asInstanceOf[TranslationUnit], fm_ts, opt) with CTypeCache
