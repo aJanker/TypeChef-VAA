@@ -39,7 +39,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
 
     private final static char F_PARSE = Options.genOptionId();
     private final static char F_INTERFACE = Options.genOptionId();
-    private final static char F_WRITEPI = Options.genOptionId();
+    private final static char statF_WRITEPI = Options.genOptionId();
     private final static char F_DEBUGINTERFACE = Options.genOptionId();
     private final static char F_DUMPCFG = Options.genOptionId();
     private final static char F_DOUBLEFREE = Options.genOptionId();
@@ -92,7 +92,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                 new Option("output", LongOpt.REQUIRED_ARGUMENT, 'o', "file",
                         "Path to output files (no extension, creates .pi, .macrodbg etc files)."),
 
-                new Option("writePI", LongOpt.NO_ARGUMENT, F_WRITEPI, null,
+                new Option("writePI", LongOpt.NO_ARGUMENT, statF_WRITEPI, null,
                         "Write lexer output into .pi file"),
                 new Option("debugInterface", LongOpt.NO_ARGUMENT, F_DEBUGINTERFACE, null,
                         "Write interface in human readable format (requires --interface)"),
@@ -168,7 +168,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             parserResults = false;
         } else if (c == F_PARSERSTATS) {
             parserStatistics = true;
-        } else if (c == F_WRITEPI) {
+        } else if (c == statF_WRITEPI) {
             writePI = true;
         } else if (c == F_BDD) {
             de.fosd.typechef.featureexpr.FeatureExprFactory$.MODULE$.setDefault(de.fosd.typechef.featureexpr.FeatureExprFactory$.MODULE$.bdd());
@@ -249,6 +249,10 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
 
     public String getSerializedASTFilename() {
         return outputStem + ".ast";
+    }
+
+    public String getOutputStem() {
+        return outputStem;
     }
 
     public boolean printParserStatistics() {
