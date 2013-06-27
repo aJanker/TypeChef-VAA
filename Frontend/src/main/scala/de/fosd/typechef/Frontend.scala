@@ -130,7 +130,7 @@ object Frontend {
             if (ast == null) {
                 //no parsing and serialization if read serialized ast
                 val parserMain = new ParserMain(new CParser(fm))
-                val ast = parserMain.parserMain(in, opt)
+                ast = parserMain.parserMain(in, opt)
                 storedAst = ast
 
                 stopWatch.start("serialize")
@@ -176,7 +176,7 @@ object Frontend {
                             val i = new IfdefToIf
                             val defUseMap = ts.getDeclUseMap
                             val fileName = i.outputStemToFileName(opt.getOutputStem())
-                            val tuple = i.ifdeftoif(ast, defUseMap, fm, opt.getOutputStem(), stopWatch.get("lexing") + stopWatch.get("parsing"))
+                            val tuple = i.ifdeftoif(ast, defUseMap, fm, opt.getOutputStem(), stopWatch.get("lexing") + stopWatch.get("parsing"), opt.ifdeftoifstatistics)
                             tuple._1 match {
                                 case None =>
                                     println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")
