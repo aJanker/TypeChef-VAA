@@ -49,7 +49,8 @@ object PrepareRefactoredASTforEval extends EvalHelper {
         val configRes = getClass.getResource("/busybox_Configs/")
         val configs = new File(configRes.getFile)
 
-        val pairWiseConfigs = loadConfigurationsFromCSVFile(new File(pairWiseFeaturesFile), new File(featureModel_DIMACS), List[SingleFeatureExpr](), fm)
+        // val pairWiseConfigs = loadConfigurationsFromCSVFile(new File(pairWiseFeaturesFile), new File(featureModel_DIMACS), List[SingleFeatureExpr](), fm)
+        // println(pairWiseConfigs)
 
         val generatedConfigs = configs.listFiles().map(config => {
             val enabledFeatures = getEnabledFeaturesFromConfigFile(fm, config)
