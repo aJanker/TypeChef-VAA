@@ -130,7 +130,7 @@ object Frontend {
             if (ast == null) {
                 //no parsing and serialization if read serialized ast
                 val parserMain = new ParserMain(new CParser(fm))
-                val ast = parserMain.parserMain(in, opt)
+                ast = parserMain.parserMain(in, opt)
                 storedAst = ast
 
                 stopWatch.start("serialize")
