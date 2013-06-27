@@ -83,11 +83,14 @@ class CTypeSystemFrontend(iast: TranslationUnit,
         typecheckTranslationUnit(iast)
         return errors.isEmpty
     }
-    /*
-    def getASTerrors: List[TypeError] = {
+
+    def getASTerrors(ignoreWarnings: Boolean = true): List[TypeChefError] = {
         isSilent = true
         errors = List() // clear error list
         typecheckTranslationUnit(iast)
-        return errors
-    } */
+        val merrors = if (ignoreWarnings)
+            errors.filterNot(Set(Severity.Warning, Severity.SecurityWarning) contains _.severity)
+        else errors
+        return merrors
+    }
 }

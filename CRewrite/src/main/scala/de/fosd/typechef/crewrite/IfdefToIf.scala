@@ -2,12 +2,11 @@ package de.fosd.typechef.crewrite
 
 import scala.collection.mutable.ListBuffer
 import scala.collection.mutable
-import scala.Some
 
 import java.util
-import java.util.IdentityHashMap
+import java.util.{Collections, IdentityHashMap}
 import java.util.regex.Pattern
-import java.io.{PrintWriter, FileWriter, File}
+import java.io._
 import io.Source
 
 import de.fosd.typechef.parser.c._
@@ -20,6 +19,58 @@ import de.fosd.typechef.typesystem.CTypeSystemFrontend
 
 import org.kiama.rewriting.Rewriter._
 import scala.reflect.ClassTag
+import de.fosd.typechef.parser.c.PlainParameterDeclaration
+import de.fosd.typechef.parser.c.SwitchStatement
+import de.fosd.typechef.parser.c.EnumSpecifier
+import scala.Some
+import de.fosd.typechef.parser.c.NAryExpr
+import de.fosd.typechef.parser.c.DoStatement
+import de.fosd.typechef.parser.c.VoidSpecifier
+import de.fosd.typechef.parser.c.DeclarationStatement
+import de.fosd.typechef.parser.c.TypelessDeclaration
+import de.fosd.typechef.parser.c.ExprList
+import de.fosd.typechef.parser.c.CompoundStatement
+import de.fosd.typechef.conditional.Opt
+import de.fosd.typechef.parser.c.PostfixExpr
+import de.fosd.typechef.parser.c.AtomicNamedDeclarator
+import de.fosd.typechef.parser.c.ExternSpecifier
+import de.fosd.typechef.conditional.Choice
+import de.fosd.typechef.parser.c.TranslationUnit
+import de.fosd.typechef.parser.c.NArySubExpr
+import de.fosd.typechef.parser.c.WhileStatement
+import de.fosd.typechef.parser.c.InitDeclaratorI
+import de.fosd.typechef.parser.c.UnaryOpExpr
+import de.fosd.typechef.parser.c.LabelStatement
+import de.fosd.typechef.parser.c.ExprStatement
+import de.fosd.typechef.parser.c.StructDeclaration
+import de.fosd.typechef.parser.c.IntSpecifier
+import de.fosd.typechef.parser.c.GotoStatement
+import de.fosd.typechef.parser.c.FunctionDef
+import de.fosd.typechef.parser.c.NestedFunctionDef
+import de.fosd.typechef.parser.c.NestedNamedDeclarator
+import de.fosd.typechef.parser.c.Enumerator
+import de.fosd.typechef.parser.c.CTypeContext
+import de.fosd.typechef.parser.c.TypeDefTypeSpecifier
+import de.fosd.typechef.parser.c.PointerPostfixSuffix
+import de.fosd.typechef.parser.c.AssignExpr
+import de.fosd.typechef.conditional.One
+import de.fosd.typechef.parser.c.ForStatement
+import de.fosd.typechef.parser.c.DeclParameterDeclList
+import de.fosd.typechef.parser.c.SizeOfExprT
+import de.fosd.typechef.parser.c.Id
+import de.fosd.typechef.parser.c.Constant
+import de.fosd.typechef.parser.c.Pragma
+import de.fosd.typechef.parser.c.StructDeclarator
+import de.fosd.typechef.parser.c.ReturnStatement
+import de.fosd.typechef.parser.c.StructOrUnionSpecifier
+import de.fosd.typechef.parser.c.FunctionCall
+import de.fosd.typechef.parser.c.IfStatement
+import de.fosd.typechef.parser.c.EmptyExternalDef
+import de.fosd.typechef.parser.c.Declaration
+import de.fosd.typechef.parser.c.DeclIdentifierList
+import de.fosd.typechef.parser.c.EmptyStatement
+import de.fosd.typechef.parser.c.ElifStatement
+import de.fosd.typechef.parser.c.ParameterDeclarationD
 
 
 /**
@@ -177,17 +228,29 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     List(Opt(trueF, NArySubExpr("&&", UnaryOpExpr("!", transformFName(x._2)))))
                 else
                     List(Opt(trueF, NArySubExpr("&&", transformFName(x._2))))
-                        )).foldLeft(List(): List[Opt[NArySubExpr]])((a, b) => a ++ b)
+                    )).foldLeft(List(): List[Opt[NArySubExpr]])((a, b) => a ++ b)
             def clauseForHead(x: (Byte, String)): Expr = (if (x._1 == 0)
                 UnaryOpExpr("!", transformFName(x._2))
             else
                 transformFName(x._2)
-                    )
+                )
             val cnfClauses: List[Expr] = bdd.getBddAllSat.map(clause(_)).toList
             NAryExpr(cnfClauses.head,
                 cnfClauses.tail.foldLeft(List(): List[Opt[NArySubExpr]])((a, b: Expr) => a ++ List(Opt(trueF, NArySubExpr("||", b))))
             )
         }
+    }
+
+    private def getAstFromPi(fileToAnalyse: File): TranslationUnit = {
+        def parseFile(stream: InputStream, file: String, dir: String): TranslationUnit = {
+            val ast: AST = new ParserMain(new CParser).parserMain(
+                () => CLexer.lexStream(stream, file, Collections.singletonList(dir), null), new CTypeContext, SilentParserOptions)
+            ast.asInstanceOf[TranslationUnit]
+        }
+        val fis = new FileInputStream(fileToAnalyse)
+        val ast = parseFile(fis, fileToAnalyse.getName, fileToAnalyse.getParent)
+        fis.close()
+        ast
     }
 
     def computeDifference(before: Int, after: Int): Double = {
@@ -386,13 +449,13 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     if (finalFeature.equals(FeatureExprFactory.False)) {
                         List()
                     } else {
-                    if (!nextFeatures.isEmpty) {
-                        nextFeatures.map(x => (finalFeature.and(x), replaceOptAndId(something, x)))
-                    } else {
-                        List((finalFeature, replaceOptAndId(something, finalFeature)))
+                        if (!nextFeatures.isEmpty) {
+                            nextFeatures.map(x => (finalFeature.and(x), replaceOptAndId(something, x)))
+                        } else {
+                            List((finalFeature, replaceOptAndId(something, finalFeature)))
+                        }
                     }
             }
-        }
         }
         conditionalHelper(start, currentContext)
     }
@@ -915,9 +978,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         val result_ast = TranslationUnit(featureStruct.defs ++ new_ast.asInstanceOf[TranslationUnit].defs)
         val transformTime = (tb.getCurrentThreadCpuTime() - time) / nstoms
 
-        val errors = getTypeSystem(result_ast).checkAST()
 
-        if (!errors) {
+        val errors = getTypeSystem(result_ast).getASTerrors()
+
+        if (errors.isEmpty) {
             if (!(new File(path ++ "statistics.csv").exists)) {
                 writeToFile(path ++ "statistics.csv", getCSVHeader)
             }
@@ -927,7 +991,6 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
             (Some(result_ast), transformTime)
         } else {
-			/*
             val errorHeader = "-+ TypeErrors in " + fileName + " +-\n"
             val errorString = errors mkString "\n"
             if (!(new File(path ++ "type_errors.txt").exists)) {
@@ -935,7 +998,6 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             } else {
                 appendToFile(path ++ "type_errors.txt", errorHeader + errorString + "\n\n")
             }
-			*/
             (None, 0)
         }
     }
@@ -1903,8 +1965,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     if (conditionalTuple.size == 1 && conditionalTuple.head._1.equals(trueF)) {
                         List(optIf)
                     } else {
-                    	conditionalTuple.map(x => Opt(trueF, ElifStatement(One(NAryExpr(featureToCExpr(x._1), List(Opt(trueF, NArySubExpr("&&", x._2))))), transformRecursive(replaceOptAndId(thenBranch, x._1), x._1))))
-            		}
+                        conditionalTuple.map(x => Opt(trueF, ElifStatement(One(NAryExpr(featureToCExpr(x._1), List(Opt(trueF, NArySubExpr("&&", x._2))))), transformRecursive(replaceOptAndId(thenBranch, x._1), x._1))))
+                    }
             }
         } else {
             handleIfStatementsTest(replaceFeatureByTrue(optIf, optIf.feature))
