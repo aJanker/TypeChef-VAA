@@ -958,7 +958,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         }
     }
 
-    def ifdeftoif(source_ast: AST, decluse: IdentityHashMap[Id, List[Id]], featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty, outputStem: String = "unnamed", lexAndParseTime: Long = 0): (Option[AST], Long) = {
+    def ifdeftoif(source_ast: AST, decluse: IdentityHashMap[Id, List[Id]], featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty, outputStem: String = "unnamed", lexAndParseTime: Long = 0, writeStatistics: Boolean = true): (Option[AST], Long) = {
         new File(path).mkdirs()
 
         // Sets the feature model to the busybox feature model in case we're not testing files from the frontend
@@ -982,13 +982,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         val errors = getTypeSystem(result_ast).getASTerrors()
 
         if (errors.isEmpty) {
-            if (!(new File(path ++ "statistics.csv").exists)) {
-                writeToFile(path ++ "statistics.csv", getCSVHeader)
+            if (writeStatistics) {
+                if (!(new File(path ++ "statistics.csv").exists)) {
+                    writeToFile(path ++ "statistics.csv", getCSVHeader)
+                }
+
+                val csvEntry = createCsvEntry(source_ast, new_ast, fileName, lexAndParseTime, transformTime)
+                appendToFile(path ++ "statistics.csv", csvEntry)
             }
-
-            val csvEntry = createCsvEntry(source_ast, new_ast, fileName, lexAndParseTime, transformTime)
-            appendToFile(path ++ "statistics.csv", csvEntry)
-
             (Some(result_ast), transformTime)
         } else {
             val errorHeader = "-+ TypeErrors in " + fileName + " +-\n"

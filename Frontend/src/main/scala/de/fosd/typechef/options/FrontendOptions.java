@@ -17,6 +17,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     public boolean parse = true,
             typecheck = false,
             ifdeftoif = false,
+            ifdeftoifstatistics = false,
             decluse = false,
             writeInterface = false,
             dumpcfg = false,
@@ -55,6 +56,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_BDD = Options.genOptionId();
     private final static char F_ERRORXML = Options.genOptionId();
     private final static char F_IFDEFTOIF = Options.genOptionId();
+    private final static char F_IFDEFTOIFSTATISTICS = Options.genOptionId();
     private final static char F_DECLUSE = Options.genOptionId();
     private Function3<FeatureExpr, String, Position, Object> _renderParserError;
 
@@ -84,6 +86,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                         "Lex, parse, and check for usages of freeing statically allocated memory."),
 
                 new Option("ifdeftoif", LongOpt.NO_ARGUMENT, F_IFDEFTOIF, null,
+                        "Make #ifdef to if transformation."),
+                new Option("ifdeftoifstatistics", LongOpt.NO_ARGUMENT, F_IFDEFTOIFSTATISTICS, null,
                         "Make #ifdef to if transformation."),
 
                 new Option("decluse", LongOpt.NO_ARGUMENT, F_DECLUSE, null,
@@ -139,8 +143,11 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             parse = typecheck = writeInterface = true;
         } else if (c == F_DUMPCFG) {
             parse = dumpcfg = true;
+        } else if (c == F_IFDEFTOIFSTATISTICS) {
+            parse = typecheck = ifdeftoif = ifdeftoifstatistics = true;
         } else if (c == F_IFDEFTOIF) {
             parse = typecheck = ifdeftoif = true;
+
         } else if (c == F_DECLUSE) {
             parse = typecheck = decluse = true;
         } else if (c == F_DOUBLEFREE) {
