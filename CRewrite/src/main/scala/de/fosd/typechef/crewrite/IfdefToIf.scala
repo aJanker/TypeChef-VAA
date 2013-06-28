@@ -100,7 +100,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     var alreadyReplaced: ListBuffer[Id] = ListBuffer()
     val toBeReplaced: util.IdentityHashMap[Product, Product] = new IdentityHashMap()
     var liftOptReplaceMap: Map[Opt[_], List[Opt[_]]] = Map()
-    val idsToBeReplaced: IdentityHashMap[Id, List[FeatureExpr]] = new IdentityHashMap()
+    val idsToBeReplaced: IdentityHashMap[Id, Set[FeatureExpr]] = new IdentityHashMap()
     val writeOptionsIntoFile = true
 
     val busyBoxFm = FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile("../TypeChef-BusyboxAnalysis/busybox/featureModel"))
@@ -665,9 +665,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             noOfRenamingUsages = noOfRenamingUsages + idUsages.size
             idUsages.foreach(x => {
                 if (idsToBeReplaced.containsKey(x)) {
-                    idsToBeReplaced.put(x, ft :: idsToBeReplaced.get(x))
+                    idsToBeReplaced.put(x, idsToBeReplaced.get(x) + ft)
                 } else {
-                    idsToBeReplaced.put(x, List(ft))
+                    idsToBeReplaced.put(x, Set(ft))
                 }
             })
         }
@@ -1405,7 +1405,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
     def getIdUsageFeatureList(a: Any): List[List[FeatureExpr]] = {
         val ids = filterASTElems[Id](a)
-        val features = ids.filter(x => idsToBeReplaced.containsKey(x)).map(x => idsToBeReplaced.get(x))
+        val features = ids.filter(x => idsToBeReplaced.containsKey(x)).map(x => idsToBeReplaced.get(x).toList)
         features.distinct
     }
 
@@ -1466,6 +1466,50 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         getNextFeatureHelp(a).toSet.toList
     }
 
+    def prepareAST[T <: Product](t: T, currentContext: FeatureExpr = trueF): T = {
+        val r = manytd(rule {
+            case l: List[Opt[_]] =>
+                l.flatMap(x => x match {
+                    case o@Opt(ft: FeatureExpr, entry) =>
+                        if (ft.mex(currentContext).isTautology()) {
+                            List()
+                        } else if (ft.implies(currentContext).isTautology()) {
+                            List(fixTypeChefsFeatureExpressions(o, ft))
+                        } else {
+                            List(fixTypeChefsFeatureExpressions(Opt(ft.and(currentContext), entry), ft.and(currentContext)))
+                        }
+                })
+            case i@IfStatement(a, One(statement), b, c) =>
+                statement match {
+                    case cs: CompoundStatement =>
+                        i
+                    case k =>
+                        IfStatement(a, One(CompoundStatement(List(Opt(trueF, statement)))), b, c)
+                }
+            case f@ForStatement(expr1, expr2, expr3, One(statement)) =>
+                statement match {
+                    case cs: CompoundStatement =>
+                        f
+                    case k =>
+                        ForStatement(expr1, expr2, expr3, One(CompoundStatement(List(Opt(trueF, statement)))))
+                }
+            case w@WhileStatement(expr, One(statement)) =>
+                statement match {
+                    case cs: CompoundStatement =>
+                        w
+                    case k =>
+                        WhileStatement(expr, One(CompoundStatement(List(Opt(trueF, statement)))))
+                }
+
+        })
+        r(t) match {
+            case None =>
+                t
+            case k =>
+                k.get.asInstanceOf[T]
+        }
+    }
+
     def fixTypeChefsFeatureExpressions(feature: FeatureExpr, context: FeatureExpr): FeatureExpr = {
         if (feature.implies(context).isTautology()) {
             feature
@@ -1504,7 +1548,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         } else {
             listOfLists.tail.foldLeft(listOfLists.head)((first, second) => {
                 if (!first.isEmpty && !second.isEmpty) {
-                    first.flatMap(x => second.map(y => y.and(x))).filterNot(x => x.equivalentTo(FeatureExprFactory.False) || !x.isSatisfiable(fm))
+                    val result = first.flatMap(x => second.map(y => y.and(x))).filterNot(x => x.equivalentTo(FeatureExprFactory.False) || !x.isSatisfiable(fm))
+                    result
                 } else if (second.isEmpty && !first.isEmpty) {
                     first
                 } else if (first.isEmpty && !second.isEmpty) {
@@ -1721,14 +1766,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     l.flatMap(getNextFeatureHelp(_))
                 case i: Id =>
                     if (idsToBeReplaced.containsKey(i)) {
-                        val result = idsToBeReplaced.get(i)
+                        val result = idsToBeReplaced.get(i).toList
                         result
                     } else {
                         List()
                     }
                 case d@Opt(ft, i: Id) =>
                     if (idsToBeReplaced.containsKey(i)) {
-                        val result = idsToBeReplaced.get(i)
+                        val result = idsToBeReplaced.get(i).toList
                         result
                     } else {
                         List()
@@ -1804,7 +1849,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             }
         }
         val ids = getNextFeatureHelp(a)
-        computeScalarProduct(ids.map(x => idsToBeReplaced.get(x).map(y => y.and(currentContext)))).filter(z => z.isSatisfiable(fm))
+        val listOfLists = ids.map(x => idsToBeReplaced.get(x).toList.map(y => y.and(currentContext)))
+        computeScalarProduct(listOfLists).filter(z => z.isSatisfiable(fm))
     }
 
     /*

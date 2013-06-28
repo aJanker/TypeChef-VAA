@@ -1,7 +1,6 @@
 package de.fosd.typechef.crewrite
 
 import org.junit.{Ignore, Test}
-import org.kiama.rewriting.Rewriter._
 import de.fosd.typechef.featureexpr.sat._
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.crewrite.CASTEnv._
@@ -797,6 +796,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         return (i > j) ? i : j;
       }
                                  """);
+        println(source_ast)
         println(testAst(source_ast))
     }
 
@@ -971,7 +971,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println("Parsing took: " + ((System.currentTimeMillis() - parse) / 1000) + "s")
     }
 
-    @Ignore def test_cpio_pi() {
+    @Test def test_cpio_pi() {
         val file = new File(busyBoxPath + "archival/cpio.pi")
         testFile(file)
 
@@ -1025,7 +1025,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         testFile(file)
     }
 
-    @Ignore def test_tar_pi() {
+    @Test def test_tar_pi() {
         val file = new File(busyBoxPath + "archival/tar.pi")
         testFile(file)
     }
@@ -1429,7 +1429,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
                     case None =>
                         println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")
                     case Some(x) =>
-                        PrettyPrinter.printF(x, fileNameWithoutExtension ++ ".ifdeftoif")
+                        //PrettyPrinter.printF(x, path ++ fileNameWithoutExtension ++ ".ifdeftoif")
                         println("++Transformed: " ++ fileName ++ "++\t\t --in " + tuple._2 ++ " ms--")
                 }
 
@@ -1439,9 +1439,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
                 //print("\t--Transformed--")
 
                 val startPrettyPrinting = System.currentTimeMillis()
-                //val transformedCode = PrettyPrinter.print(tempAst._1)
                 if (writeFilesIntoIfdeftoifFolder) {
-                    //writeToTextFile(path ++ fileNameWithoutExtension ++ ".ifdeftoif", transformedCode)
                     PrettyPrinter.printF(new_ast._1, path ++ fileNameWithoutExtension ++ ".ifdeftoif")
                 } else {
                     //writeToTextFile(filePathWithoutExtension ++ ".ifdeftoif", transformedCode)
@@ -1634,117 +1632,21 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println(testAst(getAstFromPi(new File(ifdeftoifTestPath + "typedef_in_struct.c"))))
     }
 
-    @Ignore def busy_box_test() {
+    @Test def busy_box_test() {
         val busybox = new File(busyBoxPath + "")
         transformDir(busybox)
     }
 
     @Test def random_test() {
-        val source_ast = getAST( """
-    #if definedEx(CONFIG_BUILD_LIBBUSYBOX)
-    #if definedEx(CONFIG_FEATURE_SHARED_BUSYBOX)
-    int lbb_main(char **argv) __attribute__(( visibility("default") ));
-    #endif
-    #if !definedEx(CONFIG_FEATURE_SHARED_BUSYBOX)
-    int lbb_main(char **argv);
-    #endif
-    #endif
-                                 """)
+        val feature = FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_CONTEXT").or(FeatureExprFactory.createDefinedExternal("CONFIG_SELINUX"))
+        val list = List(List(feature, feature), List(feature, feature), List(feature, feature), List(feature, feature), List(feature, feature))
+        println(i.computeScalarProduct(list))
 
-        val source_ast2 = getAST( """
-    #if definedEx(CONFIG_BUILD_LIBBUSYBOX)
-    #if definedEx(CONFIG_FEATURE_SHARED_BUSYBOX)
-    int lbb_main(char **argv) __attribute__(( visibility("default") ));
-    #endif
-    #if !definedEx(CONFIG_FEATURE_SHARED_BUSYBOX)
-    double lbb_main(char **argv);
-    #endif
-    #endif
-                                  """)
+        val ifStmt = CompoundStatement(List(Opt(FeatureExprFactory.True, IfStatement(One(Id("a")), One(ExprStatement(AssignExpr(Id("a"), "=", Constant("10")))), List(), None))))
+        println(PrettyPrinter.print(i.prepareAST(ifStmt)))
 
-        val source_ast3 = getAST( """
-    void foo() {
-      write_ar_archive(archive_handle);
-      if (options.config_feature_ar_Create) {
-        if ((opt & (1 << 6))) {
-          return write_ar_archive(archive_handle);
-        }
-      } else if (opt) {
-        if ((opt)) {
-          return write_ar_archive();
-        }
-      } else if (opt) {
-        if (opt) {
-          return write_ar_archive();
-        }
-      } else {
-        return write_ar_archive();
-      }
-    }
-    void main() {
-    int i = 0, x = 10;
-    while (i < x) {
-    i++;
-    #if definedEx(x64)
-    i++;
-    #endif
-    }
-    int j;
-    for (j = 0; j < 10; j++) {
-    j = j
-    #if definedEx(A)
-    * 2
-    #endif
-    ;
-    #if definedEx(x64)
-    j++;
-    #endif
-    }
-        while (j < 20) {
-          j++;
-        }
-    }
-                                  """)
-        val i1 = Id("i")
-        val i2 = Id("i")
-        val i3 = Id("i")
-        val i4 = Id("i")
-
-        println("Source: " + source_ast)
-        println("+++Pretty printed+++\n" + PrettyPrinter.print(source_ast))
-
-        println("Source2: " + source_ast2)
-        println("+++Pretty printed+++\n" + PrettyPrinter.print(source_ast2))
-
-        println("Source3: " + source_ast3)
-        println("+++Pretty printed+++\n" + PrettyPrinter.print(source_ast3))
-
-        println("Eq: " + i1.eq(i2))
-        println("Equals: " + i1.equals(i2))
-
-        val m: util.IdentityHashMap[Product, Product] = new IdentityHashMap()
-        m.put(i1, i2)
-        println("Map contains: " + m.containsKey(i4))
-
-        println(source_ast3)
-        println(PrettyPrinter.print(source_ast3))
-
-        val r = breadthfirst(query {
-            case k => println(k)
-        })
-
-        val decl = Opt(True, Declaration(List(Opt(True, IntSpecifier())), List(Opt(True, InitDeclaratorI(AtomicNamedDeclarator(List(), Id("printf_main"), List()), List(), None)))))
-        r(decl).get
-        val forTrue = Opt(True, ForStatement(Some(AssignExpr(Id("j"), "=", Constant("0"))), Some(NAryExpr(Id("j"), List(Opt(True, NArySubExpr("<", Constant("10")))))), Some(PostfixExpr(Id("j"), SimplePostfixSuffix("++"))), One(CompoundStatement(List(Opt(True, ExprStatement(AssignExpr(Id("j"), "=", NAryExpr(Id("j"), List(Opt(fx, NArySubExpr("*", Constant("2")))))))), Opt(fx, ExprStatement(PostfixExpr(Id("j"), SimplePostfixSuffix("++")))))))))
-        val forFalse = Opt(True, ForStatement(Some(AssignExpr(Id("j"), "=", Constant("0"))), Some(NAryExpr(Id("j"), List(Opt(True, NArySubExpr("<", Constant("10")))))), Some(PostfixExpr(Id("j"), SimplePostfixSuffix("++"))), One(CompoundStatement(List(Opt(True, ExprStatement(AssignExpr(Id("j"), "=", NAryExpr(Id("j"), List(Opt(True, NArySubExpr("*", Constant("2")))))))), Opt(True, ExprStatement(PostfixExpr(Id("j"), SimplePostfixSuffix("++")))))))))
-        val forFalseButDeeper = Opt(True, ForStatement(Some(AssignExpr(Id("j"), "=", Constant("0"))), Some(NAryExpr(Id("j"), List(Opt(True, NArySubExpr("<", Constant("10")))))), Some(PostfixExpr(Id("j"), SimplePostfixSuffix("++"))), One(CompoundStatement(List(Opt(True, ExprStatement(AssignExpr(Id("j"), "=", NAryExpr(Id("j"), List(Opt(fx, NArySubExpr("*", Constant("2")))))))), Opt(True, ExprStatement(PostfixExpr(Id("j"), SimplePostfixSuffix("++")))))))))
-        println("ForStatement variability: " + i.nextLevelContainsVariability(forTrue.entry))
-        println("ForStatement variability: " + i.nextLevelContainsVariability(forFalse.entry))
-        println("ForStatement variability: " + i.nextLevelContainsVariability(forFalseButDeeper.entry))
-
-        println("\nNext Level: " + i.getNextOptList(forTrue.entry))
-        println("\nNext Level: " + i.getNextOptList(forFalse.entry))
-        println("\nNext Level: " + i.getNextOptList(forFalseButDeeper.entry))
+        val ifStmt2 = CompoundStatement(List(Opt(FeatureExprFactory.createDefinedExternal("A").not(), IfStatement(One(Id("a")), One(ExprStatement(AssignExpr(Id("a"), "=", Constant("10")))), List(), None))))
+        println(PrettyPrinter.print(i.prepareAST(ifStmt2, FeatureExprFactory.createDefinedExternal("A"))))
     }
 
     @Test def test_statements() {
