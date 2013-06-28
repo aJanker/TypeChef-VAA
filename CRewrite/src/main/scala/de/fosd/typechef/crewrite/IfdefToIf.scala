@@ -1466,6 +1466,50 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         getNextFeatureHelp(a).toSet.toList
     }
 
+    def prepareAST[T <: Product](t: T, currentContext: FeatureExpr = trueF): T = {
+        val r = manytd(rule {
+            case l: List[Opt[_]] =>
+                l.flatMap(x => x match {
+                    case o@Opt(ft: FeatureExpr, entry) =>
+                        if (ft.mex(currentContext).isTautology()) {
+                            List()
+                        } else if (ft.implies(currentContext).isTautology()) {
+                            List(fixTypeChefsFeatureExpressions(o, ft))
+                        } else {
+                            List(fixTypeChefsFeatureExpressions(Opt(ft.and(currentContext), entry), ft.and(currentContext)))
+                        }
+                })
+            case i@IfStatement(a, One(statement), b, c) =>
+                statement match {
+                    case cs: CompoundStatement =>
+                        i
+                    case k =>
+                        IfStatement(a, One(CompoundStatement(List(Opt(trueF, statement)))), b, c)
+                }
+            case f@ForStatement(expr1, expr2, expr3, One(statement)) =>
+                statement match {
+                    case cs: CompoundStatement =>
+                        f
+                    case k =>
+                        ForStatement(expr1, expr2, expr3, One(CompoundStatement(List(Opt(trueF, statement)))))
+                }
+            case w@WhileStatement(expr, One(statement)) =>
+                statement match {
+                    case cs: CompoundStatement =>
+                        w
+                    case k =>
+                        WhileStatement(expr, One(CompoundStatement(List(Opt(trueF, statement)))))
+                }
+
+        })
+        r(t) match {
+            case None =>
+                t
+            case k =>
+                k.get.asInstanceOf[T]
+        }
+    }
+
     def fixTypeChefsFeatureExpressions(feature: FeatureExpr, context: FeatureExpr): FeatureExpr = {
         if (feature.implies(context).isTautology()) {
             feature
