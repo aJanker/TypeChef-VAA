@@ -478,6 +478,21 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
 
     }
 
+    @Test def optional_if_test {
+        val source_ast = getAST( """
+      void foo_04(int a) {
+      #if definedEx(A)
+      if (a) {
+        a = a * a;
+      }
+      #endif
+      }
+                                 """)
+        println(source_ast)
+        println(testAst(source_ast))
+
+    }
+
     @Test def if_test2 {
         val source_ast = getAST( """
       void foo_04(int a) {
@@ -971,7 +986,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println("Parsing took: " + ((System.currentTimeMillis() - parse) / 1000) + "s")
     }
 
-    @Test def test_cpio_pi() {
+    @Ignore def test_cpio_pi() {
         val file = new File(busyBoxPath + "archival/cpio.pi")
         testFile(file)
 
@@ -1025,9 +1040,14 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         testFile(file)
     }
 
-    @Test def test_tar_pi() {
+    @Ignore def test_tar_pi() {
         val file = new File(busyBoxPath + "archival/tar.pi")
         testFile(file)
+    }
+
+    @Test def single_busybox_file_test() {
+        val filename = "header_verbose_list"
+        transformSingleFile(filename, busyBoxPath)
     }
 
     @Ignore def test_bbunzip_pi() {
@@ -1118,6 +1138,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
     #endif
     }""")
+        println(source_ast)
         println(testAst(source_ast))
     }
 
@@ -1403,6 +1424,43 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         transformPiFiles(dirToAnalyse)
     }
 
+    private def transformSingleFile(filename: String, directory: String) {
+        var foundFile = false
+        val dirToAnalyse = new File(directory)
+
+        def transformPiFiles(dirToAnalyse: File) {
+            if (!foundFile) {
+                // retrieve all pi from dir first
+                if (dirToAnalyse.isDirectory) {
+                    val piFiles = dirToAnalyse.listFiles(new FilenameFilter {
+                        def accept(dir: File, file: String): Boolean =
+                            file.equals(filename + ".pi")
+                    })
+                    val dirs = dirToAnalyse.listFiles(new FilenameFilter {
+                        def accept(dir: File, file: String) = dir.isDirectory
+                    })
+                    if (!piFiles.isEmpty) {
+                        foundFile = true
+                        testFile(piFiles.head)
+                    } else {
+                        for (dir <- dirs) {
+                            transformPiFiles(dir)
+                        }
+                    }
+
+                }
+            }
+        }
+        if (dirToAnalyse.exists()) {
+            new File(path).mkdirs()
+            if (!checkForExistingFiles || !(new File(path ++ "results.csv").exists)) {
+                writeToFile(path ++ "results.csv", getCSVHeader())
+            }
+
+            transformPiFiles(dirToAnalyse)
+        }
+    }
+
     private def runIfdefToIfOnPi(file: File) {
         if (filesTransformed < filesToAnalysePerRun) {
             val filePathWithoutExtension = getFileNameWithoutExtension(file.getPath())
@@ -1424,7 +1482,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
                 val timeToParseAndTypeCheck = System.currentTimeMillis() - startParsingAndTypeChecking
                 //print("--Parsed--")
 
-                val tuple = i.ifdeftoif(source_ast, defUseMap, FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile("../TypeChef-BusyboxAnalysis/busybox/featureModel")), fileNameWithoutExtension, timeToParseAndTypeCheck)
+                val tuple = i.ifdeftoif(source_ast, defUseMap, FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile("../TypeChef-BusyboxAnalysis/busybox/featureModel")), fileNameWithoutExtension, timeToParseAndTypeCheck, makeAnalysis, path ++ fileNameWithoutExtension ++ ".ifdeftoif")
                 tuple._1 match {
                     case None =>
                         println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")
