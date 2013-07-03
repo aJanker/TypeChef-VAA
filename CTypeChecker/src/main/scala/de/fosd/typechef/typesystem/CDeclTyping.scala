@@ -247,7 +247,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
                 val declExpr = env.structEnv.isComplete(name, isUnion)
                 if ((expr andNot declExpr).isSatisfiable()) {
                     val msg = (if (isUnion) "Union " else "Struct ") + name + " not defined or not complete." +
-                            (if ((expr and declExpr).isSatisfiable()) " (complete only in context " + declExpr + ")" else "")
+                        (if ((expr and declExpr).isSatisfiable()) " (complete only in context " + declExpr + ")" else "")
                     reportTypeError(expr andNot declExpr, msg, where, Severity.TypeLookupError)
                 }
             case CAnonymousStruct(fields, _) => //check fields
@@ -593,7 +593,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
         val isExtern = getExternCondition(specifiers)
         val isFileLevelScope = env.scope == 0
 
-        issueTypeError(Severity.OtherError, isStatic and isExtern, "static and extern specificers cannot occur together", where)
+        //issueTypeError(Severity.OtherError, isStatic and isExtern, "static and extern specificers cannot occur together", where)
 
         val wasInternal = env.varEnv.lookupIsInternalLinkage(symbol)
 
