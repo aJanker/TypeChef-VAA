@@ -13,13 +13,8 @@ import parser.TokenReader
 import de.fosd.typechef.options.{FrontendOptionsWithConfigFiles, FrontendOptions, OptionException}
 import de.fosd.typechef.parser.c.CTypeContext
 import de.fosd.typechef.parser.c.TranslationUnit
-import de.fosd.typechef.featureexpr.FeatureModel
 
 object Frontend {
-
-    private var storedAst: AST = null
-    private var featureModel: FeatureModel = null
-
 
     def main(args: Array[String]) {
         // load options
@@ -131,7 +126,6 @@ object Frontend {
                 //no parsing and serialization if read serialized ast
                 val parserMain = new ParserMain(new CParser(fm))
                 ast = parserMain.parserMain(in, opt)
-                storedAst = ast
 
                 stopWatch.start("serialize")
                 if (ast != null && opt.serializeAST)
@@ -140,7 +134,6 @@ object Frontend {
 
             if (ast != null) {
                 val fm_ts = opt.getTypeSystemFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
-                featureModel = fm_ts
                 val cachedTypes = opt.xfree // just an example
                 val ts = if (cachedTypes)
                         new CTypeSystemFrontend(ast.asInstanceOf[TranslationUnit], fm_ts, opt) with CTypeCache
@@ -259,8 +252,4 @@ object Frontend {
         fr.close()
         ast
     }
-
-    def getAST = storedAst
-
-    def getFeatureModel = featureModel
 }
