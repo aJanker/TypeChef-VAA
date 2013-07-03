@@ -10,7 +10,7 @@ import de.fosd.typechef.crefactor.backend.refactor.RenameIdentifier
 
 class RenameEvaluation extends BusyBoxEvaluation {
 
-    private val refactor_name = "refactoredID"
+    private val REFACTOR_NAME = "refactoredID"
 
 
     @Test
@@ -28,9 +28,14 @@ class RenameEvaluation extends BusyBoxEvaluation {
                 val parseTypeCheckTime = parseTypeCheckMs.getTime
                 stats ::= parseTypeCheckTime
                 val result = applyRefactor(morpheus, stats)
-                if (result._2) PrepareRefactoredASTforEval.prepare(result._1, morpheus.getFeatureModel, bb_file.getCanonicalPath, result._3, 0)
+                if (result._2) {
+                    val dir = getResultDir(bb_file.getCanonicalPath, 0)
+                    val path = dir.getCanonicalPath + File.separatorChar + getFileName(bb_file.getCanonicalPath)
+                    writeAST(result._1, path)
+                    PrepareRefactoredASTforEval.makeConfigs(result._1, morpheus.getFeatureModel, bb_file.getCanonicalPath, result._3, 0)
+                }
 
-                val verify = RefactorVerification.verify(bb_file, 0, fm)
+                val verify = Verification.verify(bb_file, 0, fm)
                 var stat2 = result._4
                 stat2 = stat2.::(result._2 + "\n" + verify)
                 writeStats(stat2, bb_file.getCanonicalPath, 0)
@@ -44,11 +49,12 @@ class RenameEvaluation extends BusyBoxEvaluation {
                 }
             }
         })
-        logger.info("Refactor succ: " + refactor.contains(false))
+        println("Refactor succ: " + refactor.contains(false))
         refactor.contains(false)
     }
 
     def applyRefactor(morpheus: Morpheus, stat: List[Any]): (AST, Boolean, List[FeatureExpr], List[Any]) = {
+
         def getVariableIdToRename: (Id, Int, List[FeatureExpr]) = {
             val ids = morpheus.getUseDeclMap.values().toArray(Array[List[Id]]()).par.foldLeft(List[Id]())((list, entry) => list ::: entry)
 
@@ -61,7 +67,7 @@ class RenameEvaluation extends BusyBoxEvaluation {
                 val features = associatedIds.map(x => morpheus.getASTEnv.featureExpr(x))
 
                 if (id.name.equals("main")) false
-                else !((features.distinct.length == 1) && features.contains("True"))
+                else !(features.distinct.length == 1 && features.contains("True"))
             })
 
             var id: Id = null
@@ -78,17 +84,17 @@ class RenameEvaluation extends BusyBoxEvaluation {
         val features = toRename._3
 
         val startRenaming = new TimeMeasurement
-        val refactored = RenameIdentifier.rename(id, refactor_name, morpheus)
+        val refactored = RenameIdentifier.rename(id, REFACTOR_NAME, morpheus)
         val renamingTime = startRenaming.getTime
         var stats = stat.::(renamingTime)
         stats = stats.::(id)
         stats = stats.::(toRename._2)
         stats = stats.::(features)
 
-        val morpheus2 = new Morpheus(refactored, morpheus.getFeatureModel)
+        val morpheus_ref = new Morpheus(refactored, morpheus.getFeatureModel)
 
         val originAmount = analsyeDeclUse(morpheus.getDeclUseMap).sorted
-        val newAmount = analsyeDeclUse(morpheus2.getDeclUseMap).sorted
+        val newAmount = analsyeDeclUse(morpheus_ref.getDeclUseMap).sorted
 
         (refactored, originAmount == newAmount, features, stats)
     }
