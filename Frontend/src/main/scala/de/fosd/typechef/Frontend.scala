@@ -126,7 +126,6 @@ object Frontend {
                 //no parsing and serialization if read serialized ast
                 val parserMain = new ParserMain(new CParser(fm))
                 ast = parserMain.parserMain(in, opt)
-                storedAst = ast
 
                 stopWatch.start("serialize")
                 if (ast != null && opt.serializeAST)
@@ -135,7 +134,6 @@ object Frontend {
 
             if (ast != null) {
                 val fm_ts = opt.getTypeSystemFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
-                featureModel = fm_ts
                 val cachedTypes = opt.xfree // just an example
                 val ts = if (cachedTypes)
                         new CTypeSystemFrontend(ast.asInstanceOf[TranslationUnit], fm_ts, opt) with CTypeCache
