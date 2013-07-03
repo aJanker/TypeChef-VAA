@@ -13,13 +13,8 @@ import parser.TokenReader
 import de.fosd.typechef.options.{FrontendOptionsWithConfigFiles, FrontendOptions, OptionException}
 import de.fosd.typechef.parser.c.CTypeContext
 import de.fosd.typechef.parser.c.TranslationUnit
-import de.fosd.typechef.featureexpr.FeatureModel
 
 object Frontend {
-
-    private var storedAst: AST = null
-    private var featureModel: FeatureModel = null
-
 
     def main(args: Array[String]) {
         // load options
@@ -259,8 +254,4 @@ object Frontend {
         fr.close()
         ast
     }
-
-    def getAST = storedAst
-
-    def getFeatureModel = featureModel
 }
