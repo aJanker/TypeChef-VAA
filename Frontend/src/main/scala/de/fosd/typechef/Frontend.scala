@@ -173,9 +173,11 @@ object Frontend {
                             tuple._1 match {
                                 case None =>
                                     println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")
+                                /*
+                                tuple._3.map(errorXML.renderTypeError(_))
+                                 */
                                 case Some(x) =>
                                     if (!opt.getOutputStem().isEmpty()) {
-                                        PrettyPrinter.printF(x, opt.getOutputStem() ++ ".ifdeftoif")
                                         println("++Transformed: " ++ fileName ++ "++\t\t --in " + tuple._2 ++ " ms--")
                                     }
                             }
