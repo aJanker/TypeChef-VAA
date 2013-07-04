@@ -446,15 +446,16 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     List()
                 case One(something) =>
                     val finalFeature = currentContext.and(ft)
-                    val nextFeatures = computeNextRelevantFeatures(something, finalFeature)
+                    // val nextFeatures = computeNextRelevantFeatures(something, finalFeature)
                     if (finalFeature.equals(FeatureExprFactory.False)) {
                         List()
                     } else {
-                        if (!nextFeatures.isEmpty) {
+                        List((finalFeature, replaceOptAndId(something, finalFeature)))
+                        /*if (!nextFeatures.isEmpty) {
                             nextFeatures.map(x => (finalFeature.and(x), replaceOptAndId(something, x)))
                         } else {
                             List((finalFeature, replaceOptAndId(something, finalFeature)))
-                        }
+                        }*/
                     }
             }
         }
@@ -959,9 +960,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         }
     }
 
-    def ifdeftoif(source_ast: AST, decluse: IdentityHashMap[Id, List[Id]], featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty, outputStem: String = "unnamed", lexAndParseTime: Long = 0, writeStatistics: Boolean = true, newPath: String = ""): (Option[AST], Long, List[TypeChefError]) = {
+    def ifdeftoif(ast: AST, decluse: IdentityHashMap[Id, List[Id]], featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty, outputStem: String = "unnamed", lexAndParseTime: Long = 0, writeStatistics: Boolean = true, newPath: String = ""): (Option[AST], Long, List[TypeChefError]) = {
         new File(path).mkdirs()
-
+        val source_ast = prepareAST(ast)
         // Sets the feature model to the busybox feature model in case we're not testing files from the frontend
         if (featureModel.equals(FeatureExprLib.featureModelFactory.empty) && isBusyBox && (new File("../TypeChef-BusyboxAnalysis/busybox/featureModel")).exists()) {
             fm = FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile("../TypeChef-BusyboxAnalysis/busybox/featureModel"))
@@ -1493,45 +1494,13 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                             List(fixTypeChefsFeatureExpressions(Opt(ft.and(currentContext), entry), ft.and(currentContext)))
                         }
                 })
-            case i@IfStatement(a, o@One(statement), b, c) =>
-                statement match {
+            case o@One(st: Statement) =>
+                st match {
                     case cs: CompoundStatement =>
-                        c match {
-                            case Some(One(elseStmt)) =>
-                                statement match {
-                                    case cs: CompoundStatement =>
-                                        i
-                                    case k =>
-                                        IfStatement(a, o, b, Some(One(elseStmt)))
-                                }
-                        }
-                        i
+                        o
                     case k =>
-                        c match {
-                            case Some(One(elseStmt)) =>
-                                statement match {
-                                    case cs: CompoundStatement =>
-                                        IfStatement(a, One(CompoundStatement(List(Opt(trueF, statement)))), b, c)
-                                    case k =>
-                                        IfStatement(a, One(CompoundStatement(List(Opt(trueF, statement)))), b, Some(One(elseStmt)))
-                                }
-                        }
+                        One(CompoundStatement(List(Opt(trueF, CompoundStatement(List(Opt(trueF, k)))))))
                 }
-            case f@ForStatement(expr1, expr2, expr3, One(statement)) =>
-                statement match {
-                    case cs: CompoundStatement =>
-                        f
-                    case k =>
-                        ForStatement(expr1, expr2, expr3, One(CompoundStatement(List(Opt(trueF, statement)))))
-                }
-            case w@WhileStatement(expr, One(statement)) =>
-                statement match {
-                    case cs: CompoundStatement =>
-                        w
-                    case k =>
-                        WhileStatement(expr, One(CompoundStatement(List(Opt(trueF, statement)))))
-                }
-
         })
         r(t) match {
             case None =>
