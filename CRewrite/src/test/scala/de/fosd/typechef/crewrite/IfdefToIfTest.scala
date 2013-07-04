@@ -120,7 +120,14 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
 
             val csvEnding = "," + timeToParseAndTypeCheck + "," + timeToTransform + "," + timeToPrettyPrint
             writeToTextFile(singleFilePath ++ fileNameWithoutExtension ++ ".csv", getCSVHeader() + csvBeginning + new_ast._2 + csvEnding)
-            if (!i.getTypeSystem(getAstFromPi(new File(singleFilePath ++ fileNameWithoutExtension ++ ".ifdeftoif"))).checkAST()) {
+            val result_ast = getAstFromPi(new File(singleFilePath ++ fileNameWithoutExtension ++ ".ifdeftoif"))
+            if (result_ast == null) {
+                if (i.getTypeSystem(new_ast._1).checkAST()) {
+                    println("\t--Parsing unsuccessful--")
+                } else {
+                    println("\t--TypeCheck: " + false + "--\n")
+                }
+            } else if (!i.getTypeSystem(result_ast).checkAST()) {
                 println("\t--TypeCheck: " + false + "--\n")
             }
         }
@@ -1046,7 +1053,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def single_busybox_file_test() {
-        val filename = "header_verbose_list"
+        val filename = "ls"
         transformSingleFile(filename, busyBoxPath)
     }
 
@@ -1692,7 +1699,9 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
 
     @Test def busy_box_test() {
         val busybox = new File(busyBoxPath + "")
-        transformDir(busybox)
+        if (busybox.exists()) {
+            transformDir(busybox)
+        }
     }
 
     @Test def random_test() {
