@@ -84,7 +84,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             print("\t")
         }
         val startParsingAndTypeChecking = System.currentTimeMillis()
-        val source_ast = i.fixTypeChefsFeatureExpressions(getAstFromPi(file))
+        val source_ast = getAstFromPi(file)
         //val env = createASTEnv(source_ast)
         typecheckTranslationUnit(source_ast)
         val defUseMap = getDeclUseMap
@@ -1053,7 +1053,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def single_busybox_file_test() {
-        val filename = "ls"
+        val filename = "cpio"
         transformSingleFile(filename, busyBoxPath)
     }
 
@@ -1483,7 +1483,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
                 filesTransformed = filesTransformed + 1
 
                 val startParsingAndTypeChecking = System.currentTimeMillis()
-                val source_ast = i.fixTypeChefsFeatureExpressions(getAstFromPi(file))
+                val source_ast = getAstFromPi(file)
                 typecheckTranslationUnit(source_ast)
                 val defUseMap = getDeclUseMap
                 val timeToParseAndTypeCheck = System.currentTimeMillis() - startParsingAndTypeChecking
@@ -1709,7 +1709,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val list = List(List(feature, feature), List(feature, feature), List(feature, feature), List(feature, feature), List(feature, feature))
         println(i.computeScalarProduct(list))
 
-        val ifStmt = CompoundStatement(List(Opt(FeatureExprFactory.True, IfStatement(One(Id("a")), One(ExprStatement(AssignExpr(Id("a"), "=", Constant("10")))), List(), None))))
+        val ifStmt = TranslationUnit(List(Opt(FeatureExprFactory.True, FunctionDef(List(Opt(True, VoidSpecifier())), AtomicNamedDeclarator(List(), Id("main"), List(Opt(True, DeclIdentifierList(List())))), List(), CompoundStatement(List(Opt(FeatureExprFactory.True, IfStatement(One(Id("a")), One(ExprStatement(AssignExpr(Id("a"), "=", Constant("10")))), List(), None))))))))
         println(PrettyPrinter.print(i.prepareAST(ifStmt)))
 
         val ifStmt2 = CompoundStatement(List(Opt(FeatureExprFactory.createDefinedExternal("A").not(), IfStatement(One(Id("a")), One(ExprStatement(AssignExpr(Id("a"), "=", Constant("10")))), List(), None))))
@@ -1729,7 +1729,8 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     i = 2*i;
     }
                                  """)
-        println(PrettyPrinter.print(source_ast))
+        println(source_ast)
+        println(PrettyPrinter.print(i.prepareAST(source_ast)))
         println(testAst(source_ast))
 
         val source_ast2 = getAST( """

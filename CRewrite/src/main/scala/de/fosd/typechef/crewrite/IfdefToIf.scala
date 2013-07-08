@@ -960,13 +960,13 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         }
     }
 
-    def ifdeftoif(source_ast: AST, decluse: IdentityHashMap[Id, List[Id]], featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty, outputStem: String = "unnamed", lexAndParseTime: Long = 0, writeStatistics: Boolean = true, newPath: String = ""): (Option[AST], Long, List[TypeChefError]) = {
+    def ifdeftoif(ast: AST, decluse: IdentityHashMap[Id, List[Id]], featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty, outputStem: String = "unnamed", lexAndParseTime: Long = 0, writeStatistics: Boolean = true, newPath: String = ""): (Option[AST], Long, List[TypeChefError]) = {
         new File(path).mkdirs()
         val tb = java.lang.management.ManagementFactory.getThreadMXBean
 
-        /*val prepareSt = tb.getCurrentThreadCpuTime()
+        val prepareSt = tb.getCurrentThreadCpuTime()
         val source_ast = prepareAST(ast)
-        println("Prepare time: " + ((tb.getCurrentThreadCpuTime() - prepareSt) / nstoms).toString())*/
+        println("Prepare time: " + ((tb.getCurrentThreadCpuTime() - prepareSt) / nstoms).toString())
 
         // Sets the feature model to the busybox feature model in case we're not testing files from the frontend
         if (featureModel.equals(FeatureExprLib.featureModelFactory.empty) && isBusyBox && (new File("../TypeChef-BusyboxAnalysis/busybox/featureModel")).exists()) {
@@ -1497,18 +1497,13 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      * Replaces Conditional[Statements] inside e.g. IfStatements with CompoundStatements, so that we can actually
      * perform StatementDuplications.
      */
-    def prepareAST[T <: Product](t: T, currentContext: FeatureExpr = trueF): T = {
+    /*def prepareAST[T <: Product](t: T, currentContext: FeatureExpr = trueF) : T = {
+        val env = createASTEnv(t)
         val r = manytd(rule {
             case l: List[Opt[_]] =>
                 l.flatMap(x => x match {
-                    case o@Opt(ft: FeatureExpr, entry) =>
-                        if (ft.mex(currentContext).isTautology()) {
-                            List()
-                        } else if (ft.implies(currentContext).isTautology()) {
-                            List(o)
-                        } else {
-                            List(Opt(ft.and(currentContext), entry))
-                        }
+                    case o@ Opt(ft, entry) =>
+                        List(Opt(env.featureExpr(entry), entry))
                 })
             case o@One(st: Statement) =>
                 st match {
@@ -1524,7 +1519,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             case k =>
                 k.get.asInstanceOf[T]
         }
-    }
+    }*/
 
     def fixTypeChefsFeatureExpressions(feature: FeatureExpr, context: FeatureExpr): FeatureExpr = {
         if (feature.implies(context).isTautology()) {
@@ -1534,7 +1529,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         }
     }
 
-    def fixTypeChefsFeatureExpressions[T <: Product](t: T, currentContext: FeatureExpr = trueF): T = {
+    def prepareAST[T <: Product](t: T, currentContext: FeatureExpr = trueF): T = {
         val r = alltd(rule {
             case l: List[Opt[_]] =>
                 l.flatMap(x => x match {
@@ -1542,11 +1537,18 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                         if (ft.mex(currentContext).isTautology()) {
                             List()
                         } else if (ft.implies(currentContext).isTautology()) {
-                            List(fixTypeChefsFeatureExpressions(o, ft))
+                            List(prepareAST(o, ft))
                         } else {
-                            List(fixTypeChefsFeatureExpressions(Opt(ft.and(currentContext), entry), ft.and(currentContext)))
+                            List(prepareAST(Opt(ft.and(currentContext), entry), ft.and(currentContext)))
                         }
                 })
+            case o@One(st: Statement) =>
+                st match {
+                    case cs: CompoundStatement =>
+                        o
+                    case k =>
+                        One(CompoundStatement(List(Opt(trueF, CompoundStatement(List(Opt(trueF, k)))))))
+                }
         })
         r(t) match {
             case None =>
