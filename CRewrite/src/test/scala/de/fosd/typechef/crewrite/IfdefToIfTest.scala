@@ -1800,8 +1800,8 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         typecheckTranslationUnit(source_ast)
     }
 
-    @Ignore def file_test() {
-        val file = new File(ifdeftoifTestPath + "variable_enumerator.c")
+    @Test def file_test() {
+        val file = new File(ifdeftoifTestPath + "feature_test.c")
 
         val source_ast = getAstFromPi(file)
         println(source_ast.toString() ++ "\n\n")

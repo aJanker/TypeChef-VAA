@@ -1149,7 +1149,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                 case e: ExprStatement =>
                                     noOfStatements = noOfStatements + 1
                                     noOfStatementsVariable = noOfStatementsVariable + 1
-                                    val features = computeNextRelevantFeatures(e, o.feature).filter(x => x.implies(currentContext).isTautology())
+                                    val realFeature = currentContext.and(o.feature)
+                                    val features = computeNextRelevantFeatures(e, realFeature)
                                     if (!features.isEmpty) {
                                         features.map(x => Opt(trueF, IfStatement(One(featureToCExpr(x.and(o.feature))), One(CompoundStatement(List(Opt(trueF, replaceOptAndId(e, x.and(o.feature)))))), List(), None)))
                                     } else {
@@ -1545,9 +1546,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             case o@One(st: Statement) =>
                 st match {
                     case cs: CompoundStatement =>
-                        o
+                        One(prepareAST(st, currentContext))
                     case k =>
-                        One(CompoundStatement(List(Opt(trueF, CompoundStatement(List(Opt(trueF, k)))))))
+                        One(CompoundStatement(List(Opt(trueF, prepareAST(k, currentContext)))))
                 }
         })
         r(t) match {
@@ -1747,15 +1748,15 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         def getNextFeatureHelp(a: Any, currentContext: FeatureExpr = trueF): List[FeatureExpr] = {
             a match {
                 case d@Opt(ft, entry: NArySubExpr) =>
-                    if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(fixTypeChefsFeatureExpressions(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, ft))
+                    if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(fixTypeChefsFeatureExpressions(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
                 case d@Opt(ft, entry: Expr) =>
-                    if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(fixTypeChefsFeatureExpressions(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, ft))
+                    if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(fixTypeChefsFeatureExpressions(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
                 case d@Opt(ft, entry: DeclParameterDeclList) =>
-                    if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(fixTypeChefsFeatureExpressions(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, ft))
+                    if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(fixTypeChefsFeatureExpressions(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
                 case d@Opt(ft, entry: ParameterDeclarationD) =>
-                    if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(fixTypeChefsFeatureExpressions(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, ft))
+                    if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(fixTypeChefsFeatureExpressions(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
                 case d@Opt(ft, entry: InitDeclaratorI) =>
-                    (if (!ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) List(fixTypeChefsFeatureExpressions(ft, currentContext)) else List()) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext))
+                    (if (!ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) List(fixTypeChefsFeatureExpressions(ft, currentContext)) else List()) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
                 case d@Opt(ft, entry) =>
                     if (!ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) List(fixTypeChefsFeatureExpressions(ft, currentContext)) else List()
                 case l: List[_] =>
