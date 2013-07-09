@@ -84,7 +84,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             print("\t")
         }
         val startParsingAndTypeChecking = System.currentTimeMillis()
-        val source_ast = getAstFromPi(file)
+        val source_ast = i.prepareAST(getAstFromPi(file))
         //val env = createASTEnv(source_ast)
         typecheckTranslationUnit(source_ast)
         val defUseMap = getDeclUseMap
@@ -1053,7 +1053,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def single_busybox_file_test() {
-        val filename = "cpio"
+        val filename = "decompress_unlzma"
         transformSingleFile(filename, busyBoxPath)
     }
 

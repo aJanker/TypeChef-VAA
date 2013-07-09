@@ -2026,9 +2026,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 case i@IfStatement(One(expr), One(stmt), elif, els) =>
                     val features = computeNextRelevantFeatures(expr)
                     if (features.isEmpty) {
-                        List(Opt(trueF, IfStatement(One(replaceOptAndId(expr, currentContext)), One(transformRecursive(stmt, currentContext)), elif.flatMap(x => handleIfStatements2(x, currentContext)).asInstanceOf[List[Opt[ElifStatement]]], els)))
+                        List(Opt(trueF, IfStatement(One(replaceOptAndId(expr, currentContext)), One(transformRecursive(stmt, currentContext)), elif.flatMap(x => handleIfStatements2(x, currentContext)).asInstanceOf[List[Opt[ElifStatement]]], transformRecursive(els, currentContext))))
                     } else {
-                        features.flatMap(x => List(Opt(trueF, (IfStatement(One(NAryExpr(featureToCExpr(x), List(Opt(trueF, NArySubExpr("&&", replaceOptAndId(expr, x)))))), transformRecursive(replaceOptAndId(One(convertStatementToCompound(stmt)), x), x), elif.flatMap(x => handleIfStatements2(x, currentContext)).asInstanceOf[List[Opt[ElifStatement]]], els)))))
+                        features.flatMap(x => List(Opt(trueF, (IfStatement(One(NAryExpr(featureToCExpr(x), List(Opt(trueF, NArySubExpr("&&", replaceOptAndId(expr, x)))))), transformRecursive(replaceOptAndId(One(convertStatementToCompound(stmt)), x), x), elif.flatMap(x => handleIfStatements2(x, currentContext)).asInstanceOf[List[Opt[ElifStatement]]], transformRecursive(els, currentContext))))))
                     }
 
                 // 2. Step
