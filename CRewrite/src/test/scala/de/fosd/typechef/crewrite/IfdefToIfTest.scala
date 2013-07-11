@@ -965,6 +965,18 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         testFile(file)
     }
 
+    @Test def test_struct_union_typedef() {
+        val file = new File(ifdeftoifTestPath + "struct_union_typedef.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+
+    @Test def test_typedef_function_usage() {
+        val file = new File(ifdeftoifTestPath + "typedef_function_usage.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+
     @Ignore def test_applets_pi() {
         val file = new File(busyBoxPath + "applets/applets.pi")
         testFile(file)
@@ -1049,7 +1061,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def single_busybox_file_test() {
-        val filename = "tar"
+        val filename = "test"
         transformSingleFile(filename, busyBoxPath)
     }
 
@@ -1710,6 +1722,12 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
 
         val ifStmt2 = CompoundStatement(List(Opt(FeatureExprFactory.createDefinedExternal("A").not(), IfStatement(One(Id("a")), One(ExprStatement(AssignExpr(Id("a"), "=", Constant("10")))), List(), None))))
         println(PrettyPrinter.print(i.prepareAST(ifStmt2, FeatureExprFactory.createDefinedExternal("A"))))
+
+        val exprStmt = Opt(FeatureExprFactory.True, Opt(True, ExprStatement(PostfixExpr(Id("tostring"), FunctionCall(ExprList(List(Opt(True, Id("l")))))))))
+        println(i.computeNextRelevantFeatures(exprStmt.entry, FeatureExprFactory.True))
+
+        val returnStmt = ReturnStatement(Some(PostfixExpr(Id("xatoul"), FunctionCall(ExprList(List(Opt(True, Id("numstr"))))))))
+        println(i.computeNextRelevantFeatures(returnStmt))
     }
 
     @Test def test_statements() {
