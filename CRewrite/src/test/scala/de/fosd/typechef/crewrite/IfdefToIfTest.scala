@@ -97,7 +97,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         print("\t--Transformed--")
 
         val startPrettyPrinting = System.currentTimeMillis()
-        PrettyPrinter.printF(new_ast._1, singleFilePath ++ fileNameWithoutExtension ++ ".ifdeftoif")
+        PrettyPrinter.printF(new_ast._1, singleFilePath ++ fileNameWithoutExtension ++ "_ifdeftoif.c")
         val timeToPrettyPrint = System.currentTimeMillis() - startPrettyPrinting
         print("\t--Printed--\n")
         if (writeAst) {
@@ -120,7 +120,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
 
             val csvEnding = "," + timeToParseAndTypeCheck + "," + timeToTransform + "," + timeToPrettyPrint
             writeToTextFile(singleFilePath ++ fileNameWithoutExtension ++ ".csv", getCSVHeader() + csvBeginning + new_ast._2 + csvEnding)
-            val result_ast = i.getAstFromFile(new File(singleFilePath ++ fileNameWithoutExtension ++ ".ifdeftoif"))
+            val result_ast = i.getAstFromFile(new File(singleFilePath ++ fileNameWithoutExtension ++ "_ifdeftoif.c"))
             if (result_ast == null) {
                 if (i.getTypeSystem(new_ast._1).checkAST()) {
                     println("\t--Parsing unsuccessful--")
@@ -1480,7 +1480,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         if (filesTransformed < filesToAnalysePerRun) {
             val filePathWithoutExtension = getFileNameWithoutExtension(file.getPath())
             val fileNameWithoutExtension = getFileNameWithoutExtension(file)
-            val transformedFileExists = (writeFilesIntoIfdeftoifFolder && new File(path ++ fileNameWithoutExtension ++ ".ifdeftoif").exists) || (!writeFilesIntoIfdeftoifFolder && new File(filePathWithoutExtension ++ ".ifdeftoif").exists)
+            val transformedFileExists = (writeFilesIntoIfdeftoifFolder && new File(path ++ fileNameWithoutExtension ++ "_ifdeftoif.c").exists) || (!writeFilesIntoIfdeftoifFolder && new File(filePathWithoutExtension ++ "_ifdeftoif.c").exists)
             var fileName = file.getName()
 
             if (!checkForExistingFiles || !transformedFileExists) {
@@ -1497,7 +1497,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
                 val timeToParseAndTypeCheck = System.currentTimeMillis() - startParsingAndTypeChecking
                 //print("--Parsed--")
 
-                val tuple = i.ifdeftoif(source_ast, defUseMap, FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile("../TypeChef-BusyboxAnalysis/busybox/featureModel")), fileNameWithoutExtension, timeToParseAndTypeCheck, makeAnalysis, path ++ fileNameWithoutExtension ++ ".ifdeftoif")
+                val tuple = i.ifdeftoif(source_ast, defUseMap, FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile("../TypeChef-BusyboxAnalysis/busybox/featureModel")), fileNameWithoutExtension, timeToParseAndTypeCheck, makeAnalysis, path ++ fileNameWithoutExtension ++ "_ifdeftoif.c")
                 tuple._1 match {
                     case None =>
                         println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")
@@ -1513,10 +1513,10 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
 
                 val startPrettyPrinting = System.currentTimeMillis()
                 if (writeFilesIntoIfdeftoifFolder) {
-                    PrettyPrinter.printF(new_ast._1, path ++ fileNameWithoutExtension ++ ".ifdeftoif")
+                    PrettyPrinter.printF(new_ast._1, path ++ fileNameWithoutExtension ++ "_ifdeftoif.c")
                 } else {
                     //writeToTextFile(filePathWithoutExtension ++ ".ifdeftoif", transformedCode)
-                    PrettyPrinter.printF(new_ast._1, filePathWithoutExtension ++ ".ifdeftoif")
+                    PrettyPrinter.printF(new_ast._1, filePathWithoutExtension ++ "_ifdeftoif.c")
                 }
                 val timeToPrettyPrint = System.currentTimeMillis() - startPrettyPrinting
                 //print("\t--Printed--\n")
@@ -1549,7 +1549,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
                             writeToTextFile(filePathWithoutExtension ++ ".src", PrettyPrinter.print(source_ast))
                         }
                         val linesOfCodeBefore = Source.fromFile(new File(filePathWithoutExtension ++ ".src")).getLines().size
-                        val linesOfCodeAfter = Source.fromFile(new File(filePathWithoutExtension ++ ".ifdeftoif")).getLines().size
+                        val linesOfCodeAfter = Source.fromFile(new File(filePathWithoutExtension ++ "_ifdeftoif.c")).getLines().size
                         val codeDifference = i.computeDifference(linesOfCodeBefore, linesOfCodeAfter)
                         val csvBeginning = file.getName() + "," + linesOfCodeBefore + "," + linesOfCodeAfter + "," + codeDifference + ","
                         val csvEnding = "," + timeToParseAndTypeCheck + "," + timeToTransform + "," + timeToPrettyPrint + "\n"
@@ -1809,7 +1809,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     @Ignore def pretty_printer_test() {
         val file = new File(busyBoxPath + "applets/applets.pi")
         //testFile(file)
-        val newFullFilePath = singleFilePath ++ getFileNameWithoutExtension(file) ++ ".ifdeftoif"
+        val newFullFilePath = singleFilePath ++ getFileNameWithoutExtension(file) ++ "_ifdeftoif.c"
         val source_ast = i.getAstFromFile(new File(newFullFilePath))
         typecheckTranslationUnit(source_ast)
     }

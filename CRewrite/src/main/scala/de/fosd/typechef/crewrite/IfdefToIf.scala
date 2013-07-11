@@ -968,23 +968,25 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
         var ifdeftoif_file = ""
         if (newPath.equals("")) {
-            ifdeftoif_file = outputStem + ".ifdeftoif"
+            ifdeftoif_file = outputStem + "_ifdeftoif.c"
         } else {
             ifdeftoif_file = newPath
         }
         PrettyPrinter.printF(result_ast, ifdeftoif_file)
 
-        val typeCheckSuccessful = getTypeSystem(result_ast).checkASTSilent
+        lazy val typeCheckSuccessful = getTypeSystem(result_ast).checkASTSilent
 
-        if (typeCheckSuccessful) {
-            if (writeStatistics) {
-                if (!(new File(path ++ "statistics.csv").exists)) {
-                    writeToFile(path ++ "statistics.csv", getCSVHeader)
-                }
 
-                val csvEntry = createCsvEntry(source_ast, new_ast, fileName, lexAndParseTime, transformTime)
-                appendToFile(path ++ "statistics.csv", csvEntry)
+        if (writeStatistics) {
+            if (!(new File(path ++ "statistics.csv").exists)) {
+                writeToFile(path ++ "statistics.csv", getCSVHeader)
             }
+
+            val csvEntry = createCsvEntry(source_ast, new_ast, fileName, lexAndParseTime, transformTime)
+            appendToFile(path ++ "statistics.csv", csvEntry)
+        }
+
+        if (lexAndParseTime > 0 || typeCheckSuccessful) {
             (Some(result_ast), transformTime, List())
         } else {
             val result_ast_with_position = getAstFromFile(new File(ifdeftoif_file))
