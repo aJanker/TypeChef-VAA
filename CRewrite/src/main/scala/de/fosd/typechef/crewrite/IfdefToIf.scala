@@ -400,21 +400,15 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      * Filteres a given product for feature expressions which are not True and returns a set including each single feature expression
      */
     def filterFeatures(a: Any): Set[SingleFeatureExpr] = {
-        def getFeatureExpressions(a: Any): List[FeatureExpr] = {
-            a match {
-                case o: Opt[_] => (if (o.feature == trueF) List() else List(o.feature)) ++ o.productIterator.toList.flatMap(getFeatureExpressions(_))
-                case l: List[_] => l.flatMap(getFeatureExpressions(_))
-                case p: Product => p.productIterator.toList.flatMap(getFeatureExpressions(_))
-                case t: FeatureExpr => if (t == trueF) List() else List(t)
-                case _ => List()
-            }
-        }
-        val features = getFeatureExpressions(a).flatMap(x => x.collectDistinctFeatureObjects).toSet
-        if (!writeOptionsIntoFile) {
-            featureSet = featureSet ++ features
-        }
-        noOfFeatures = features.size
-        features
+        var featureSet: Set[FeatureExpr] = Set()
+        val r = manytd(query {
+            case Opt(ft, entry) =>
+                featureSet += ft
+            case Choice(ft, a, b) =>
+                featureSet += ft
+        })
+        r(a).get
+        featureSet.flatMap(x => x.collectDistinctFeatureObjects)
     }
 
     /**
@@ -1983,6 +1977,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     }
 
     def handleForStatements(opt: Opt[Statement], currentContext: FeatureExpr = trueF): List[Opt[Statement]] = {
+
         // 1. Step
         if (!opt.feature.equals(trueF)) {
             opt.entry match {
@@ -1994,22 +1989,22 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         } else {
             opt.entry match {
 
+                // 2. Step
+                case f@ForStatement(expr1, expr2, expr3, c: Choice[Statement]) =>
+                    val conditionalTuple = conditionalToTuple(c, currentContext)
+                    conditionalTuple.map(x => Opt(trueF, IfStatement(One(featureToCExpr(x._1)), One(CompoundStatement(handleForStatements(Opt(trueF, ForStatement(expr1, expr2, expr3, One(x._2))), x._1))), List(), None)))
+
                 // 3. Step
                 case f@ForStatement(expr1, expr2, expr3, One(stmt: Statement)) =>
                     val features1 = computeNextRelevantFeatures(expr1.getOrElse(EmptyStatement()))
                     val features2 = computeNextRelevantFeatures(expr2.getOrElse(EmptyStatement()))
-                    val features3 = computeNextRelevantFeatures(expr1.getOrElse(EmptyStatement()))
+                    val features3 = computeNextRelevantFeatures(expr3.getOrElse(EmptyStatement()))
                     val features = computeCarthesianProduct(List(features1, features2.diff(features1), features3.diff(features2 ++ features1)))
                     if (features.isEmpty) {
                         List(Opt(trueF, ForStatement(replaceOptAndId(expr1, currentContext), replaceOptAndId(expr2, currentContext), replaceOptAndId(expr3, currentContext), One(transformRecursive(stmt)))))
                     } else {
                         features.map(x => Opt(trueF, (IfStatement(One(featureToCExpr(x)), One(CompoundStatement(List(Opt(trueF, ForStatement(replaceOptAndId(expr1, x), replaceOptAndId(expr2, x), replaceOptAndId(expr3, x), One(transformRecursive(stmt))))))), List(), None))))
                     }
-
-                // 2. Step
-                case f@ForStatement(expr1, expr2, expr3, c: Conditional[Statement]) =>
-                    val conditionalTuple = conditionalToTuple(c, currentContext)
-                    conditionalTuple.map(x => Opt(trueF, IfStatement(One(featureToCExpr(x._1)), One(CompoundStatement(handleForStatements(Opt(trueF, ForStatement(expr1, expr2, expr3, One(x._2))), x._1))), List(), None)))
             }
         }
     }
