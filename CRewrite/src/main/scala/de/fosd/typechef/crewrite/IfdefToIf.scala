@@ -624,7 +624,6 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             val r = alltd(rule {
                 case init@InitDeclaratorI(decl@AtomicNamedDeclarator(a, i: Id, b), attr, inits) =>
                     if (i.name != "main") {
-                        print(" " + i)
                         addIdUsages(i, ft)
                         replaceId.put(i, ft)
                         if (!IdMap.contains(ft)) {
