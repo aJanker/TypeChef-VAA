@@ -1061,7 +1061,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def single_busybox_file_test() {
-        val filename = "test"
+        val filename = "expr"
         transformSingleFile(filename, busyBoxPath)
     }
 
