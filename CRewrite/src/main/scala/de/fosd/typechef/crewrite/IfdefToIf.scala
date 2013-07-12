@@ -1163,10 +1163,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                         }
 
                                     case declStmt@DeclarationStatement(decl: Declaration) =>
-                                        handleDeclarations_new(Opt(ft, decl), currentContext).map(x => Opt(trueF, DeclarationStatement(x.entry)))
+                                        handleDeclarations(Opt(ft, decl), currentContext).map(x => Opt(trueF, DeclarationStatement(x.entry)))
 
                                     case decl: Declaration =>
-                                        handleDeclarations_new(o.asInstanceOf[Opt[Declaration]], currentContext)
+                                        handleDeclarations(o.asInstanceOf[Opt[Declaration]], currentContext)
 
                                     case typeless: TypelessDeclaration =>
                                         // TODO: Umwandlung
@@ -1285,7 +1285,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                         val result = handleStatements(o, currentContext)
                                         result
                                     case declStmt@DeclarationStatement(decl: Declaration) =>
-                                        handleDeclarations_new(Opt(ft, decl), currentContext).map(x => Opt(trueF, DeclarationStatement(x.entry)))
+                                        handleDeclarations(Opt(ft, decl), currentContext).map(x => Opt(trueF, DeclarationStatement(x.entry)))
                                     case ss: SwitchStatement =>
                                         noOfStatements = noOfStatements + 1
                                         handleStatements(o, currentContext)
@@ -1357,7 +1357,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                             List(transformRecursive(o, currentContext))
                                         }
                                     case d@Declaration(declSpecs, init) =>
-                                        handleDeclarations_new(o.asInstanceOf[Opt[Declaration]], currentContext)
+                                        handleDeclarations(o.asInstanceOf[Opt[Declaration]], currentContext)
                                     case k: Product => List(transformRecursive(o, currentContext))
                                     case _ => List(o)
                                 }
