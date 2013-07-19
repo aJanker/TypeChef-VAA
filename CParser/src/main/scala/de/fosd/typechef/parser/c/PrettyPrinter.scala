@@ -1,5 +1,4 @@
 package de.fosd.typechef.parser.c
-
 import de.fosd.typechef.conditional._
 import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr}
 import java.io.{FileWriter, StringWriter, Writer}
@@ -220,7 +219,7 @@ object PrettyPrinter {
             case NArySubExpr(op: String, e: Expr) => op ~~ e
             case ConditionalExpr(condition: Expr, thenExpr, elseExpr: Expr) => "(" ~ condition ~~ "?" ~~ opt(thenExpr) ~~ ":" ~~ elseExpr ~ ")"
             case AssignExpr(target: Expr, operation: String, source: Expr) => "(" ~ target ~~ operation ~~ source ~ ")"
-            case ExprList(exprs) => sep(exprs, _ ~~ "," ~~ _)
+            case ExprList(exprs) => sepVaware(exprs, ",", space)
 
             case CompoundStatement(innerStatements) =>
                 block(sep(innerStatements, _ * _))
@@ -239,13 +238,13 @@ object PrettyPrinter {
             case CaseStatement(c: Expr) => "case" ~~ c ~ ":"
             case DefaultStatement() => "default:"
             case IfStatement(condition, thenBranch, elifs, elseBranch) =>
-                "if (" ~ condition ~ ")" ~~ thenBranch ~~ sep(elifs, _ * _) ~~ optCondExt(elseBranch, line ~ "else" ~~ _)
+                "if (" ~ condition ~ ")" ~~ thenBranch ~~ sepVaware(elifs, ",", line) ~~ optCondExt(elseBranch, line ~ "else" ~~ _)
             case ElifStatement(condition, thenBranch) => line ~ "else if (" ~ condition ~ ")" ~~ thenBranch
             case SwitchStatement(expr, s) => "switch (" ~ expr ~ ")" ~~ s
             case DeclarationStatement(decl: Declaration) => decl
             case NestedFunctionDef(isAuto, specifiers, declarator, parameters, stmt) =>
-                (if (isAuto) "auto" ~~ Empty else Empty) ~ sep(specifiers, _ ~~ _) ~~ declarator ~~ sep(parameters, _ ~~ _) ~~ stmt
-            case LocalLabelDeclaration(ids) => "__label__" ~~ sep(ids, _ ~ "," ~~ _) ~ ";"
+                (if (isAuto) "auto" ~~ Empty else Empty) ~ sepVaware(specifiers, ",", space) ~~ declarator ~~ sepVaware(parameters, ",", space) ~~ stmt
+            case LocalLabelDeclaration(ids) => "__label__" ~~ sepVaware(ids, ",", space) ~ ";"
             case OtherPrimitiveTypeSpecifier(typeName: String) => typeName
             case VoidSpecifier() => "void"
             case ShortSpecifier() => "short"
@@ -270,11 +269,11 @@ object PrettyPrinter {
             case StaticSpecifier() => "static"
 
             case AtomicAttribute(n: String) => n
-            case AttributeSequence(attributes) => sep(attributes, _ ~~ _)
-            case CompoundAttribute(inner) => "(" ~ sep(inner, _ ~ "," ~~ _) ~ ")"
+            case AttributeSequence(attributes) => sepVaware(attributes, ",", space)
+            case CompoundAttribute(inner) => "(" ~ sepVaware(inner, ",", space) ~ ")"
 
             case Declaration(declSpecs, init) =>
-                sep(declSpecs, _ ~~ _) ~~ sepVaware(init, ",") ~ ";"
+                sepVaware(declSpecs, ",", space) ~~ sepVaware(init, ",") ~ ";"
 
             case InitDeclaratorI(declarator, lst, Some(i)) =>
                 if (!lst.isEmpty) {
