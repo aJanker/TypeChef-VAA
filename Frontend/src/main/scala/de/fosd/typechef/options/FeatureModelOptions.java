@@ -1,4 +1,4 @@
-package de.fosd.typechef.options;
+package de.fosd.typechef.lexer.options;
 
 import de.fosd.typechef.featureexpr.FeatureExpr;
 import de.fosd.typechef.featureexpr.FeatureExprParserJava;

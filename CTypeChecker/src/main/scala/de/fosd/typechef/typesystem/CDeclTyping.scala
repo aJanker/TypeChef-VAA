@@ -170,6 +170,8 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
             case _ =>
         }
 
+
+
         def count(spec: Specifier): Int = specifiers.count(_ == spec)
         def has(spec: Specifier): Boolean = count(spec) > 0
 

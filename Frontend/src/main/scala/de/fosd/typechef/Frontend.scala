@@ -1,5 +1,9 @@
 package de.fosd.typechef
 
+/*
+* temporarily copied from PreprocessorFrontend due to technical problems
+*/
+
 
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem._
@@ -138,6 +142,43 @@ object Frontend {
 
                     stopWatch.start("typechecking")
                     println("type checking.")
+                    val typeCheckStatus = ts.checkAST()
+                    if (opt.decluse) {
+                        if (typeCheckStatus) {
+                            val i = new IfdefToIf
+                            val fw = new FileWriter(i.outputStemToFileName(opt.getOutputStem()) + ".decluse")
+                            fw.write(ts.checkDefuse(ast, ts.getDeclUseMap, fm_ts)._1)
+                            fw.close()
+                            //println(ts.checkDefuse(ts.prepareAST(ast), ts.getDeclUseMap, fm_ts)._1)
+                        } else {
+                            println("generating the declaration-usage map unsuccessful because of type errors in source file")
+                        }
+                    }
+                    if (opt.ifdeftoif) {
+                        if (typeCheckStatus) {
+                            //ProductGeneration.typecheckProducts(fm,fm_ts,ast,opt,
+                            //logMessage=("Time for lexing(ms): " + (t2-t1) + "\nTime for parsing(ms): " + (t3-t2) + "\n"))
+                            //ProductGeneration.estimateNumberOfVariants(ast, fm_ts)
+                            val i = new IfdefToIf
+                            val defUseMap = ts.getDeclUseMap
+                            val fileName = i.outputStemToFileName(opt.getOutputStem())
+                            val tuple = i.ifdeftoif(ast, defUseMap, fm, opt.getOutputStem(), stopWatch.get("lexing") + stopWatch.get("parsing"), opt.ifdeftoifstatistics)
+                            tuple._1 match {
+                                case None =>
+                                    println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")
+                                /*
+                                tuple._3.map(errorXML.renderTypeError(_))
+                                 */
+                                case Some(x) =>
+                                    if (!opt.getOutputStem().isEmpty()) {
+                                        println("++Transformed: " ++ fileName ++ "++\t\t --in " + tuple._2 ++ " ms--")
+                                    }
+                            }
+                        } else {
+                            println("#ifdef to if transformation unsuccessful because of type errors in source file")
+                        }
+                    }
+                    ts.errors.map(errorXML.renderTypeError(_))
                     ts.checkAST()
                     ts.errors.map(errorXML.renderTypeError(_))
                 }
@@ -161,18 +202,6 @@ object Frontend {
                 if (opt.warning_double_free) {
                     stopWatch.start("doublefree")
                     sa.doubleFree()
-                }
-                if (opt.warning_uninitialized_memory) {
-                    stopWatch.start("uninitializedmemory")
-                    sa.uninitializedMemory()
-                }
-                if (opt.warning_xfree) {
-                    stopWatch.start("xfree")
-                    sa.xfree()
-                }
-                if (opt.warning_dangling_switch_code) {
-                    stopWatch.start("danglingswitchcode")
-                    sa.danglingSwitchCode()
                 }
 
             }

@@ -53,9 +53,9 @@ class CTypeSystemFrontend(iast: TranslationUnit,
             val e = new TypeChefError(severity, condition, msg, where, severityExtra)
             errors = e :: errors
             if (!isSilent) {
-            	println("  - " + e)
-        	}
-    }
+                println("  - " + e)
+            }
+        }
 
 
     /**

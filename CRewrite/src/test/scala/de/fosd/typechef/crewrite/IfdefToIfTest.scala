@@ -1,10 +1,9 @@
 package de.fosd.typechef.crewrite
 
 import org.junit.{Ignore, Test}
-import org.kiama.rewriting.Rewriter._
 import de.fosd.typechef.featureexpr.sat._
 import de.fosd.typechef.parser.c._
-import CASTEnv._
+import de.fosd.typechef.crewrite.CASTEnv._
 import de.fosd.typechef.typesystem._
 import java.io._
 import java.util
@@ -16,7 +15,6 @@ import de.fosd.typechef.conditional.{Choice, One, Opt}
 import de.fosd.typechef.featureexpr.{FeatureExprParser, FeatureExprFactory}
 import de.fosd.typechef.lexer.FeatureExprLib
 
-@Ignore
 class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclUse with CTypeSystem with TestHelper {
     val makeAnalysis = true
     val writeFilesIntoIfdeftoifFolder = true
@@ -86,7 +84,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             print("\t")
         }
         val startParsingAndTypeChecking = System.currentTimeMillis()
-        val source_ast = i.fixTypeChefsFeatureExpressions(getAstFromPi(file))
+        val source_ast = i.prepareAST(i.getAstFromFile(file))
         //val env = createASTEnv(source_ast)
         typecheckTranslationUnit(source_ast)
         val defUseMap = getDeclUseMap
@@ -99,7 +97,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         print("\t--Transformed--")
 
         val startPrettyPrinting = System.currentTimeMillis()
-        PrettyPrinter.printF(new_ast._1, singleFilePath ++ fileNameWithoutExtension ++ ".ifdeftoif")
+        PrettyPrinter.printF(new_ast._1, singleFilePath ++ fileNameWithoutExtension ++ "_ifdeftoif.c")
         val timeToPrettyPrint = System.currentTimeMillis() - startPrettyPrinting
         print("\t--Printed--\n")
         if (writeAst) {
@@ -122,7 +120,14 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
 
             val csvEnding = "," + timeToParseAndTypeCheck + "," + timeToTransform + "," + timeToPrettyPrint
             writeToTextFile(singleFilePath ++ fileNameWithoutExtension ++ ".csv", getCSVHeader() + csvBeginning + new_ast._2 + csvEnding)
-            if (!i.getTypeSystem(getAstFromPi(new File(singleFilePath ++ fileNameWithoutExtension ++ ".ifdeftoif"))).checkAST()) {
+            val result_ast = i.getAstFromFile(new File(singleFilePath ++ fileNameWithoutExtension ++ "_ifdeftoif.c"))
+            if (result_ast == null) {
+                if (i.getTypeSystem(new_ast._1).checkAST()) {
+                    println("\t--Parsing unsuccessful--")
+                } else {
+                    println("\t--TypeCheck: " + false + "--\n")
+                }
+            } else if (!i.getTypeSystem(result_ast).checkAST()) {
                 println("\t--TypeCheck: " + false + "--\n")
             }
         }
@@ -147,15 +152,8 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         newAsts.foreach(x => writeToTextFile(PrettyPrinter.print(x._1), x._2 ++ "_tmp"))*/
     }
 
-    private def getAstFromPi(fileToAnalyse: File): TranslationUnit = {
-        val fis = new FileInputStream(fileToAnalyse)
-        val ast = parseFile(fis, fileToAnalyse.getName, fileToAnalyse.getParent)
-        fis.close()
-        ast
-    }
-
     private def compareTypeChecking(file: File): Tuple2[Long, Long] = {
-        val source_ast = getAstFromPi(file)
+        val source_ast = i.getAstFromFile(file)
         val result_ast = i.transformAst(source_ast, getDefUse(source_ast))._1
         val ts_source = getTypeSystem(source_ast)
         val ts_result = getTypeSystem(result_ast)
@@ -472,6 +470,24 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
       i = 64;
       #else
       i = 128;
+      #endif
+      if (i) {
+        return 0;
+      }
+      }
+                                 """)
+        println(source_ast)
+        println(testAst(source_ast))
+
+    }
+
+    @Test def optional_if_test {
+        val source_ast = getAST( """
+      void foo_04(int a) {
+      #if definedEx(A)
+      if (a) {
+        a = a * a;
+      }
       #endif
       }
                                  """)
@@ -798,6 +814,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         return (i > j) ? i : j;
       }
                                  """);
+        println(source_ast)
         println(testAst(source_ast))
     }
 
@@ -948,6 +965,18 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         testFile(file)
     }
 
+    @Test def test_struct_union_typedef() {
+        val file = new File(ifdeftoifTestPath + "struct_union_typedef.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+
+    @Test def test_typedef_function_usage() {
+        val file = new File(ifdeftoifTestPath + "typedef_function_usage.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+
     @Ignore def test_applets_pi() {
         val file = new File(busyBoxPath + "applets/applets.pi")
         testFile(file)
@@ -968,7 +997,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         de.fosd.typechef.featureexpr.FeatureExprFactory.setDefault(de.fosd.typechef.featureexpr.FeatureExprFactory.bdd)
 
         val parse = System.currentTimeMillis()
-        val ast = getAstFromPi(file)
+        val ast = i.getAstFromFile(file)
         println("Parsing took: " + ((System.currentTimeMillis() - parse) / 1000) + "s")
     }
 
@@ -976,7 +1005,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val file = new File(busyBoxPath + "archival/cpio.pi")
         testFile(file)
 
-        /*val ast = getAstFromPi(file)
+        /*val ast = getAstFromFile(file)
         val defuse = getDeclUseMap()
         i.ifdeftoif(ast, defuse)*/
     }
@@ -1029,6 +1058,11 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     @Ignore def test_tar_pi() {
         val file = new File(busyBoxPath + "archival/tar.pi")
         testFile(file)
+    }
+
+    @Test def single_busybox_file_test() {
+        val filename = "test"
+        transformSingleFile(filename, busyBoxPath)
     }
 
     @Ignore def test_bbunzip_pi() {
@@ -1119,6 +1153,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
     #endif
     }""")
+        println(source_ast)
         println(testAst(source_ast))
     }
 
@@ -1404,11 +1439,48 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         transformPiFiles(dirToAnalyse)
     }
 
+    private def transformSingleFile(filename: String, directory: String) {
+        var foundFile = false
+        val dirToAnalyse = new File(directory)
+
+        def transformPiFiles(dirToAnalyse: File) {
+            if (!foundFile) {
+                // retrieve all pi from dir first
+                if (dirToAnalyse.isDirectory) {
+                    val piFiles = dirToAnalyse.listFiles(new FilenameFilter {
+                        def accept(dir: File, file: String): Boolean =
+                            file.equals(filename + ".pi")
+                    })
+                    val dirs = dirToAnalyse.listFiles(new FilenameFilter {
+                        def accept(dir: File, file: String) = dir.isDirectory
+                    })
+                    if (!piFiles.isEmpty) {
+                        foundFile = true
+                        testFile(piFiles.head)
+                    } else {
+                        for (dir <- dirs) {
+                            transformPiFiles(dir)
+                        }
+                    }
+
+                }
+            }
+        }
+        if (dirToAnalyse.exists()) {
+            new File(path).mkdirs()
+            if (!checkForExistingFiles || !(new File(path ++ "results.csv").exists)) {
+                writeToFile(path ++ "results.csv", getCSVHeader())
+            }
+
+            transformPiFiles(dirToAnalyse)
+        }
+    }
+
     private def runIfdefToIfOnPi(file: File) {
         if (filesTransformed < filesToAnalysePerRun) {
             val filePathWithoutExtension = getFileNameWithoutExtension(file.getPath())
             val fileNameWithoutExtension = getFileNameWithoutExtension(file)
-            val transformedFileExists = (writeFilesIntoIfdeftoifFolder && new File(path ++ fileNameWithoutExtension ++ ".ifdeftoif").exists) || (!writeFilesIntoIfdeftoifFolder && new File(filePathWithoutExtension ++ ".ifdeftoif").exists)
+            val transformedFileExists = (writeFilesIntoIfdeftoifFolder && new File(path ++ fileNameWithoutExtension ++ "_ifdeftoif.c").exists) || (!writeFilesIntoIfdeftoifFolder && new File(filePathWithoutExtension ++ "_ifdeftoif.c").exists)
             var fileName = file.getName()
 
             if (!checkForExistingFiles || !transformedFileExists) {
@@ -1419,18 +1491,18 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
                 filesTransformed = filesTransformed + 1
 
                 val startParsingAndTypeChecking = System.currentTimeMillis()
-                val source_ast = i.fixTypeChefsFeatureExpressions(getAstFromPi(file))
+                val source_ast = i.getAstFromFile(file)
                 typecheckTranslationUnit(source_ast)
                 val defUseMap = getDeclUseMap
                 val timeToParseAndTypeCheck = System.currentTimeMillis() - startParsingAndTypeChecking
                 //print("--Parsed--")
 
-                val tuple = i.ifdeftoif(source_ast, defUseMap, FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile("../TypeChef-BusyboxAnalysis/busybox/featureModel")), fileNameWithoutExtension, timeToParseAndTypeCheck)
+                val tuple = i.ifdeftoif(source_ast, defUseMap, FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile("../TypeChef-BusyboxAnalysis/busybox/featureModel")), fileNameWithoutExtension, timeToParseAndTypeCheck, makeAnalysis, path ++ fileNameWithoutExtension ++ "_ifdeftoif.c")
                 tuple._1 match {
                     case None =>
                         println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")
                     case Some(x) =>
-                        PrettyPrinter.printF(x, fileNameWithoutExtension ++ ".ifdeftoif")
+                        //PrettyPrinter.printF(x, path ++ fileNameWithoutExtension ++ ".ifdeftoif")
                         println("++Transformed: " ++ fileName ++ "++\t\t --in " + tuple._2 ++ " ms--")
                 }
 
@@ -1440,13 +1512,11 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
                 //print("\t--Transformed--")
 
                 val startPrettyPrinting = System.currentTimeMillis()
-                //val transformedCode = PrettyPrinter.print(tempAst._1)
                 if (writeFilesIntoIfdeftoifFolder) {
-                    //writeToTextFile(path ++ fileNameWithoutExtension ++ ".ifdeftoif", transformedCode)
-                    PrettyPrinter.printF(new_ast._1, path ++ fileNameWithoutExtension ++ ".ifdeftoif")
+                    PrettyPrinter.printF(new_ast._1, path ++ fileNameWithoutExtension ++ "_ifdeftoif.c")
                 } else {
                     //writeToTextFile(filePathWithoutExtension ++ ".ifdeftoif", transformedCode)
-                    PrettyPrinter.printF(new_ast._1, filePathWithoutExtension ++ ".ifdeftoif")
+                    PrettyPrinter.printF(new_ast._1, filePathWithoutExtension ++ "_ifdeftoif.c")
                 }
                 val timeToPrettyPrint = System.currentTimeMillis() - startPrettyPrinting
                 //print("\t--Printed--\n")
@@ -1479,7 +1549,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
                             writeToTextFile(filePathWithoutExtension ++ ".src", PrettyPrinter.print(source_ast))
                         }
                         val linesOfCodeBefore = Source.fromFile(new File(filePathWithoutExtension ++ ".src")).getLines().size
-                        val linesOfCodeAfter = Source.fromFile(new File(filePathWithoutExtension ++ ".ifdeftoif")).getLines().size
+                        val linesOfCodeAfter = Source.fromFile(new File(filePathWithoutExtension ++ "_ifdeftoif.c")).getLines().size
                         val codeDifference = i.computeDifference(linesOfCodeBefore, linesOfCodeAfter)
                         val csvBeginning = file.getName() + "," + linesOfCodeBefore + "," + linesOfCodeAfter + "," + codeDifference + ","
                         val csvEnding = "," + timeToParseAndTypeCheck + "," + timeToTransform + "," + timeToPrettyPrint + "\n"
@@ -1624,128 +1694,40 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Ignore def nocontext_variableids_test() {
-        println(testAst(getAstFromPi(new File(ifdeftoifTestPath + "nocontext_variableids.c"))))
+        println(testAst(i.getAstFromFile(new File(ifdeftoifTestPath + "nocontext_variableids.c"))))
     }
 
     @Ignore def context_variableids_test() {
-        println(testAst(getAstFromPi(new File(ifdeftoifTestPath + "context_variableids.c"))))
+        println(testAst(i.getAstFromFile(new File(ifdeftoifTestPath + "context_variableids.c"))))
     }
 
     @Ignore def variable_struct_member_test() {
-        println(testAst(getAstFromPi(new File(ifdeftoifTestPath + "typedef_in_struct.c"))))
+        println(testAst(i.getAstFromFile(new File(ifdeftoifTestPath + "typedef_in_struct.c"))))
     }
 
-    @Ignore def busy_box_test() {
+    @Test def busy_box_test() {
         val busybox = new File(busyBoxPath + "")
-        transformDir(busybox)
+        if (busybox.exists()) {
+            transformDir(busybox)
+        }
     }
 
     @Test def random_test() {
-        val source_ast = getAST( """
-    #if definedEx(CONFIG_BUILD_LIBBUSYBOX)
-    #if definedEx(CONFIG_FEATURE_SHARED_BUSYBOX)
-    int lbb_main(char **argv) __attribute__(( visibility("default") ));
-    #endif
-    #if !definedEx(CONFIG_FEATURE_SHARED_BUSYBOX)
-    int lbb_main(char **argv);
-    #endif
-    #endif
-                                 """)
+        val feature = FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_CONTEXT").or(FeatureExprFactory.createDefinedExternal("CONFIG_SELINUX"))
+        val list = List(List(feature, feature), List(feature, feature), List(feature, feature), List(feature, feature), List(feature, feature))
+        println(i.computeCarthesianProduct(list))
 
-        val source_ast2 = getAST( """
-    #if definedEx(CONFIG_BUILD_LIBBUSYBOX)
-    #if definedEx(CONFIG_FEATURE_SHARED_BUSYBOX)
-    int lbb_main(char **argv) __attribute__(( visibility("default") ));
-    #endif
-    #if !definedEx(CONFIG_FEATURE_SHARED_BUSYBOX)
-    double lbb_main(char **argv);
-    #endif
-    #endif
-                                  """)
+        val ifStmt = TranslationUnit(List(Opt(FeatureExprFactory.True, FunctionDef(List(Opt(True, VoidSpecifier())), AtomicNamedDeclarator(List(), Id("main"), List(Opt(True, DeclIdentifierList(List())))), List(), CompoundStatement(List(Opt(FeatureExprFactory.True, IfStatement(One(Id("a")), One(ExprStatement(AssignExpr(Id("a"), "=", Constant("10")))), List(), None))))))))
+        println(PrettyPrinter.print(i.prepareAST(ifStmt)))
 
-        val source_ast3 = getAST( """
-    void foo() {
-      write_ar_archive(archive_handle);
-      if (options.config_feature_ar_Create) {
-        if ((opt & (1 << 6))) {
-          return write_ar_archive(archive_handle);
-        }
-      } else if (opt) {
-        if ((opt)) {
-          return write_ar_archive();
-        }
-      } else if (opt) {
-        if (opt) {
-          return write_ar_archive();
-        }
-      } else {
-        return write_ar_archive();
-      }
-    }
-    void main() {
-    int i = 0, x = 10;
-    while (i < x) {
-    i++;
-    #if definedEx(x64)
-    i++;
-    #endif
-    }
-    int j;
-    for (j = 0; j < 10; j++) {
-    j = j
-    #if definedEx(A)
-    * 2
-    #endif
-    ;
-    #if definedEx(x64)
-    j++;
-    #endif
-    }
-        while (j < 20) {
-          j++;
-        }
-    }
-                                  """)
-        val i1 = Id("i")
-        val i2 = Id("i")
-        val i3 = Id("i")
-        val i4 = Id("i")
+        val ifStmt2 = CompoundStatement(List(Opt(FeatureExprFactory.createDefinedExternal("A").not(), IfStatement(One(Id("a")), One(ExprStatement(AssignExpr(Id("a"), "=", Constant("10")))), List(), None))))
+        println(PrettyPrinter.print(i.prepareAST(ifStmt2, FeatureExprFactory.createDefinedExternal("A"))))
 
-        println("Source: " + source_ast)
-        println("+++Pretty printed+++\n" + PrettyPrinter.print(source_ast))
+        val exprStmt = Opt(FeatureExprFactory.True, Opt(True, ExprStatement(PostfixExpr(Id("tostring"), FunctionCall(ExprList(List(Opt(True, Id("l")))))))))
+        println(i.computeNextRelevantFeatures(exprStmt.entry, FeatureExprFactory.True))
 
-        println("Source2: " + source_ast2)
-        println("+++Pretty printed+++\n" + PrettyPrinter.print(source_ast2))
-
-        println("Source3: " + source_ast3)
-        println("+++Pretty printed+++\n" + PrettyPrinter.print(source_ast3))
-
-        println("Eq: " + i1.eq(i2))
-        println("Equals: " + i1.equals(i2))
-
-        val m: util.IdentityHashMap[Product, Product] = new IdentityHashMap()
-        m.put(i1, i2)
-        println("Map contains: " + m.containsKey(i4))
-
-        println(source_ast3)
-        println(PrettyPrinter.print(source_ast3))
-
-        val r = breadthfirst(query {
-            case k => println(k)
-        })
-
-        val decl = Opt(True, Declaration(List(Opt(True, IntSpecifier())), List(Opt(True, InitDeclaratorI(AtomicNamedDeclarator(List(), Id("printf_main"), List()), List(), None)))))
-        r(decl).get
-        val forTrue = Opt(True, ForStatement(Some(AssignExpr(Id("j"), "=", Constant("0"))), Some(NAryExpr(Id("j"), List(Opt(True, NArySubExpr("<", Constant("10")))))), Some(PostfixExpr(Id("j"), SimplePostfixSuffix("++"))), One(CompoundStatement(List(Opt(True, ExprStatement(AssignExpr(Id("j"), "=", NAryExpr(Id("j"), List(Opt(fx, NArySubExpr("*", Constant("2")))))))), Opt(fx, ExprStatement(PostfixExpr(Id("j"), SimplePostfixSuffix("++")))))))))
-        val forFalse = Opt(True, ForStatement(Some(AssignExpr(Id("j"), "=", Constant("0"))), Some(NAryExpr(Id("j"), List(Opt(True, NArySubExpr("<", Constant("10")))))), Some(PostfixExpr(Id("j"), SimplePostfixSuffix("++"))), One(CompoundStatement(List(Opt(True, ExprStatement(AssignExpr(Id("j"), "=", NAryExpr(Id("j"), List(Opt(True, NArySubExpr("*", Constant("2")))))))), Opt(True, ExprStatement(PostfixExpr(Id("j"), SimplePostfixSuffix("++")))))))))
-        val forFalseButDeeper = Opt(True, ForStatement(Some(AssignExpr(Id("j"), "=", Constant("0"))), Some(NAryExpr(Id("j"), List(Opt(True, NArySubExpr("<", Constant("10")))))), Some(PostfixExpr(Id("j"), SimplePostfixSuffix("++"))), One(CompoundStatement(List(Opt(True, ExprStatement(AssignExpr(Id("j"), "=", NAryExpr(Id("j"), List(Opt(fx, NArySubExpr("*", Constant("2")))))))), Opt(True, ExprStatement(PostfixExpr(Id("j"), SimplePostfixSuffix("++")))))))))
-        println("ForStatement variability: " + i.nextLevelContainsVariability(forTrue.entry))
-        println("ForStatement variability: " + i.nextLevelContainsVariability(forFalse.entry))
-        println("ForStatement variability: " + i.nextLevelContainsVariability(forFalseButDeeper.entry))
-
-        println("\nNext Level: " + i.getNextOptList(forTrue.entry))
-        println("\nNext Level: " + i.getNextOptList(forFalse.entry))
-        println("\nNext Level: " + i.getNextOptList(forFalseButDeeper.entry))
+        val returnStmt = ReturnStatement(Some(PostfixExpr(Id("xatoul"), FunctionCall(ExprList(List(Opt(True, Id("numstr"))))))))
+        println(i.computeNextRelevantFeatures(returnStmt))
     }
 
     @Test def test_statements() {
@@ -1761,7 +1743,8 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     i = 2*i;
     }
                                  """)
-        println(PrettyPrinter.print(source_ast))
+        println(source_ast)
+        println(PrettyPrinter.print(i.prepareAST(source_ast)))
         println(testAst(source_ast))
 
         val source_ast2 = getAST( """
@@ -1808,7 +1791,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val b = FeatureExprFactory.createDefinedExternal("B")
         val c = FeatureExprFactory.createDefinedExternal("C")
         val listOfLists = List(List(a, a.not()), List(), List(c, c.not()))
-        println(i.computeScalarProduct(listOfLists))
+        println(i.computeCarthesianProduct(listOfLists))
     }
 
     @Test def feature_explosion() {
@@ -1826,15 +1809,15 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     @Ignore def pretty_printer_test() {
         val file = new File(busyBoxPath + "applets/applets.pi")
         //testFile(file)
-        val newFullFilePath = singleFilePath ++ getFileNameWithoutExtension(file) ++ ".ifdeftoif"
-        val source_ast = getAstFromPi(new File(newFullFilePath))
+        val newFullFilePath = singleFilePath ++ getFileNameWithoutExtension(file) ++ "_ifdeftoif.c"
+        val source_ast = i.getAstFromFile(new File(newFullFilePath))
         typecheckTranslationUnit(source_ast)
     }
 
-    @Ignore def file_test() {
-        val file = new File(ifdeftoifTestPath + "variable_enumerator.c")
+    @Test def file_test() {
+        val file = new File(ifdeftoifTestPath + "feature_test.c")
 
-        val source_ast = getAstFromPi(file)
+        val source_ast = i.getAstFromFile(file)
         println(source_ast.toString() ++ "\n\n")
         testFile(file)
     }
@@ -1859,7 +1842,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val debug = 0*/
 
         val file = new File(ifdeftoifTestPath + "function_call_test.c")
-        val source_ast = getAstFromPi(file)
+        val source_ast = i.getAstFromFile(file)
 
         println(i.countNumberOfDeclarations(source_ast))
     }

@@ -17,9 +17,14 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     public boolean parse = true,
             typecheck = false,
             ifdeftoif = false,
+            ifdeftoifstatistics = false,
             decluse = false,
             writeInterface = false,
             dumpcfg = false,
+            doublefree = false,
+            uninitializedmemory = false,
+            xfree = false,
+            danglingswitchcode = false,
             serializeAST = false,
             reuseAST = false,
             writeDebugInterface = false,
@@ -35,9 +40,13 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
 
     private final static char F_PARSE = Options.genOptionId();
     private final static char F_INTERFACE = Options.genOptionId();
-    private final static char F_WRITEPI = Options.genOptionId();
+    private final static char statF_WRITEPI = Options.genOptionId();
     private final static char F_DEBUGINTERFACE = Options.genOptionId();
     private final static char F_DUMPCFG = Options.genOptionId();
+    private final static char F_DOUBLEFREE = Options.genOptionId();
+    private final static char F_UNINITIALIZEDMEMORY = Options.genOptionId();
+    private final static char F_XFREE = Options.genOptionId();
+    private final static char F_DANGLINGSWITCHCODE = Options.genOptionId();
     private final static char F_SERIALIZEAST = Options.genOptionId();
     private final static char F_REUSEAST = Options.genOptionId();
     private final static char F_RECORDTIMING = Options.genOptionId();
@@ -46,6 +55,9 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_HIDEPARSERRESULTS = Options.genOptionId();
     private final static char F_BDD = Options.genOptionId();
     private final static char F_ERRORXML = Options.genOptionId();
+    private final static char F_IFDEFTOIF = Options.genOptionId();
+    private final static char F_IFDEFTOIFSTATISTICS = Options.genOptionId();
+    private final static char F_DECLUSE = Options.genOptionId();
     private Function3<FeatureExpr, String, Position, Object> _renderParserError;
 
 
@@ -66,10 +78,25 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                 new Option("dumpcfg", LongOpt.NO_ARGUMENT, F_DUMPCFG, null,
                         "Lex, parse, and dump control flow graph"),
 
+                new Option("doublefree", LongOpt.NO_ARGUMENT, F_DOUBLEFREE, null,
+                        "Lex, parse, and check for possible double free of heap pointers."),
+                new Option("uninitializedmemory", LongOpt.NO_ARGUMENT, F_UNINITIALIZEDMEMORY, null,
+                        "Lex, parse, and check for usages of uninitialized variables."),
+                new Option("xfree", LongOpt.NO_ARGUMENT, F_XFREE, null,
+                        "Lex, parse, and check for usages of freeing statically allocated memory."),
+
+                new Option("ifdeftoif", LongOpt.NO_ARGUMENT, F_IFDEFTOIF, null,
+                        "Make #ifdef to if transformation."),
+                new Option("ifdeftoifstatistics", LongOpt.NO_ARGUMENT, F_IFDEFTOIFSTATISTICS, null,
+                        "Make #ifdef to if transformation."),
+
+                new Option("decluse", LongOpt.NO_ARGUMENT, F_DECLUSE, null,
+                        "Test the declaration use map."),
+
                 new Option("output", LongOpt.REQUIRED_ARGUMENT, 'o', "file",
                         "Path to output files (no extension, creates .pi, .macrodbg etc files)."),
 
-                new Option("writePI", LongOpt.NO_ARGUMENT, F_WRITEPI, null,
+                new Option("writePI", LongOpt.NO_ARGUMENT, statF_WRITEPI, null,
                         "Write lexer output into .pi file"),
                 new Option("debugInterface", LongOpt.NO_ARGUMENT, F_DEBUGINTERFACE, null,
                         "Write interface in human readable format (requires --interface)"),
@@ -116,6 +143,23 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             parse = typecheck = writeInterface = true;
         } else if (c == F_DUMPCFG) {
             parse = dumpcfg = true;
+        } else if (c == F_DUMPCFG) {
+            parse = dumpcfg = true;
+        } else if (c == F_IFDEFTOIFSTATISTICS) {
+            parse = typecheck = ifdeftoif = ifdeftoifstatistics = true;
+        } else if (c == F_IFDEFTOIF) {
+            parse = typecheck = ifdeftoif = true;
+
+        } else if (c == F_DECLUSE) {
+            parse = typecheck = decluse = true;
+        } else if (c == F_DOUBLEFREE) {
+            parse = doublefree = true;
+        } else if (c == F_UNINITIALIZEDMEMORY) {
+            parse = uninitializedmemory = true;
+        } else if (c == F_XFREE) {
+            parse = xfree = true;
+        } else if (c == F_DANGLINGSWITCHCODE) {
+            parse = danglingswitchcode = true;
         } else if (c == F_SERIALIZEAST) {
             serializeAST = true;
         } else if (c == F_REUSEAST) {
@@ -133,7 +177,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             parserResults = false;
         } else if (c == F_PARSERSTATS) {
             parserStatistics = true;
-        } else if (c == F_WRITEPI) {
+        } else if (c == statF_WRITEPI) {
             writePI = true;
         } else if (c == F_BDD) {
             de.fosd.typechef.featureexpr.FeatureExprFactory$.MODULE$.setDefault(de.fosd.typechef.featureexpr.FeatureExprFactory$.MODULE$.bdd());
