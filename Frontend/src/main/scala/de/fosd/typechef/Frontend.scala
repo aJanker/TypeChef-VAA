@@ -179,8 +179,6 @@ object Frontend {
                         }
                     }
                     ts.errors.map(errorXML.renderTypeError(_))
-                    ts.checkAST()
-                    ts.errors.map(errorXML.renderTypeError(_))
                 }
                 if (opt.writeInterface) {
                     stopWatch.start("interfaces")
@@ -235,6 +233,6 @@ object Frontend {
         fr.close()
         ast
     } catch {
-        case e:ObjectStreamException => System.err.println("failed loading serialized AST: "+e.getMessage); null
+        case e: ObjectStreamException => System.err.println("failed loading serialized AST: " + e.getMessage); null
     }
 }
