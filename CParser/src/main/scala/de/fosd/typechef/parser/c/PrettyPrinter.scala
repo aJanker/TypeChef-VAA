@@ -1,5 +1,4 @@
 package de.fosd.typechef.parser.c
-block(sep(enums, _ ~ "," * _))
 import de.fosd.typechef.conditional._
 import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr}
 import java.io.{FileWriter, StringWriter, Writer}
