@@ -3,7 +3,6 @@ package de.fosd.typechef.crewrite
 import org.junit.{Ignore, Test}
 import de.fosd.typechef.featureexpr.sat._
 import de.fosd.typechef.parser.c._
-import de.fosd.typechef.crewrite.CASTEnv._
 import de.fosd.typechef.typesystem._
 import java.io._
 import java.util
@@ -1677,7 +1676,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
                                  """)
 
         println(source_ast)
-        val env = createASTEnv(source_ast)
+        val env = CASTEnv.createASTEnv(source_ast)
         val newAst = i.liftOpts(source_ast)
         println("Single lifted:\n" + PrettyPrinter.print(newAst))
         val newNewAst = i.liftOpts(newAst)

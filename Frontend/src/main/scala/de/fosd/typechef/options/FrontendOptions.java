@@ -260,6 +260,10 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
         return outputStem + ".ast";
     }
 
+    public String getOutputStem() {
+        return outputStem;
+    }
+
     public String getCCFGFilename() {
         return outputStem + ".cfg";
     }
