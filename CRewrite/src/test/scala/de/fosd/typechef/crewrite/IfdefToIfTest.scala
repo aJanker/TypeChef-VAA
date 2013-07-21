@@ -1061,7 +1061,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def single_busybox_file_test() {
-        val filename = "expr"
+        val filename = "bzip2"
         transformSingleFile(filename, busyBoxPath)
     }
 
@@ -1693,8 +1693,8 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println("+++Pretty printed+++\n" + PrettyPrinter.print(source_ast))
     }
 
-    @Ignore def nocontext_variableids_test() {
-        println(testAst(i.getAstFromFile(new File(ifdeftoifTestPath + "nocontext_variableids.c"))))
+    @Test def multiple_declarations_test() {
+        println(testAst(i.getAstFromFile(new File(ifdeftoifTestPath + "multiple_declarations.c"))))
     }
 
     @Ignore def context_variableids_test() {
