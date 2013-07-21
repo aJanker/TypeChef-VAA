@@ -109,6 +109,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     val busyBoxFm = FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile("../TypeChef-BusyboxAnalysis/busybox/featureModel"))
 
     val exponentialComputationThreshold = 10
+    val numberOfVariantThreshold = 128
     val nstoms = 1000000
 
     val isBusyBox = false
@@ -1591,11 +1592,15 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                             } else {
                                 List()
                             }
-                        })
+                        }).distinct
                         /*if (result.size > 100) {
                           val test = result.filterNot(x => !x.isSatisfiable(fm))
                         }*/
-                        result.distinct
+                        if (result.size > numberOfVariantThreshold) {
+                            List()
+                        } else {
+                            result
+                        }
                     }
                 }
             }
