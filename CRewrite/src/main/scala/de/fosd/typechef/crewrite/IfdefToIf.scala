@@ -106,8 +106,6 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     val idsToBeReplaced: IdentityHashMap[Id, Set[FeatureExpr]] = new IdentityHashMap()
     val writeOptionsIntoFile = true
 
-    val busyBoxFm = FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile("../TypeChef-BusyboxAnalysis/busybox/featureModel"))
-
     val exponentialComputationThreshold = 10
     val numberOfVariantThreshold = 128
     val nstoms = 1000000
@@ -2778,7 +2776,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         r(t)
     }
 
-    def getFunctionFromConfiguration(@SuppressWarnings(Array("unchecked")) features: Set[SingleFeatureExpr], file: File, fm: FeatureModel = busyBoxFm): AST = {
+    def getFunctionFromConfiguration(@SuppressWarnings(Array("unchecked")) features: Set[SingleFeatureExpr], file: File, fm: FeatureModel): AST = {
         val correctFeatureModelIncompatibility = false
         var ignoredFeatures = 0
         var changedAssignment = 0
@@ -2863,7 +2861,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         return functionDef
     }
 
-    def getConfigsFromFiles(@SuppressWarnings(Array("unchecked")) ast: AST, file: File, fm: FeatureModel = busyBoxFm): AST = {
+    def getConfigsFromFiles(@SuppressWarnings(Array("unchecked")) ast: AST, file: File, fm: FeatureModel): AST = {
         getFunctionFromConfiguration(filterFeatures(ast), file, fm)
     }
 }
