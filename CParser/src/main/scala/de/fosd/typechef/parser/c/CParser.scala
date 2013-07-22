@@ -239,7 +239,7 @@ class CParser(featureModel: FeatureModel = null, debugOutput: Boolean = false) e
 
     def declarator: MultiParser[Declarator] =
     //XXX: why opt(attributeDecl) rather than rep?
-        (pointerGroup0 ~~ (ID | (LPAREN ~~> opt(attributeDecl) ~~ declarator <~ RPAREN)) ~
+        (pointerGroup0 ~~ (ID | (LPAREN ~~> repOpt(attributeDecl) ~~ declarator <~ RPAREN)) ~
             repOpt(
                 (LPAREN ~~> ((parameterDeclList ^^ {
                     DeclParameterDeclList(_)
@@ -255,8 +255,8 @@ class CParser(featureModel: FeatureModel = null, debugOutput: Boolean = false) e
                     DeclArrayAccess(_)
                 }))) ^^ {
             case pointers ~ (id: Id) ~ ext => AtomicNamedDeclarator(pointers, id, ext);
-            case pointers ~ ((attr: Option[_ /*AttributeSpecifier*/ ]) ~ (decl: Declarator)) ~ ext =>
-                NestedNamedDeclarator(pointers, decl, ext)
+            case pointers ~ (attr ~ (decl: Declarator)) ~ ext =>
+                NestedNamedDeclarator(pointers, decl, ext, attr.asInstanceOf[List[Opt[AttributeSpecifier]]])
         }
 
     def parameterDeclList: MultiParser[List[Opt[ParameterDeclaration]]] =
@@ -271,10 +271,10 @@ class CParser(featureModel: FeatureModel = null, debugOutput: Boolean = false) e
     //    //consumes trailing separators
 
     def parameterDeclaration: MultiParser[ParameterDeclaration] =
-        declSpecifiers ~ opt(declarator | nonemptyAbstractDeclarator) <~ opt(attributeDecl) ^^ {
-            case s ~ Some(d: Declarator) => ParameterDeclarationD(s, d)
-            case s ~ Some(d: AbstractDeclarator) => ParameterDeclarationAD(s, d)
-            case s ~ None => PlainParameterDeclaration(s)
+        declSpecifiers ~ opt(declarator | nonemptyAbstractDeclarator) ~ repOpt(attributeDecl) ^^ {
+            case s ~ Some(d: Declarator) ~ attr => ParameterDeclarationD(s, d, attr)
+            case s ~ Some(d: AbstractDeclarator) ~ attr => ParameterDeclarationAD(s, d, attr)
+            case s ~ None ~ attr => PlainParameterDeclaration(s, attr)
         }
 
     def functionDef: MultiParser[FunctionDef] =
