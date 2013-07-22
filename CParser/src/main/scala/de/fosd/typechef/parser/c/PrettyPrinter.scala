@@ -192,6 +192,7 @@ object PrettyPrinter {
             l.drop(1).foldLeft(r)(s(_, _))
         }
         def commaSep(l: List[Opt[AST]]) = sep(l, _ ~ "," ~~ _)
+        def pointSep(l: List[Opt[AST]]) = sep(l, _ ~ "." ~~ _)
         def spaceSep(l: List[Opt[AST]]) = sep(l, _ ~~ _)
         def opt(o: Option[AST]): Doc = if (o.isDefined) o.get else Empty
         def optExt(o: Option[AST], ext: (Doc) => Doc): Doc = if (o.isDefined) ext(o.get) else Empty
@@ -349,7 +350,7 @@ object PrettyPrinter {
             case InitializerDesignatorD(id: Id) => "." ~ id
             case InitializerDesignatorC(id: Id) => id ~ ":"
             case InitializerAssigment(desgs) => spaceSep(desgs) ~~ "="
-            case BuiltinOffsetof(typeName: TypeName, offsetofMemberDesignator) => "__builtin_offsetof(" ~ typeName ~ "," ~~ spaceSep(offsetofMemberDesignator) ~ ")"
+            case BuiltinOffsetof(typeName: TypeName, offsetofMemberDesignator) => "__builtin_offsetof(" ~ typeName ~ "," ~~ pointSep(offsetofMemberDesignator) ~ ")"
             case OffsetofMemberDesignatorID(id: Id) => id
             case OffsetofMemberDesignatorExpr(expr: Expr) => "[" ~ expr ~ "]"
             case BuiltinTypesCompatible(typeName1: TypeName, typeName2: TypeName) => "__builtin_types_compatible_p(" ~ typeName1 ~ "," ~~ typeName2 ~ ")"
