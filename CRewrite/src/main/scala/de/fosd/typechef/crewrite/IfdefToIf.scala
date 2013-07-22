@@ -95,7 +95,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     val CONFIGPREFIX = "v_"
     var counter = 0
     var defuse: IdentityHashMap[Id, List[Id]] = new IdentityHashMap()
-    var IdMap: Map[FeatureExpr, Int] = Map()
+    var idMap: Map[FeatureExpr, Int] = Map()
     var fctMap: Map[Id, Map[FeatureExpr, String]] = Map()
     var jmpMap: Map[String, Map[FeatureExpr, String]] = Map()
     var replaceId: IdentityHashMap[Id, FeatureExpr] = new IdentityHashMap()
@@ -506,11 +506,22 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      * for renaming identifiers e.g. #ifdef A int a #endif -> int _1_a     feature A is mapped to number 1.
      */
     def fillIdMap(a: Any) {
-        if (IdMap.size == 0) {
-            IdMap += (trueF -> IdMap.size)
+        if (idMap.size == 0) {
+            idMap += (trueF -> idMap.size)
         }
-        getSingleFeatureSet(a).foreach(x => if (!IdMap.contains(x)) {
-            IdMap += (x -> IdMap.size)
+
+        if (new File(path ++ "featureMap.csv").exists) {
+            val featureMap = scala.io.Source.fromFile(path ++ "featureMap.csv").mkString.split("\n")
+            featureMap.foreach(x => {
+                val tuple = x.split(",")
+                val feature = new FeatureExprParser().parse(tuple.head)
+                val number = tuple.tail.head.toInt
+                idMap += (feature -> number)
+            })
+        }
+
+        getSingleFeatureSet(a).foreach(x => if (!idMap.contains(x)) {
+            idMap += (x -> idMap.size)
         })
     }
 
@@ -532,10 +543,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      * Retrieves the FeatureExpression which is mapped to the given number.
      */
     def getFeatureForId(id: Int): Option[FeatureExpr] = {
-        if (IdMap.size < id || id < 0) {
+        if (idMap.size < id || id < 0) {
             None
         } else {
-            val it = IdMap.iterator
+            val it = idMap.iterator
             while (it.hasNext) {
                 val next = it.next()
                 if (next._2.equals(id)) {
@@ -618,10 +629,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     if (i.name != "main") {
                         addIdUsages(i, ft)
                         replaceId.put(i, ft)
-                        if (!IdMap.contains(ft)) {
-                            IdMap += (ft -> IdMap.size)
+                        if (!idMap.contains(ft)) {
+                            idMap += (ft -> idMap.size)
                         }
-                        InitDeclaratorI(AtomicNamedDeclarator(a, Id("_" + IdMap.get(ft).get + "_" + i.name), b), attr, inits)
+                        InitDeclaratorI(AtomicNamedDeclarator(a, Id("_" + idMap.get(ft).get + "_" + i.name), b), attr, inits)
                     } else {
                         init
                     }
@@ -629,10 +640,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     if (i.name != "main") {
                         addIdUsages(i, ft)
                         replaceId.put(i, ft)
-                        if (!IdMap.contains(ft)) {
-                            IdMap += (ft -> IdMap.size)
+                        if (!idMap.contains(ft)) {
+                            idMap += (ft -> idMap.size)
                         }
-                        InitDeclaratorI(NestedNamedDeclarator(l, AtomicNamedDeclarator(a, Id("_" + IdMap.get(ft).get + "_" + i.name), b), r), attr, inits)
+                        InitDeclaratorI(NestedNamedDeclarator(l, AtomicNamedDeclarator(a, Id("_" + idMap.get(ft).get + "_" + i.name), b), r), attr, inits)
                     } else {
                         init
                     }
@@ -674,10 +685,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 if (i.name != "main") {
                     addIdUsages(i, ft)
                     replaceId.put(i, ft)
-                    if (!IdMap.contains(ft)) {
-                        IdMap += (ft -> IdMap.size)
+                    if (!idMap.contains(ft)) {
+                        idMap += (ft -> idMap.size)
                     }
-                    InitDeclaratorI(AtomicNamedDeclarator(a, Id("_" + IdMap.get(ft).get + "_" + i.name), b), attr, inits)
+                    InitDeclaratorI(AtomicNamedDeclarator(a, Id("_" + idMap.get(ft).get + "_" + i.name), b), attr, inits)
                 } else {
                     init
                 }
@@ -685,10 +696,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 if (i.name != "main") {
                     addIdUsages(i, ft)
                     replaceId.put(i, ft)
-                    if (!IdMap.contains(ft)) {
-                        IdMap += (ft -> IdMap.size)
+                    if (!idMap.contains(ft)) {
+                        idMap += (ft -> idMap.size)
                     }
-                    InitDeclaratorI(NestedNamedDeclarator(l, AtomicNamedDeclarator(a, Id("_" + IdMap.get(ft).get + "_" + i.name), b), r), attr, inits)
+                    InitDeclaratorI(NestedNamedDeclarator(l, AtomicNamedDeclarator(a, Id("_" + idMap.get(ft).get + "_" + i.name), b), r), attr, inits)
                 } else {
                     init
                 }
@@ -729,10 +740,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 if (i.name != "main") {
                     addIdUsages(i, ft)
                     replaceId.put(i, ft)
-                    if (!IdMap.contains(ft)) {
-                        IdMap += (ft -> IdMap.size)
+                    if (!idMap.contains(ft)) {
+                        idMap += (ft -> idMap.size)
                     }
-                    AtomicNamedDeclarator(a, Id("_" + IdMap.get(ft).get + "_" + i.name), b)
+                    AtomicNamedDeclarator(a, Id("_" + idMap.get(ft).get + "_" + i.name), b)
                 } else {
                     decl
                 }
@@ -750,10 +761,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
     def convertEnumId(enu: Enumerator, ft: FeatureExpr): Enumerator = {
         addIdUsages(enu.id, ft)
-        if (!IdMap.contains(ft)) {
-            IdMap += (ft -> IdMap.size)
+        if (!idMap.contains(ft)) {
+            idMap += (ft -> idMap.size)
         }
-        Enumerator(Id("_" + IdMap.get(ft).get + "_" + enu.id.name), enu.assignment)
+        Enumerator(Id("_" + idMap.get(ft).get + "_" + enu.id.name), enu.assignment)
     }
 
     def convertAllIds[T <: Product](t: T, ft: FeatureExpr): T = {
@@ -763,7 +774,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 if (i.name != "main") {
                     addIdUsages(i, ft)
                     replaceId.put(i, ft)
-                    Id("_" + IdMap.get(ft).get + "_" + i.name)
+                    Id("_" + idMap.get(ft).get + "_" + i.name)
                 } else {
                     i
                 }
@@ -834,21 +845,21 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             case i: Id =>
                 if (idsToBeReplaced.containsKey(i)) {
                     // Increase number of expanded statements
-                    if (!IdMap.contains(feat)) {
-                        IdMap += (feat -> IdMap.size)
+                    if (!idMap.contains(feat)) {
+                        idMap += (feat -> idMap.size)
                     }
                     val matchingId = idsToBeReplaced.get(i).find(x => feat.implies(x).isTautology())
                     matchingId match {
                         case None =>
                             // TODO: this should not happen?
                             val lst = idsToBeReplaced.get(i)
-                            Id("_" + IdMap.get(feat).get + "_" + i.name)
+                            Id("_" + idMap.get(feat).get + "_" + i.name)
                             i
                         case Some(x: FeatureExpr) =>
                             if (x.equals(trueF)) {
                                 i
                             } else {
-                                Id("_" + IdMap.get(x).get + "_" + i.name)
+                                Id("_" + idMap.get(x).get + "_" + i.name)
                             }
                         case k =>
                             Id("")
@@ -895,8 +906,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             case i: Id =>
                 if (idsToBeReplaced.containsKey(i)) {
                     // Increase number of expanded statements
-                    if (!IdMap.contains(feat)) {
-                        IdMap += (feat -> IdMap.size)
+                    if (!idMap.contains(feat)) {
+                        idMap += (feat -> idMap.size)
                     }
                     val matchingId = idsToBeReplaced.get(i).find(x => feat.implies(x).isTautology())
                     matchingId match {
@@ -904,10 +915,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                             // TODO: this should not happen?
                             val lst = idsToBeReplaced.get(i)
                             val test = lst.filter(x => feat.implies(x).isTautology())
-                            Id("_" + IdMap.get(feat).get + "_" + i.name)
+                            Id("_" + idMap.get(feat).get + "_" + i.name)
                             i
                         case Some(x: FeatureExpr) =>
-                            Id("_" + IdMap.get(x).get + "_" + i.name)
+                            Id("_" + idMap.get(x).get + "_" + i.name)
                         case k =>
                             Id("")
                     }
@@ -974,6 +985,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
         lazy val typeCheckSuccessful = getTypeSystem(result_ast).checkASTSilent
 
+        val featureMap = idMap.-(trueF).map(x => x._1.toTextExpr + "," + x._2) mkString "\n"
+        writeToFile(path ++ "featureMap.csv", featureMap)
 
         if (writeStatistics) {
             if (!(new File(path ++ "statistics.csv").exists)) {
@@ -1804,15 +1817,15 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             case i: Id =>
                 if (idsToBeReplaced.containsKey(i)) {
                     // Increase number of expanded statements
-                    if (!IdMap.contains(feat)) {
-                        IdMap += (feat -> IdMap.size)
+                    if (!idMap.contains(feat)) {
+                        idMap += (feat -> idMap.size)
                     }
                     val test = idsToBeReplaced.get(i).find(x => feat.implies(x).isTautology())
                     test match {
                         case None =>
                             // TODO: this should not happen?
-                            Id("_" + IdMap.get(feat).get + "_" + i.name)
-                        case Some(x: FeatureExpr) => Id("_" + IdMap.get(x).get + "_" + i.name)
+                            Id("_" + idMap.get(feat).get + "_" + i.name)
+                        case Some(x: FeatureExpr) => Id("_" + idMap.get(x).get + "_" + i.name)
                         case _ => Id("")
                     }
                 } else {
@@ -2339,14 +2352,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                         case o@Opt(ft, EnumSpecifier(Some(i: Id), k)) =>
                             if (defuse.containsKey(i)) {
                                 addIdUsages(i, feat)
-                                Opt(ft, EnumSpecifier(Some(Id("_" + IdMap.get(feat).get + "_" + i.name)), k))
+                                Opt(ft, EnumSpecifier(Some(Id("_" + idMap.get(feat).get + "_" + i.name)), k))
                             } else {
                                 o
                             }
                         case o@Opt(ft, StructOrUnionSpecifier(a, Some(i: Id), b)) =>
                             if (defuse.containsKey(i)) {
                                 addIdUsages(i, feat)
-                                Opt(ft, StructOrUnionSpecifier(a, Some(Id("_" + IdMap.get(feat).get + "_" + i.name)), b))
+                                Opt(ft, StructOrUnionSpecifier(a, Some(Id("_" + idMap.get(feat).get + "_" + i.name)), b))
                             } else {
                                 o
                             }
@@ -2375,14 +2388,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     case o@Opt(ft, EnumSpecifier(Some(i: Id), k)) =>
                         if (defuse.containsKey(i)) {
                             addIdUsages(i, feat)
-                            Opt(ft, EnumSpecifier(Some(Id("_" + IdMap.get(feat).get + "_" + i.name)), k))
+                            Opt(ft, EnumSpecifier(Some(Id("_" + idMap.get(feat).get + "_" + i.name)), k))
                         } else {
                             o
                         }
                     case o@Opt(ft, StructOrUnionSpecifier(a, Some(i: Id), b)) =>
                         if (defuse.containsKey(i)) {
                             addIdUsages(i, feat)
-                            Opt(ft, StructOrUnionSpecifier(a, Some(Id("_" + IdMap.get(feat).get + "_" + i.name)), b))
+                            Opt(ft, StructOrUnionSpecifier(a, Some(Id("_" + idMap.get(feat).get + "_" + i.name)), b))
                         } else {
                             o
                         }
