@@ -192,7 +192,7 @@ object PrettyPrinter {
             l.drop(1).foldLeft(r)(s(_, _))
         }
         def commaSep(l: List[Opt[AST]]) = sep(l, _ ~ "," ~~ _)
-        def pointSep(l: List[Opt[AST]]) = sep(l, _ ~ "." ~~ _)
+        def pointSep(l: List[Opt[AST]]) = sep(l, _ ~ "." ~ _)
         def spaceSep(l: List[Opt[AST]]) = sep(l, _ ~~ _)
         def opt(o: Option[AST]): Doc = if (o.isDefined) o.get else Empty
         def optExt(o: Option[AST], ext: (Doc) => Doc): Doc = if (o.isDefined) ext(o.get) else Empty
