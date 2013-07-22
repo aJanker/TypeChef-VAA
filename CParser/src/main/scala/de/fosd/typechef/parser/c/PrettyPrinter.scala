@@ -216,7 +216,7 @@ object PrettyPrinter {
             case PointerCreationExpr(castExpr) => "(&" ~ castExpr ~ ")"
 
             case UnaryOpExpr(kind, castExpr) => "(" ~ kind ~~ castExpr ~ ")"
-            case NAryExpr(e, others) => "(" ~ e ~~ sepVaware(others, ",", space) ~ ")"
+            case NAryExpr(e, others) => "(" ~ e ~~ sep(others, _ ~~ _) ~ ")"
             case NArySubExpr(op: String, e: Expr) => op ~~ e
             case ConditionalExpr(condition: Expr, thenExpr, elseExpr: Expr) => "(" ~ condition ~~ "?" ~~ opt(thenExpr) ~~ ":" ~~ elseExpr ~ ")"
             case AssignExpr(target: Expr, operation: String, source: Expr) => "(" ~ target ~~ operation ~~ source ~ ")"
