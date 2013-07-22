@@ -30,7 +30,7 @@ class CParser(featureModel: FeatureModel = null, debugOutput: Boolean = false) e
         "const", "volatile", "restrict", "char", "short", "int", "long", "float", "double",
         "signed", "unsigned", "_Bool", "struct", "union", "enum", "if", "while", "do",
         "for", "goto", "continue", "break", "return", "case", "default", "else", "switch",
-        "sizeof", "_Pragma", "__expectType", "__expectNotType","__thread")
+        "sizeof", "_Pragma", "__expectType", "__expectNotType", "__thread")
     val predefinedTypedefs = Set("__builtin_va_list", "__builtin_type")
 
     def translationUnit = externalList ^^ {
@@ -141,19 +141,19 @@ class CParser(featureModel: FeatureModel = null, debugOutput: Boolean = false) e
 
     def structOrUnionSpecifier: MultiParser[StructOrUnionSpecifier] =
         structOrUnion ~ repOpt(attributeDecl) ~ structOrUnionSpecifierBody ^^ {
-            case isUnion ~ _ ~ ((id, list)) => StructOrUnionSpecifier(isUnion, id, list)
+            case isUnion ~ attr1 ~ ((id, list, attr2)) => StructOrUnionSpecifier(isUnion, id, list, attr1, attr2)
         }
 
-    private def structOrUnionSpecifierBody: MultiParser[(Option[Id], Option[List[Opt[StructDeclaration]]])] =
+    private def structOrUnionSpecifierBody: MultiParser[(Option[Id], Option[List[Opt[StructDeclaration]]], List[Opt[AttributeSpecifier]])] =
     // XXX: PG: SEMI after LCURLY????
         (ID ~~ LCURLY ~! (opt(SEMI) ~ structDeclarationList0 ~ RCURLY) ~ repOpt(attributeDecl) ^^ {
-            case id ~ _ ~ (_ ~ list ~ _) ~ _ => (Some(id), Some(list))
+            case id ~ _ ~ (_ ~ list ~ _) ~ attr => (Some(id), Some(list), attr)
         }) |
             (LCURLY ~ opt(SEMI) ~ structDeclarationList0 ~ RCURLY ~ repOpt(attributeDecl) ^^ {
-                case _ ~ _ ~ list ~ _ ~ _ => (None, Some(list))
+                case _ ~ _ ~ list ~ _ ~ attr => (None, Some(list), attr)
             }) |
             (ID ^^ {
-                case id => (Some(id), None)
+                case id => (Some(id), None, Nil)
             })
 
     def structOrUnion: MultiParser[Boolean] = // isUnion
@@ -447,7 +447,7 @@ class CParser(featureModel: FeatureModel = null, debugOutput: Boolean = false) e
     // or no pointers, required nesting, possible extensions
     // or no pointers, no nesting, at least one extension
     def nonemptyAbstractDeclarator: MultiParser[AbstractDeclarator] =
-        (pointerGroup1 ~ opt(LPAREN ~ repOpt(attributeDecl) ~> nonemptyAbstractDeclarator <~ RPAREN) ~
+        (pointerGroup1 ~ opt(LPAREN ~> repOpt(attributeDecl) ~ nonemptyAbstractDeclarator <~ RPAREN) ~
             repOpt(
                 ((LPAREN ~> (optList(parameterDeclList) <~ (opt(COMMA) ~ RPAREN) ^^ {
                     DeclParameterDeclList(_)
@@ -456,10 +456,10 @@ class CParser(featureModel: FeatureModel = null, debugOutput: Boolean = false) e
                     DeclArrayAccess(_)
                 })))
             ^^ {
-            case ptrs ~ Some(nestedADecl) ~ ext => NestedAbstractDeclarator(ptrs, nestedADecl, ext)
+            case ptrs ~ Some(attr ~ nestedADecl) ~ ext => NestedAbstractDeclarator(ptrs, nestedADecl, ext, attr)
             case ptrs ~ None ~ ext => AtomicAbstractDeclarator(ptrs, ext)
         }) |
-            ((LPAREN ~ repOpt(attributeDecl) ~> nonemptyAbstractDeclarator <~ RPAREN) ~
+            ((LPAREN ~> repOpt(attributeDecl) ~ nonemptyAbstractDeclarator <~ RPAREN) ~
                 repOpt(
                     ((LPAREN ~> (optList(parameterDeclList) <~ (opt(COMMA) ~ RPAREN) ^^ {
                         DeclParameterDeclList(_)
@@ -468,7 +468,7 @@ class CParser(featureModel: FeatureModel = null, debugOutput: Boolean = false) e
                         DeclArrayAccess(_)
                     })))
                 ^^ {
-                case nestedADecl ~ ext => NestedAbstractDeclarator(List(), nestedADecl, ext)
+                case attr ~ nestedADecl ~ ext => NestedAbstractDeclarator(List(), nestedADecl, ext, attr)
             }) |
             (rep1(
                 ((LPAREN ~> (optList(parameterDeclList) <~ (opt(COMMA) ~ RPAREN) ^^ {
@@ -777,7 +777,7 @@ class CParser(featureModel: FeatureModel = null, debugOutput: Boolean = false) e
 
     def restrict = (specifier("restrict") | specifier("__restrict") | specifier("__restrict__")) ^^^ RestrictSpecifier()
 
-    def thread = specifier("__thread")  ^^^ ThreadSpecifier()
+    def thread = specifier("__thread") ^^^ ThreadSpecifier()
 
     def signed = (textToken("signed") | textToken("__signed") | textToken("__signed__")) ^^^ SignedSpecifier()
 
