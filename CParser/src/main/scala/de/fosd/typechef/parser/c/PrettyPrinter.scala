@@ -187,6 +187,35 @@ object PrettyPrinter {
             val r: Doc = if (l.isEmpty) Empty else l.head
             l.drop(1).foldLeft(r)((a, b) => s(a, prettyOpt(b)))
         }
+
+        def sepsVaware(l: List[Opt[String]], selem: String, breakselem: Doc = space) = {
+            var res: Doc = if (l.isEmpty) Empty else l.head
+            var combCtx: FeatureExpr = if (l.isEmpty) FeatureExprFactory.True else l.head.feature
+
+            for (celem <- l.drop(1)) {
+                val selemfexp = combCtx.and(celem.feature)
+
+                // separation element is never present
+                if (selemfexp.isContradiction())
+                    res = res ~ breakselem ~ prettyOptStr(celem)
+
+                // separation element is always present
+                else if (selemfexp.isTautology())
+                    res = res ~ selem ~ breakselem ~ prettyOptStr(celem)
+
+                // separation element is sometimes present
+                else {
+                    res = res * "#if" ~~ selemfexp.toTextExpr * selem * "#endif" * prettyOptStr(celem)
+                }
+
+                // add current feature expression as it might influence the addition of selem for
+                // the remaint elements of the input list l
+                combCtx = combCtx.or(celem.feature)
+            }
+
+            res
+        }
+
         def seps(l: List[Opt[String]], s: (Doc, Doc) => Doc) = {
             val r: Doc = if (l.isEmpty) Empty else l.head
             l.drop(1).foldLeft(r)(s(_, _))
@@ -202,7 +231,7 @@ object PrettyPrinter {
             case TranslationUnit(ext) => sep(ext, _ * _)
             case Id(name) => name
             case Constant(v) => v
-            case StringLit(v) => seps(v, _ ~~ _)
+            case StringLit(v) => sepsVaware(v, ",")
             case SimplePostfixSuffix(t) => t
             case PointerPostfixSuffix(kind, id) => kind ~ id
             case FunctionCall(params) => "(" ~ params ~ ")"
