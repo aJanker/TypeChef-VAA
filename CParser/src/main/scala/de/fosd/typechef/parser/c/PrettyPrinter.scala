@@ -250,7 +250,7 @@ object PrettyPrinter {
             case NArySubExpr(op: String, e: Expr) => op ~~ e
             case ConditionalExpr(condition: Expr, thenExpr, elseExpr: Expr) => "(" ~ condition ~~ "?" ~~ opt(thenExpr) ~~ ":" ~~ elseExpr ~ ")"
             case AssignExpr(target: Expr, operation: String, source: Expr) => "(" ~ target ~~ operation ~~ source ~ ")"
-            case ExprList(exprs) => sep(exprs, _ ~~ "," ~~ _)
+            case ExprList(exprs) => sepVaware(exprs, ",")
 
             case CompoundStatement(innerStatements) =>
                 block(sep(innerStatements, _ * _))
