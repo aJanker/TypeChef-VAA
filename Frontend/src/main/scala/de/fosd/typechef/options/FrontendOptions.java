@@ -19,6 +19,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             ifdeftoif = false,
             ifdeftoifstatistics = false,
             decluse = false,
+            refEval = false,
             writeInterface = false,
             dumpcfg = false,
             doublefree = false,
@@ -36,6 +37,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final File _autoErrorXMLFile = new File(".");
     String outputStem = "";
     private String filePresenceConditionFile = "";
+    private RefactorType refEvalType = RefactorType.NONE;
 
 
     private final static char F_PARSE = Options.genOptionId();
@@ -58,6 +60,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_IFDEFTOIF = Options.genOptionId();
     private final static char F_IFDEFTOIFSTATISTICS = Options.genOptionId();
     private final static char F_DECLUSE = Options.genOptionId();
+    private final static char F_REFEVAL = Options.genOptionId();
     private Function3<FeatureExpr, String, Position, Object> _renderParserError;
 
 
@@ -89,7 +92,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                         "Make #ifdef to if transformation."),
                 new Option("ifdeftoifstatistics", LongOpt.NO_ARGUMENT, F_IFDEFTOIFSTATISTICS, null,
                         "Make #ifdef to if transformation."),
-
+                new Option("refEval", LongOpt.REQUIRED_ARGUMENT, F_REFEVAL, null, "Apply and verfiy random refactoring"),
                 new Option("decluse", LongOpt.NO_ARGUMENT, F_DECLUSE, null,
                         "Test the declaration use map."),
 
@@ -149,9 +152,20 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             parse = typecheck = ifdeftoif = ifdeftoifstatistics = true;
         } else if (c == F_IFDEFTOIF) {
             parse = typecheck = ifdeftoif = true;
-
         } else if (c == F_DECLUSE) {
             parse = typecheck = decluse = true;
+        } else if (c == F_REFEVAL) {
+            parse = typecheck = refEval = true;
+            String refEvalArg = g.getOptarg().trim();
+            if (refEvalArg.equalsIgnoreCase(RefactorType.RENAME.toString())) {
+                refEvalType = RefactorType.RENAME;
+            } else if (refEvalArg.equalsIgnoreCase(RefactorType.EXTRACT.toString())) {
+                refEvalType = RefactorType.EXTRACT;
+            } else if (refEvalArg.equalsIgnoreCase(RefactorType.INLINE.toString())) {
+                refEvalType = RefactorType.INLINE;
+            } else {
+                refEvalType = RefactorType.NONE;
+            }
         } else if (c == F_DOUBLEFREE) {
             parse = doublefree = true;
         } else if (c == F_UNINITIALIZEDMEMORY) {
@@ -288,6 +302,10 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
 
     public boolean printParserResult() {
         return parserResults;
+    }
+
+    public RefactorType getRefactorType() {
+        return refEvalType;
     }
 
     public File getErrorXMLFile() {
