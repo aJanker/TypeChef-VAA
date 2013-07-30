@@ -148,7 +148,6 @@ trait CEnv {
     	def getId(name: String, isUnion: Boolean): Conditional[Id] = {
       		def extractId(entry: Conditional[StructTag]): Conditional[Id] = {
         		entry match {
-          			case One(StructTag(_, _, _, i: Id)) => One(i)
           			case One(StructTag(_, _, _, Some(i: Id))) => One(i)
           			case One(StructTag(_, _, _, null)) => One(null)
           			case One(StructTag(_, _, _, none)) => One(null)
