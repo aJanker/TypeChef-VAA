@@ -47,13 +47,13 @@ trait CInferInterface extends CTypeSystem with InterfaceWriter {
 
         //eliminate duplicates with a map
         for (imp <- imports) {
-            val key = (imp.name, imp.ctype.toValueLinker) //toValueLinker needed to remove the distinction between Object or not
+            val key = (imp.name, imp.ctype)
             val old = importMap.getOrElse[T2](key, (FeatureExprFactory.False, Seq(), Set()))
             importMap = importMap + (key ->(old._1 or imp.fexpr, old._2 ++ imp.pos, CFlagOps.mergeOnImports(old._3, imp.extraFlags)))
         }
         //eliminate imports that have corresponding exports
         for (exp <- (exports ++ staticFunctions)) {
-            val key = (exp.name, exp.ctype.toValueLinker)
+            val key = (exp.name, exp.ctype)
             if (importMap.contains(key)) {
                 val (oldFexpr, oldPos, oldExtras) = importMap(key)
                 val newFexpr = oldFexpr andNot exp.fexpr
