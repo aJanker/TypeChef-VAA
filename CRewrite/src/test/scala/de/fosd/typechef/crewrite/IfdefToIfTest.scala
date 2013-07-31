@@ -10,7 +10,6 @@ import java.util
 import util.IdentityHashMap
 import scala.Some
 import scala.Tuple2
-import io.Source
 import de.fosd.typechef.conditional.{Choice, One, Opt}
 import de.fosd.typechef.featureexpr.{FeatureExprParser, FeatureExprFactory}
 import de.fosd.typechef.lexer.FeatureExprLib
@@ -698,6 +697,19 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println(testAst(source_ast))
     }
 
+    @Test def array_test {
+        val source_ast = getAST( """
+      static const unsigned opt_flags[] = {
+        #ifdef CONFIG_ACPI_PROCFS_POWER
+        SORT_SIZE,
+        #endif
+        0
+        };
+                                 """);
+        println(source_ast)
+        println(testAst(source_ast))
+    }
+
     @Test def normal_struct {
         val source_ast = getAST( """
       static const struct file_operations acpi_ac_fops = {
@@ -1061,7 +1073,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def single_busybox_file_test() {
-        val filename = "bzip2"
+        val filename = "ls"
         transformSingleFile(filename, busyBoxPath)
     }
 
@@ -1433,8 +1445,8 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             }
         }
         new File(path).mkdirs()
-        if (!checkForExistingFiles || !(new File(path ++ "results.csv").exists)) {
-            writeToFile(path ++ "results.csv", getCSVHeader())
+        if (!checkForExistingFiles || !(new File(path ++ "statistics.csv").exists)) {
+            writeToFile(path ++ "statistics.csv", getCSVHeader())
         }
         transformPiFiles(dirToAnalyse)
     }
@@ -1468,8 +1480,8 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         }
         if (dirToAnalyse.exists()) {
             new File(path).mkdirs()
-            if (!checkForExistingFiles || !(new File(path ++ "results.csv").exists)) {
-                writeToFile(path ++ "results.csv", getCSVHeader())
+            if (!checkForExistingFiles || !(new File(path ++ "statistics.csv").exists)) {
+                writeToFile(path ++ "statistics.csv", getCSVHeader())
             }
 
             transformPiFiles(dirToAnalyse)
@@ -1520,42 +1532,6 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
                 }
                 val timeToPrettyPrint = System.currentTimeMillis() - startPrettyPrinting
                 //print("\t--Printed--\n")
-
-                if (makeAnalysis) {
-                    if (typeCheckResult) {
-                        val typeCheckStart = System.currentTimeMillis()
-                        if (!getTypeSystem(new_ast._1).checkASTSilent) {
-                            return
-                        }
-                    }
-                    if (writeFilesIntoIfdeftoifFolder) {
-                        if (!((new File(path ++ fileNameWithoutExtension ++ ".src")).exists)) {
-                            writeToTextFile(path ++ fileNameWithoutExtension ++ ".src", PrettyPrinter.print(source_ast))
-                        }
-                        /*val linesOfCodeBefore = Source.fromFile(new File(path ++ fileNameWithoutExtension ++ ".src")).getLines().size
-                        val linesOfCodeAfter = Source.fromFile(new File(path ++ fileNameWithoutExtension ++ ".ifdeftoif")).getLines().size
-                        val codeDifference = computeDifference(linesOfCodeBefore, linesOfCodeAfter)
-                        val csvBeginning = file.getName() + "," + linesOfCodeBefore + "," + linesOfCodeAfter + "," + codeDifference + ","*/
-                        val astElementsBefore = i.countNumberOfASTElements(source_ast)
-                        val astElementsAfter = i.countNumberOfASTElements(new_ast._1)
-                        val astElementDifference = i.computeDifference(astElementsBefore, astElementsAfter)
-                        val csvBeginning = fileName + "," + astElementsBefore + "," + astElementsAfter + "," + astElementDifference + ","
-
-
-                        val csvEnding = "," + timeToParseAndTypeCheck + "," + timeToTransform + "," + timeToPrettyPrint + "\n"
-                        appendToFile(path ++ "results.csv", csvBeginning + new_ast._2 + csvEnding)
-                    } else {
-                        if (!(new File(filePathWithoutExtension ++ ".src")).exists) {
-                            writeToTextFile(filePathWithoutExtension ++ ".src", PrettyPrinter.print(source_ast))
-                        }
-                        val linesOfCodeBefore = Source.fromFile(new File(filePathWithoutExtension ++ ".src")).getLines().size
-                        val linesOfCodeAfter = Source.fromFile(new File(filePathWithoutExtension ++ "_ifdeftoif.c")).getLines().size
-                        val codeDifference = i.computeDifference(linesOfCodeBefore, linesOfCodeAfter)
-                        val csvBeginning = file.getName() + "," + linesOfCodeBefore + "," + linesOfCodeAfter + "," + codeDifference + ","
-                        val csvEnding = "," + timeToParseAndTypeCheck + "," + timeToTransform + "," + timeToPrettyPrint + "\n"
-                        appendToFile(path ++ "results.csv", csvBeginning + new_ast._2 + csvEnding)
-                    }
-                }
             }
         }
     }
@@ -1792,6 +1768,8 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val c = FeatureExprFactory.createDefinedExternal("C")
         val listOfLists = List(List(a, a.not()), List(), List(c, c.not()))
         println(i.computeCarthesianProduct(listOfLists))
+
+        println(new FeatureExprParser().parse(a.and(b).or(c).toTextExpr))
     }
 
     @Test def feature_explosion() {
