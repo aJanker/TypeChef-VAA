@@ -220,9 +220,9 @@ object PrettyPrinter {
             val r: Doc = if (l.isEmpty) Empty else l.head
             l.drop(1).foldLeft(r)(s(_, _))
         }
-        def commaSep(l: List[Opt[AST]]) = sep(l, _ ~ "," ~~ _)
+        def commaSep(l: List[Opt[AST]]) = sepVaware(l, ",")
         def pointSep(l: List[Opt[AST]]) = sep(l, _ ~ "." ~ _)
-        def spaceSep(l: List[Opt[AST]]) = sep(l, _ ~~ _)
+        def spaceSep(l: List[Opt[AST]]) = sepVaware(l, " ")
         def opt(o: Option[AST]): Doc = if (o.isDefined) o.get else Empty
         def optExt(o: Option[AST], ext: (Doc) => Doc): Doc = if (o.isDefined) ext(o.get) else Empty
         def optCondExt(o: Option[Conditional[AST]], ext: (Doc) => Doc): Doc = if (o.isDefined) ext(o.get) else Empty
