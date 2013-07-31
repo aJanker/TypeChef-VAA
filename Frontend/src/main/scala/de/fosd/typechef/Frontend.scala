@@ -168,8 +168,9 @@ object Frontend {
                             //ProductGeneration.estimateNumberOfVariants(ast, fm_ts)
                             val i = new IfdefToIf
                             val defUseMap = ts.getDeclUseMap
+                            val useDefMap = ts.getUseDeclMap
                             val fileName = i.outputStemToFileName(opt.getOutputStem())
-                            val tuple = i.ifdeftoif(ast, defUseMap, fm, opt.getOutputStem(), stopWatch.get("lexing") + stopWatch.get("parsing"), opt.ifdeftoifstatistics)
+                            val tuple = i.ifdeftoif(ast, defUseMap, useDefMap, fm, opt.getOutputStem(), stopWatch.get("lexing") + stopWatch.get("parsing"), opt.ifdeftoifstatistics)
                             tuple._1 match {
                                 case None =>
                                     println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")

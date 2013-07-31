@@ -96,7 +96,10 @@ trait CDeclUse extends CEnv with CEnvCache {
         def swapDeclaration(originalDecl: Id, newDecl: Id) = {
             putToDeclUseMap(newDecl)
             addToDeclUseMap(newDecl, originalDecl)
-            declUseMap.get(originalDecl).foreach(x => addToDeclUseMap(newDecl, x))
+            declUseMap.get(originalDecl).foreach(x => {
+                useDeclMap.remove(x)
+                addToDeclUseMap(newDecl, x)
+            })
             declUseMap.remove(originalDecl)
         }
 

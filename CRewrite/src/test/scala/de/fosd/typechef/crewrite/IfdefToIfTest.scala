@@ -87,11 +87,12 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         //val env = createASTEnv(source_ast)
         typecheckTranslationUnit(source_ast)
         val defUseMap = getDeclUseMap
+        val useDefMap = getUseDeclMap
         val timeToParseAndTypeCheck = System.currentTimeMillis() - startParsingAndTypeChecking
         print("--Parsed--")
 
         val startTransformation = System.currentTimeMillis()
-        val new_ast = i.transformAst(source_ast, defUseMap)
+        val new_ast = i.transformAst(source_ast, defUseMap, useDefMap)
         val timeToTransform = System.currentTimeMillis() - startTransformation
         print("\t--Transformed--")
 
@@ -135,16 +136,20 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     def testAst(source_ast: TranslationUnit): String = {
         typecheckTranslationUnit(source_ast)
         val defUseMap = getDeclUseMap
+        val useDefMap = getUseDeclMap
 
         val optionsAst = i.getOptionFile(source_ast)
-        ("+++New Code+++\n" + PrettyPrinter.print(i.transformAst(source_ast, defUseMap)._1))
+        ("+++New Code+++\n" + PrettyPrinter.print(i.transformAst(source_ast, defUseMap, useDefMap)._1))
     }
 
     def testFolder(path: String) {
         val folder = new File(path)
         val asts = analyseDir(folder)
 
-        asts.foreach(x => writeToTextFile(x._2 ++ "_tmp", PrettyPrinter.print(i.transformAst(x._1, getDefUse(x._1))._1)))
+        asts.foreach(x => {
+            val defuses = getDefUse(x._1)
+            writeToTextFile(x._2 ++ "_tmp", PrettyPrinter.print(i.transformAst(x._1, defuses._1, defuses._2)._1))
+        })
 
         /*val quad = asts.map(x => (x._1, createASTEnv(x._1), getDefUse(x._1), x._2))
         val newAsts = i.transformAsts(quad)
@@ -153,7 +158,8 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
 
     private def compareTypeChecking(file: File): Tuple2[Long, Long] = {
         val source_ast = i.getAstFromFile(file)
-        val result_ast = i.transformAst(source_ast, getDefUse(source_ast))._1
+        val defuses = getDefUse(source_ast)
+        val result_ast = i.transformAst(source_ast, defuses._1, defuses._2)._1
         val ts_source = getTypeSystem(source_ast)
         val ts_result = getTypeSystem(result_ast)
 
@@ -170,9 +176,9 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         (typeCheckSourceDuration, typeCheckResultDuration)
     }
 
-    private def getDefUse(ast: TranslationUnit): IdentityHashMap[Id, List[Id]] = {
+    private def getDefUse(ast: TranslationUnit): (IdentityHashMap[Id, List[Id]], IdentityHashMap[Id, List[Id]]) = {
         typecheckTranslationUnit(ast)
-        getDeclUseMap
+        (getDeclUseMap, getUseDeclMap)
     }
 
     @Test def test_function() {
@@ -973,7 +979,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def test_pi() {
-        val file = new File(ifdeftoifTestPath + "applets_pi_typeerror.c")
+        val file = new File(ifdeftoifTestPath + "forward_declaration_variable.c")
         testFile(file)
     }
 
@@ -1073,7 +1079,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def single_busybox_file_test() {
-        val filename = "ls"
+        val filename = "wc"
         transformSingleFile(filename, busyBoxPath)
     }
 
@@ -1506,10 +1512,11 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
                 val source_ast = i.getAstFromFile(file)
                 typecheckTranslationUnit(source_ast)
                 val defUseMap = getDeclUseMap
+                val useDefMap = getUseDeclMap
                 val timeToParseAndTypeCheck = System.currentTimeMillis() - startParsingAndTypeChecking
                 //print("--Parsed--")
 
-                val tuple = i.ifdeftoif(source_ast, defUseMap, FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile("../TypeChef-BusyboxAnalysis/busybox/featureModel")), fileNameWithoutExtension, timeToParseAndTypeCheck, makeAnalysis, path ++ fileNameWithoutExtension ++ "_ifdeftoif.c")
+                val tuple = i.ifdeftoif(source_ast, defUseMap, useDefMap, FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile("../TypeChef-BusyboxAnalysis/busybox/featureModel")), fileNameWithoutExtension, timeToParseAndTypeCheck, makeAnalysis, path ++ fileNameWithoutExtension ++ "_ifdeftoif.c")
                 tuple._1 match {
                     case None =>
                         println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")
@@ -1519,7 +1526,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
                 }
 
                 val startTransformation = System.currentTimeMillis()
-                val new_ast = i.transformAst(source_ast, defUseMap)
+                val new_ast = i.transformAst(source_ast, defUseMap, useDefMap)
                 val timeToTransform = System.currentTimeMillis() - startTransformation
                 //print("\t--Transformed--")
 

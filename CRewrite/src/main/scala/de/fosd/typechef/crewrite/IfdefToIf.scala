@@ -95,6 +95,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     val CONFIGPREFIX = "v_"
     var counter = 0
     var defuse: IdentityHashMap[Id, List[Id]] = new IdentityHashMap()
+    var usedef: IdentityHashMap[Id, List[Id]] = new IdentityHashMap()
     var idMap: Map[FeatureExpr, Int] = Map()
     var fctMap: Map[Id, Map[FeatureExpr, String]] = Map()
     var jmpMap: Map[String, Map[FeatureExpr, String]] = Map()
@@ -620,6 +621,15 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     idsToBeReplaced.put(x, Set(ft))
                 }
             })
+        } else if (usedef.containsKey(i)) {
+            val idUsages = usedef.get(i).flatMap(x => defuse.get(x))
+            idUsages.foreach(x => {
+                if (idsToBeReplaced.containsKey(x)) {
+                    idsToBeReplaced.put(x, idsToBeReplaced.get(x) + ft)
+                } else {
+                    idsToBeReplaced.put(x, Set(ft))
+                }
+            })
         }
     }
 
@@ -901,7 +911,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 case _ =>
                     r(t) match {
                         case None => t
-                        case k => k.get.asInstanceOf[T]
+                        case k =>
+                            k.get.asInstanceOf[T]
                     }
             }
         }
@@ -959,7 +970,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         }
     }
 
-    def ifdeftoif(ast: AST, decluse: IdentityHashMap[Id, List[Id]], featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty, outputStem: String = "unnamed", lexAndParseTime: Long = 0, writeStatistics: Boolean = true, newPath: String = ""): (Option[AST], Long, List[TypeChefError]) = {
+    def ifdeftoif(ast: AST, decluse: IdentityHashMap[Id, List[Id]], usedecl: IdentityHashMap[Id, List[Id]], featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty, outputStem: String = "unnamed", lexAndParseTime: Long = 0, writeStatistics: Boolean = true, newPath: String = ""): (Option[AST], Long, List[TypeChefError]) = {
         new File(path).mkdirs()
         val tb = java.lang.management.ManagementFactory.getThreadMXBean
 
@@ -975,6 +986,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         }
         fillIdMap(source_ast)
         defuse = decluse
+        usedef = usedecl
         val fileName = outputStemToFileName(outputStem)
 
         val time = tb.getCurrentThreadCpuTime()
@@ -1051,7 +1063,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     /*
     Makes #ifdef to if transformation on given AST element. Returns new AST element and a statistics String.
      */
-    def transformAst[T <: Product](t: T, decluse: IdentityHashMap[Id, List[Id]], featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty): (T, String) = {
+    def transformAst[T <: Product](t: T, decluse: IdentityHashMap[Id, List[Id]], usedecl: IdentityHashMap[Id, List[Id]], featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty): (T, String) = {
         if (featureModel.equals(FeatureExprLib.featureModelFactory.empty) && isBusyBox) {
             fm = FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile("C:/Users/Flo/Dropbox/HiWi/busybox/TypeChef-BusyboxAnalysis/busybox/featureModel"))
         } else {
@@ -1059,6 +1071,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         }
         fillIdMap(t)
         defuse = decluse
+        usedef = usedecl
         val result = transformRecursive(t)
         val features = filterFeatures(t)
         val csvNumbers = createCsvString()
@@ -2626,7 +2639,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             // 2. Step
             optFunction.entry match {
                 case fd@FunctionDef(spec, decl, par, stmt) =>
-                    if (fd.getName.equals("save_string")) {
+                    if (fd.getName.equals("wc_main")) {
                         print("")
                     }
                     val features = computeNextRelevantFeatures(fd, currentContext)
