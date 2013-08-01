@@ -107,6 +107,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     val idsToBeReplaced: IdentityHashMap[Id, Set[FeatureExpr]] = new IdentityHashMap()
     val writeOptionsIntoFile = true
 
+    val featureStructInitializedName = "id2i_opt"
+    val featureStructName = "ifdef_options"
+
     val exponentialComputationThreshold = 10
     val numberOfVariantThreshold = 1024
     val nstoms = 1000000
@@ -196,11 +199,11 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      * @return
      */
     def featureToCExpr(feature: FeatureExpr): Expr = feature match {
-        case d: DefinedExternal => PostfixExpr(Id("options"), PointerPostfixSuffix(".", Id(d.feature.toLowerCase)))
+        case d: DefinedExternal => PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id(d.feature.toLowerCase)))
         case d: DefinedMacro => featureToCExpr(d.presenceCondition)
         case b: BDDFeatureExpr =>
             bddFexToCExpr(b,
-                ((fName: String) => PostfixExpr(Id("options"), PointerPostfixSuffix(".", Id(fName.toLowerCase))))
+                ((fName: String) => PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id(fName.toLowerCase))))
             )
         case a: And =>
             val l = a.clauses.toList
@@ -378,7 +381,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         val structDeclList = defExSet.map(x => {
             Opt(trueF, StructDeclaration(List(Opt(trueF, IntSpecifier())), List(Opt(trueF, StructDeclarator(AtomicNamedDeclarator(List(), Id(x.feature.toLowerCase), List()), None, List())))))
         }).toList
-        val structDeclaration = Opt(trueF, Declaration(List(Opt(trueF, StructOrUnionSpecifier(false, Some(Id("ifdef_options")), Some(structDeclList)))), List(Opt(trueF, InitDeclaratorI(AtomicNamedDeclarator(List(), Id("options"), List()), List(), None)))))
+        val structDeclaration = Opt(trueF, Declaration(List(Opt(trueF, StructOrUnionSpecifier(false, Some(Id(featureStructName)), Some(structDeclList)))), List(Opt(trueF, InitDeclaratorI(AtomicNamedDeclarator(List(), Id(featureStructInitializedName), List()), List(), None)))))
 
         if (!createFunctionsForModelChecking) {
             TranslationUnit(List(structDeclaration))
@@ -388,7 +391,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             val function = Opt(trueF, FunctionDef(List(Opt(trueF, IntSpecifier())), AtomicNamedDeclarator(List(), Id("select_one"), List(Opt(trueF, DeclIdentifierList(List())))), List(), CompoundStatement(List(Opt(trueF, IfStatement(One(PostfixExpr(Id("__VERIFIER_NONDET_INT"), FunctionCall(ExprList(List())))), One(CompoundStatement(List(Opt(trueF, ReturnStatement(Some(Constant("1"))))))), List(), Some(One(CompoundStatement(List(Opt(trueF, ReturnStatement(Some(Constant("0"))))))))))))))
 
             val cmpStmt = defExSet.map(x => {
-                Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id("options"), PointerPostfixSuffix(".", Id(x.feature.toLowerCase))), "=", PostfixExpr(Id("select_one"), FunctionCall(ExprList(List()))))))
+                Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id(x.feature.toLowerCase))), "=", PostfixExpr(Id("select_one"), FunctionCall(ExprList(List()))))))
             }).toList
             val initFunction = Opt(trueF, FunctionDef(List(Opt(trueF, VoidSpecifier())), AtomicNamedDeclarator(List(), Id("initOptions"), List(Opt(trueF, DeclIdentifierList(List())))), List(), CompoundStatement(cmpStmt)))
             TranslationUnit(List(externDeclaration, function, structDeclaration, initFunction))
@@ -2891,7 +2894,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 fw.append(feature.feature + "=y\n")
             fw.close()
         }
-        val exprStmts = (trueFeaturesInSet.map(x => Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id("options"), PointerPostfixSuffix(".", Id("config_" + x.toString.toLowerCase()))), "=", Constant("1"))))) ++ falseFeaturesInSet.map(x => Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id("options"), PointerPostfixSuffix(".", Id("config_" + x.toString.toLowerCase()))), "=", Constant("0"))))) ++ featuresOutsideFm.map(x => Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id("options"), PointerPostfixSuffix(".", Id("config_" + x.toString.toLowerCase()))), "=", Constant(parameterForFeaturesOutsideOfConfigFile)))))).toList
+        val exprStmts = (trueFeaturesInSet.map(x => Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id("config_" + x.toString.toLowerCase()))), "=", Constant("1"))))) ++ falseFeaturesInSet.map(x => Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id("config_" + x.toString.toLowerCase()))), "=", Constant("0"))))) ++ featuresOutsideFm.map(x => Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id("config_" + x.toString.toLowerCase()))), "=", Constant(parameterForFeaturesOutsideOfConfigFile)))))).toList
         val functionDef = FunctionDef(List(Opt(trueF, VoidSpecifier())), AtomicNamedDeclarator(List(), Id("initConfig"), List(Opt(True, DeclIdentifierList(List())))), List(), CompoundStatement(exprStmts))
         println(PrettyPrinter.print(functionDef))
         assert(exprStmts.size == features.size)
