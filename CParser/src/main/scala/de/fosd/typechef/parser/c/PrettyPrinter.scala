@@ -187,12 +187,42 @@ object PrettyPrinter {
             val r: Doc = if (l.isEmpty) Empty else l.head
             l.drop(1).foldLeft(r)((a, b) => s(a, prettyOpt(b)))
         }
+
+        def sepsVaware(l: List[Opt[String]], selem: String, breakselem: Doc = space) = {
+            var res: Doc = if (l.isEmpty) Empty else l.head
+            var combCtx: FeatureExpr = if (l.isEmpty) FeatureExprFactory.True else l.head.feature
+
+            for (celem <- l.drop(1)) {
+                val selemfexp = combCtx.and(celem.feature)
+
+                // separation element is never present
+                if (selemfexp.isContradiction())
+                    res = res ~ breakselem ~ prettyOptStr(celem)
+
+                // separation element is always present
+                else if (selemfexp.isTautology())
+                    res = res ~ selem ~ breakselem ~ prettyOptStr(celem)
+
+                // separation element is sometimes present
+                else {
+                    res = res * "#if" ~~ selemfexp.toTextExpr * selem * "#endif" * prettyOptStr(celem)
+                }
+
+                // add current feature expression as it might influence the addition of selem for
+                // the remaint elements of the input list l
+                combCtx = combCtx.or(celem.feature)
+            }
+
+            res
+        }
+
         def seps(l: List[Opt[String]], s: (Doc, Doc) => Doc) = {
             val r: Doc = if (l.isEmpty) Empty else l.head
             l.drop(1).foldLeft(r)(s(_, _))
         }
-        def commaSep(l: List[Opt[AST]]) = sep(l, _ ~ "," ~~ _)
-        def spaceSep(l: List[Opt[AST]]) = sep(l, _ ~~ _)
+        def commaSep(l: List[Opt[AST]]) = sepVaware(l, ",")
+        def pointSep(l: List[Opt[AST]]) = sep(l, _ ~ "." ~ _)
+        def spaceSep(l: List[Opt[AST]]) = sepVaware(l, " ")
         def opt(o: Option[AST]): Doc = if (o.isDefined) o.get else Empty
         def optExt(o: Option[AST], ext: (Doc) => Doc): Doc = if (o.isDefined) ext(o.get) else Empty
         def optCondExt(o: Option[Conditional[AST]], ext: (Doc) => Doc): Doc = if (o.isDefined) ext(o.get) else Empty
@@ -201,7 +231,7 @@ object PrettyPrinter {
             case TranslationUnit(ext) => sep(ext, _ * _)
             case Id(name) => name
             case Constant(v) => v
-            case StringLit(v) => seps(v, _ ~~ _)
+            case StringLit(v) => sepsVaware(v, space.s)
             case SimplePostfixSuffix(t) => t
             case PointerPostfixSuffix(kind, id) => kind ~ id
             case FunctionCall(params) => "(" ~ params ~ ")"
@@ -220,7 +250,7 @@ object PrettyPrinter {
             case NArySubExpr(op: String, e: Expr) => op ~~ e
             case ConditionalExpr(condition: Expr, thenExpr, elseExpr: Expr) => "(" ~ condition ~~ "?" ~~ opt(thenExpr) ~~ ":" ~~ elseExpr ~ ")"
             case AssignExpr(target: Expr, operation: String, source: Expr) => "(" ~ target ~~ operation ~~ source ~ ")"
-            case ExprList(exprs) => sep(exprs, _ ~~ "," ~~ _)
+            case ExprList(exprs) => sepVaware(exprs, ",")
 
             case CompoundStatement(innerStatements) =>
                 block(sep(innerStatements, _ * _))
@@ -348,7 +378,7 @@ object PrettyPrinter {
             case InitializerDesignatorD(id: Id) => "." ~ id
             case InitializerDesignatorC(id: Id) => id ~ ":"
             case InitializerAssigment(desgs) => spaceSep(desgs) ~~ "="
-            case BuiltinOffsetof(typeName: TypeName, offsetofMemberDesignator) => "__builtin_offsetof(" ~ typeName ~ "," ~~ spaceSep(offsetofMemberDesignator) ~ ")"
+            case BuiltinOffsetof(typeName: TypeName, offsetofMemberDesignator) => "__builtin_offsetof(" ~ typeName ~ "," ~~ pointSep(offsetofMemberDesignator) ~ ")"
             case OffsetofMemberDesignatorID(id: Id) => id
             case OffsetofMemberDesignatorExpr(expr: Expr) => "[" ~ expr ~ "]"
             case BuiltinTypesCompatible(typeName1: TypeName, typeName2: TypeName) => "__builtin_types_compatible_p(" ~ typeName1 ~ "," ~~ typeName2 ~ ")"
