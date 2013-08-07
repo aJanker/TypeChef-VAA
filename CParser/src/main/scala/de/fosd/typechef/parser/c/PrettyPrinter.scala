@@ -204,9 +204,9 @@ object PrettyPrinter {
                     res = res ~ selem ~ breakselem ~ prettyOptStr(celem)
 
                 // separation element is sometimes present
-                else {
-                    res = res * "#if" ~~ selemfexp.toTextExpr * selem * "#endif" * prettyOptStr(celem)
-                }
+                else
+                    res = res * "#if" ~~ selemfexp.toTextExpr * selem * prettyOptStr(celem) * "#endif\n"
+
 
                 // add current feature expression as it might influence the addition of selem for
                 // the remaint elements of the input list l
@@ -231,7 +231,7 @@ object PrettyPrinter {
             case TranslationUnit(ext) => sep(ext, _ * _)
             case Id(name) => name
             case Constant(v) => v
-            case StringLit(v) => sepsVaware(v, space.s)
+            case StringLit(v) => sepsVaware(v, "")
             case SimplePostfixSuffix(t) => t
             case PointerPostfixSuffix(kind, id) => kind ~ id
             case FunctionCall(params) => "(" ~ params ~ ")"
