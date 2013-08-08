@@ -439,7 +439,7 @@ trait CDeclUse extends CEnv with CEnvCache {
             case c@Choice(_, _, _) => addStructUseChoice(c, id)
             case One(AtomicNamedDeclarator(_, key, _)) => addToDeclUseMap(key, id)
             case One(NestedNamedDeclarator(_, declarator, _)) => addToDeclUseMap(declarator.getId, id)
-            case k => logger.error("Should not have entered here: " + id + "\n" + k)
+            case k => logger.error("Should not have entered here (deref of undeclared pointer in struct?): " + id + "\n" + k)
         }
     }
 
