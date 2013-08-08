@@ -23,7 +23,8 @@ trait CBuiltIn extends CEnv with CTypes with CDeclTyping {
 
     val initBuiltinVarEnv: Seq[(String, FeatureExpr, AST, Conditional[CType], DeclarationKind, Int, Linkage)] =
         (declare_builtin_functions() ++ Map(
-            ("__builtin_expect", One(CFunction(Seq(CVarArgs()), CInt()))),
+            //("__builtin_expect", One(CFunction(Seq(CVarArgs()), CInt()))),
+            ("__builtin_expect", One(CFunction(Seq(CLong(),CLong()), CLong()))),  // see http://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html for signature
             ("__builtin_safe_p", One(CFunction(Seq(CVarArgs()), CInt()))),
             ("__builtin_warning", One(CFunction(Seq(CVarArgs()), CInt()))),
             ("__builtin_choose_expr", One(CFunction(Seq(CVarArgs()), CInt()))),
