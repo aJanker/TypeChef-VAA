@@ -2011,7 +2011,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     if (conditionalTuple.size == 1 && conditionalTuple.head._1.equals(trueF)) {
                         List(transformRecursive(optIf, currentContext))
                     } else {
-                        conditionalTuple.map(x => Opt(trueF, ElifStatement(One(NAryExpr(featureToCExpr(x._1), List(Opt(trueF, NArySubExpr("&&", replaceOptAndId(x._2, x._1)))))), transformRecursive(replaceOptAndId(thenBranch, x._1), x._1))))
+                        conditionalTuple.flatMap(x => {
+                            val features = computeNextRelevantFeatures(x._2, x._1)
+                            if (features.isEmpty) {
+                                List(Opt(trueF, ElifStatement(One(NAryExpr(featureToCExpr(x._1), List(Opt(trueF, NArySubExpr("&&", replaceOptAndId(x._2, x._1)))))), transformRecursive(replaceOptAndId(thenBranch, x._1), x._1))))
+                            } else {
+                                features.map(y => Opt(trueF, ElifStatement(One(NAryExpr(featureToCExpr(y), List(Opt(trueF, NArySubExpr("&&", replaceOptAndId(x._2, y)))))), transformRecursive(replaceOptAndId(thenBranch, y), y))))
+                            }
+                        })
                     }
             }
         }
