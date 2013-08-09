@@ -3,6 +3,7 @@ package de.fosd.typechef.parser.c
 import de.fosd.typechef.conditional._
 import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr}
 import java.io.{FileWriter, StringWriter, Writer}
+import de.fosd.typechef.parser.c.CParser
 
 object PrettyPrinter {
 
@@ -136,7 +137,6 @@ object PrettyPrinter {
         }
 
     }
-
     def prettyPrint(ast: AST, list_feature_expr: List[FeatureExpr] = List(FeatureExprFactory.True)): Doc = {
         implicit def pretty(a: AST): Doc = prettyPrint(a, list_feature_expr)
         implicit def prettyOpt(a: Opt[AST]): Doc = optConditional(a, list_feature_expr)
@@ -226,6 +226,46 @@ object PrettyPrinter {
         def opt(o: Option[AST]): Doc = if (o.isDefined) o.get else Empty
         def optExt(o: Option[AST], ext: (Doc) => Doc): Doc = if (o.isDefined) ext(o.get) else Empty
         def optCondExt(o: Option[Conditional[AST]], ext: (Doc) => Doc): Doc = if (o.isDefined) ext(o.get) else Empty
+
+        def printTilde(tilde : de.fosd.typechef.parser.~[Any,Any], separator : Doc): Doc = {
+            val elem1 = tilde._1
+            val elem2 = tilde._2
+            val doc1 =
+                elem1 match {
+                    case None => Empty
+                    case Nil =>  Empty
+                    case Some(_) => printSome(elem1.asInstanceOf[Some[Any]], separator)
+                    case de.fosd.typechef.parser.~(_,_) => printTilde(elem1.asInstanceOf[de.fosd.typechef.parser.~[Any,Any]], separator)
+                    case scala.collection.immutable.::(_,_) => "::"~Empty
+                    case _ => prettyPrint(elem1.asInstanceOf[AST])
+                }
+            val doc2 =
+                elem2 match {
+                    case None => Empty
+                    case Nil => Empty
+                    case Some(_) => printSome(elem2.asInstanceOf[Some[Any]], separator)
+                    case de.fosd.typechef.parser.~(_,_) => printTilde(elem2.asInstanceOf[de.fosd.typechef.parser.~[Any,Any]], separator)
+                    case scala.collection.immutable.::(_,_) => "::"~Empty
+                    case _ => prettyPrint(elem2.asInstanceOf[AST])
+                }
+            if (doc1==Empty || doc2==Empty)
+                doc1 ~ doc2
+            else
+                doc1 ~ separator ~ doc2
+        }
+        def printSome(some : Some[Any], separator : Doc): Doc = {
+            some match {
+                case Some(x) =>
+                    if (x.isInstanceOf[List[Opt[AST]]]) {
+                        val lst = x.asInstanceOf[List[Opt[AST]]]
+                        sep(lst, _ ~ _)
+                    } else if (x.isInstanceOf[AST])
+                        prettyPrint(x.asInstanceOf[AST])
+                    else if (x.isInstanceOf[de.fosd.typechef.parser.~[Any,Any]]) {
+                        printTilde(x.asInstanceOf[de.fosd.typechef.parser.~[Any,Any]], separator)
+                    } else Empty
+            }
+        }
 
         ast match {
             case TranslationUnit(ext) => sep(ext, _ * _)
@@ -364,13 +404,34 @@ object PrettyPrinter {
             case LcurlyInitializer(inits) => "{" ~ commaSep(inits) ~ "}"
             case AlignOfExprT(typeName: TypeName) => "__alignof__(" ~ typeName ~ ")"
             case AlignOfExprU(expr: Expr) => "__alignof__" ~~ expr
-            case GnuAsmExpr(isVolatile: Boolean, isAuto, expr: StringLit, stuff: Any) =>
-                var ret = "asm" ~~ (if (isVolatile) "volatile " else "")
+            case GnuAsmExpr(isVolatile: Boolean, isGoto: Boolean, expr: StringLit, stuff) =>
+                val ret =
+                stuff match {
+                    case Some(x) =>
+                         "asm " ~
+                         (if (isVolatile) "volatile " else "") ~
+                         (if (isGoto) "goto " else "") ~
+                         "(" ~ expr ~ ": :" ~
+                         printSome(stuff.asInstanceOf[Some[Any]], " : : " ~ Empty) ~
+                         ")"
+                    case _ =>
+                        "asm " ~
+                        (if (isVolatile) "volatile " else "") ~
+                        (if (isGoto) "goto " else "") ~
+                        "(" ~ expr ~ ")"
+                }
+                ret
                 /*if(stuff.isInstanceOf[Some[AST]] || stuff.asInstanceOf[Some[AST]].isEmpty)
                   ret = ret ~ "(" ~ expr ~~ ":" ~~ "" ~~ ")" //TODO: this is not correct: the "" should be replaced with the contents of stuff
                 else*/
-                ret = ret ~ "(" ~ expr ~ ")"
-                ret
+                /*
+                val ret =
+                    (if (isVolatile) "volatile " else "") ~
+                    (if (isGoto) "goto " else "") ~
+                        "(" ~ expr ~
+                            (if (isGoto) ": : " else ":") ~ stuff1.toString ~
+                        ")"
+                ret */
             case RangeExpr(from: Expr, to: Expr) => from ~~ "..." ~~ to
             case TypeOfSpecifierT(typeName: TypeName) => "typeof(" ~ typeName ~ ")"
             case TypeOfSpecifierU(e: Expr) => "typeof(" ~ e ~ ")"
