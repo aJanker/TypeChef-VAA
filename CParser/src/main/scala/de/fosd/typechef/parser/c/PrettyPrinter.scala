@@ -220,7 +220,10 @@ object PrettyPrinter {
 
                 // separation element is sometimes present
                 else {
-                    res = res * "#if" ~~ selemfexp.toTextExpr * selem * "#endif" * prettyOptStr(celem)
+                    if (hasContent(selem))
+                        res = res * "#if" ~~ selemfexp.toTextExpr * selem * "#endif" * prettyOptStr(celem)
+                    else
+                        res = res * prettyOptStr(celem)
                 }
 
                 // add current feature expression as it might influence the addition of selem for
