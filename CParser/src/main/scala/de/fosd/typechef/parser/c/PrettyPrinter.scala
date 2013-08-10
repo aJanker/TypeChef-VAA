@@ -254,7 +254,7 @@ object PrettyPrinter {
             def handleOptExprPair(optExprPair:de.fosd.typechef.parser.~[Any,Any]) : Doc = {
                 optExprPair match {
                     case de.fosd.typechef.parser.~(de.fosd.typechef.parser.~(opt1, man2), opt2) =>
-                        (if (opt1 != None) "{"~prettyPrint(opt1.asInstanceOf[Some[AST]].get)~"}" else Empty) ~
+                        (if (opt1 != None) "["~prettyPrint(opt1.asInstanceOf[Some[AST]].get)~"]" else Empty) ~
                         prettyPrint(man2.asInstanceOf[AST]) ~
                         (if (opt2 != None) "("~prettyPrint(opt2.asInstanceOf[Some[AST]].get)~")" else Empty)
                     case _ => sys.error("did not find a match for optional expression in GnuAsmExpr")
