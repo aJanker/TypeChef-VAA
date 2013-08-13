@@ -863,7 +863,6 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                         List(Opt(trueF, o.entry))
                     } else {
                         // TODO: To list(o) or not
-                        logger.error("Could not eliminate variability (non-exhaustive ifdef in file?): " + o.toString)
                         List(o)
                     })
             case i: Id =>
