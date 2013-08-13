@@ -1624,21 +1624,25 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                         List()
                     }
                 } else if (featureBuffer.size == 1) {
-                    val result = featureBuffer.toList.head
+                    val firstResult = featureBuffer.toList.head
+                    val result = computeCarthesianProduct(List(firstResult, identFeatureList.diff(firstResult)))
                     result
                 } else {
                     val featureBufferList = featureBuffer.toList
                     // Workaround for exponential explosion
-                    val result = featureBufferList.tail.foldLeft(featureBufferList.head)((first, second) => {
+                    val firstResult = featureBufferList.tail.foldLeft(featureBufferList.head)((first, second) => {
                         if (!first.isEmpty) {
                             first.flatMap(x => second.map(y => y.and(x))).filterNot(x => x.equivalentTo(FeatureExprFactory.False) || !x.isSatisfiable(fm))
                         } else {
                             List()
                         }
                     }).distinct
-                    if (result.size > numberOfVariantThreshold) {
+                    if (firstResult.size > numberOfVariantThreshold) {
+
+                        //TODO: how to handle this case
                         List()
                     } else {
+                        val result = computeCarthesianProduct(List(firstResult, identFeatureList.diff(firstResult)))
                         result
                     }
                 }
