@@ -1795,6 +1795,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     entry.productIterator.toList.flatMap(getNextFeatureHelp(_))
                 case d@Opt(ft, entry: StructDeclarator) =>
                     entry.productIterator.toList.flatMap(getNextFeatureHelp(_))
+                case d@Opt(ft, entry: DeclArrayAccess) =>
+                    entry.productIterator.toList.flatMap(getNextFeatureHelp(_))
                 case d@Opt(ft, entry) =>
                     List()
                 case p: Product =>
