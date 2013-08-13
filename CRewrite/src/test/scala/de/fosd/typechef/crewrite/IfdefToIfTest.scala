@@ -1079,8 +1079,41 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def single_busybox_file_test() {
-        val filename = "lineedit"
+        val filename = "init"
         transformSingleFile(filename, busyBoxPath)
+    }
+
+    @Test def busybox_file_tests() {
+        val files = List(new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\archival\\libarchive\\header_verbose_list.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\libbb\\correct_password.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\libbb\\lineedit.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\libbb\\procps.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\loginutils\\getty.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\loginutils\\passwd.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\loginutils\\sulogin.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\brctl.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\httpd.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\ifconfig.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\inetd.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\ip.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\nc.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\procps\\ps.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\procps\\top.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\sysklogd\\logread.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\sysklogd\\syslogd_and_logger.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\util-linux\\fbset.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\util-linux\\fdisk.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\util-linux\\fsck_minix.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\util-linux\\mkfs_vfat.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\util-linux\\mount.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\telnetd.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\tftp.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\udhcp\\common.pi")
+            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\udhcp\\dhcpc.pi"))
+        files.foreach(x => {
+            testFile(x)
+            println("\n")
+        })
     }
 
     @Ignore def test_bbunzip_pi() {
@@ -1677,7 +1710,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def multiple_declarations_test() {
-        val ast = i.getAstFromFile(new File(ifdeftoifTestPath + "struct_spwd_test.c"))
+        val ast = i.getAstFromFile(new File(ifdeftoifTestPath + "do_statements.c"))
         println(ast)
         println(testAst(ast))
     }
