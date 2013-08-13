@@ -466,8 +466,8 @@ object PrettyPrinter {
                         val stuffDoc : Doc =
                             (if (!isGoto) ":" else "::") ~
                             docPart1 ~
-                            ":" ~ docPart21 ~ // it seems we can always add the colons (even if the following asm-element is Empty)
-                            ":" ~ docPart22
+                            ":" ~ docPart21 ~ // it seems we can always add this colons (even if the following asm-element docPart21 is Empty)
+                            (if (hasContent(docPart22)) ":" ~ docPart22 else Empty) // TypeChef parser complains if we add this colon when docPart22 is empty
                         "asm " ~
                         (if (isVolatile) "volatile " else "") ~
                         (if (isGoto) "goto " else "") ~
