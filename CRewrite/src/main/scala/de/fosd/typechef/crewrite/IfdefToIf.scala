@@ -104,6 +104,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     var alreadyReplaced: ListBuffer[Id] = ListBuffer()
     val toBeReplaced: util.IdentityHashMap[Product, Product] = new IdentityHashMap()
     var liftOptReplaceMap: Map[Opt[_], List[Opt[_]]] = Map()
+
+    //TODO: alex: print variable renaming map
     val idsToBeReplaced: IdentityHashMap[Id, Set[FeatureExpr]] = new IdentityHashMap()
     val writeOptionsIntoFile = true
 
@@ -1625,7 +1627,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     }
                 } else if (featureBuffer.size == 1) {
                     val result = featureBuffer.toList.head
-                    result
+                    computeCarthesianProduct(List(result, identFeatureList.diff(result)))
                 } else {
                     val featureBufferList = featureBuffer.toList
                     // Workaround for exponential explosion
@@ -1637,9 +1639,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                         }
                     }).distinct
                     if (result.size > numberOfVariantThreshold) {
+                        //TODO: alex: print abort message with info for manual handling
                         List()
                     } else {
-                        result
+                        computeCarthesianProduct(List(result, identFeatureList.diff(result)))
                     }
                 }
             }
