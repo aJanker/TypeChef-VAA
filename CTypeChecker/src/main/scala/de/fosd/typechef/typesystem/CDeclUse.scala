@@ -288,7 +288,7 @@ trait CDeclUse extends CEnv with CEnvCache {
 
         // TODO andreas: refactor code looks a little messy
         def addUseCastExpr(typ: TypeName, addUse: (AST, FeatureExpr, CDeclUse.this.type#Env) => Unit, feature: FeatureExpr, env: CDeclUse.this.type#Env, lst: List[Opt[Initializer]]) {
-            logger.error("Type" + typ)
+            //logger.error("Type" + typ)
             var typedefspecifier: Id = null
             typ match {
                 case TypeName(ls, _) =>
@@ -439,7 +439,7 @@ trait CDeclUse extends CEnv with CEnvCache {
             case c@Choice(_, _, _) => addStructUseChoice(c, id)
             case One(AtomicNamedDeclarator(_, key, _)) => addToDeclUseMap(key, id)
             case One(NestedNamedDeclarator(_, declarator, _)) => addToDeclUseMap(declarator.getId, id)
-            case k => logger.error("Should not have entered here (deref of undeclared pointer in struct?): " + id + "\n" + k)
+            case k => //logger.error("Should not have entered here: " + id + "\n" + k)
         }
     }
 

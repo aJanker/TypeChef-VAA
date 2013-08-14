@@ -1626,23 +1626,26 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                         List()
                     }
                 } else if (featureBuffer.size == 1) {
-                    val result = featureBuffer.toList.head
-                    computeCarthesianProduct(List(result, identFeatureList.diff(result)))
+                    val firstResult = featureBuffer.toList.head
+                    val result = computeCarthesianProduct(List(firstResult, identFeatureList.diff(firstResult)))
+                    result
                 } else {
                     val featureBufferList = featureBuffer.toList
                     // Workaround for exponential explosion
-                    val result = featureBufferList.tail.foldLeft(featureBufferList.head)((first, second) => {
+                    val firstResult = featureBufferList.tail.foldLeft(featureBufferList.head)((first, second) => {
                         if (!first.isEmpty) {
                             first.flatMap(x => second.map(y => y.and(x))).filterNot(x => x.equivalentTo(FeatureExprFactory.False) || !x.isSatisfiable(fm))
                         } else {
                             List()
                         }
                     }).distinct
-                    if (result.size > numberOfVariantThreshold) {
+                    if (firstResult.size > numberOfVariantThreshold) {
+
                         //TODO: alex: print abort message with info for manual handling
                         List()
                     } else {
-                        computeCarthesianProduct(List(result, identFeatureList.diff(result)))
+                        val result = computeCarthesianProduct(List(firstResult, identFeatureList.diff(firstResult)))
+                        result
                     }
                 }
             }
@@ -1732,13 +1735,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(fixTypeChefsFeatureExpressions(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
                 case d@Opt(ft, entry: ParameterDeclarationD) =>
                     if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(fixTypeChefsFeatureExpressions(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
-                case d@Opt(ft, entry: Pointer) =>
-                    if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(fixTypeChefsFeatureExpressions(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
                 case d@Opt(ft, entry: InitDeclaratorI) =>
-                    (if (!ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) List(fixTypeChefsFeatureExpressions(ft, currentContext)) else List()) ++
-                        entry.declarator.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext))) ++
-                        entry.attributes.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext))) ++
-                        entry.i.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
+                    (if (!ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) List(fixTypeChefsFeatureExpressions(ft, currentContext)) else List()) ++ entry.declarator.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext))) ++ entry.attributes.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
                 case d@Opt(ft, entry) =>
                     if (!ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) List(fixTypeChefsFeatureExpressions(ft, currentContext)) else List()
                 case l: List[_] =>
