@@ -1742,6 +1742,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                         entry.declarator.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext))) ++
                         entry.attributes.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext))) ++
                         entry.i.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
+// Attribute Stuff
+                case d@Opt(ft, entry: GnuAttributeSpecifier) =>
+                    entry.attributeList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
+                case d@Opt(ft, entry: AttributeSequence) =>
+                    entry.attributes.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
+                case d@Opt(ft, entry: CompoundAttribute) =>
+                    entry.inner.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
+//End - Attribute Stuff
                 case d@Opt(ft, entry) =>
                     if (!ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) List(fixTypeChefsFeatureExpressions(ft, currentContext)) else List()
                 case l: List[_] =>
