@@ -1726,8 +1726,23 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      * @return
      */
     def getNextVariableFeaturesCondition(a: Any, currentContext: FeatureExpr = trueF): List[FeatureExpr] = {
+        def debugGetNextFeatureHelp(ast : Any, foundFeatures : List[FeatureExpr]) {
+            println(ast.toString)
+            println("\t-> " + foundFeatures)
+            val astElem: String = ast.toString
+            for (i <- (1 to astElem.length-1)) {
+                if (astElem.substring(i).startsWith("def(")) {
+                    val end = astElem.substring(i).indexOf(")")
+                    val featureEx = astElem.substring(i , i+end+1)
+                    if (! foundFeatures.toString.contains(featureEx)) {
+                        println("\t\t" + featureEx + " missing")
+                    }
+                }
+            }
+        }
         def getNextFeatureHelp(a: Any, currentContext: FeatureExpr = trueF): List[FeatureExpr] = {
-            a match {
+            val ret =
+            (a match {
                 case d@Opt(ft, entry: NArySubExpr) =>
                     if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(fixTypeChefsFeatureExpressions(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
                 case d@Opt(ft, entry: Expr) =>
@@ -1745,8 +1760,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                         entry.i.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
                 case d@Opt(ft, entry: StructDeclarator) =>
                     if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(fixTypeChefsFeatureExpressions(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
-                case ss@Opt(ft, entry: SwitchStatement) =>
-                       if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else
+                case s@Opt(ft, entry: SwitchStatement) =>
+                    if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else
                         List(fixTypeChefsFeatureExpressions(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
 // Attribute Stuff
                 case d@Opt(ft, entry: GnuAttributeSpecifier) =>
@@ -1764,7 +1779,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     p.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext))
                 case _ =>
                     List()
-            }
+            });
+            //debugGetNextFeatureHelp(a, ret)
+            ret
         }
         /*case i: Id =>
       if (idsToBeReplaced.containsKey(i)) {
