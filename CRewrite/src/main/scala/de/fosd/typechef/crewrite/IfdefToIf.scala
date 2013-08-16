@@ -1640,8 +1640,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                         }
                     }).distinct
                     if (firstResult.size > numberOfVariantThreshold) {
-
-                        //TODO: alex: print abort message with info for manual handling
+                        println("aborted handling because of number of variants ("+firstResult.size+")"+ "\n"+
+                        "\t ast element: " + a.toString + "\n" +
+                        "\t context: " + currentContext.toTextExpr)
                         List()
                     } else {
                         val result = computeCarthesianProduct(List(firstResult, identFeatureList.diff(firstResult)))
@@ -1744,6 +1745,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                         entry.i.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
                 case d@Opt(ft, entry: StructDeclarator) =>
                     if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(fixTypeChefsFeatureExpressions(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
+                case ss@Opt(ft, entry: SwitchStatement) =>
+                       if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else
+                        List(fixTypeChefsFeatureExpressions(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
 // Attribute Stuff
                 case d@Opt(ft, entry: GnuAttributeSpecifier) =>
                     entry.attributeList.flatMap(getNextFeatureHelp(_, fixTypeChefsFeatureExpressions(ft, currentContext)))
