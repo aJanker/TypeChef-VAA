@@ -1182,10 +1182,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                         noOfStatementsVariable = noOfStatementsVariable + 1
                                         val features = computeNextRelevantFeatures(r, ft)
                                         if (!features.isEmpty) {
-                                            val result = features.map(x => Opt(trueF, statementToIf(replaceOptAndId(r, x), ft)))
+                                            val result = features.map(x => Opt(trueF, statementToIf(transformRecursive(replaceOptAndId(r, x), x), x)))
                                             result
                                         } else {
-                                            List(Opt(trueF, statementToIf(replaceOptAndId(r, ft), ft)))
+                                            List(Opt(trueF, statementToIf(transformRecursive(replaceOptAndId(r, ft), ft), ft)))
                                         }
                                     case w: WhileStatement =>
                                         noOfStatements = noOfStatements + 1
@@ -1225,9 +1225,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                         val realFeature = currentContext.and(o.feature)
                                         val features = computeNextRelevantFeatures(e, realFeature)
                                         if (!features.isEmpty) {
-                                            features.map(x => Opt(trueF, IfStatement(One(featureToCExpr(x.and(realFeature))), One(CompoundStatement(List(Opt(trueF, replaceOptAndId(e, x.and(realFeature)))))), List(), None)))
+                                            features.map(x => Opt(trueF, IfStatement(One(featureToCExpr(x.and(realFeature))), One(CompoundStatement(List(transformRecursive(Opt(trueF, replaceOptAndId(e, x.and(realFeature))), x.and(realFeature))))), List(), None)))
                                         } else {
-                                            List(Opt(trueF, IfStatement(One(featureToCExpr(realFeature)), One(CompoundStatement(List(Opt(trueF, replaceOptAndId(e, realFeature))))), List(), None)))
+                                            List(Opt(trueF, IfStatement(One(featureToCExpr(realFeature)), One(CompoundStatement(List(transformRecursive(Opt(trueF, replaceOptAndId(e, realFeature)), realFeature)))), List(), None)))
                                         }
                                     case label: LabelStatement =>
                                         noOfStatements = noOfStatements + 1
@@ -1310,14 +1310,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                         noOfStatements = noOfStatements + 1
                                         val features = computeNextRelevantFeatures(r, currentContext)
                                         if (!features.isEmpty) {
-                                            val result = features.map(x => Opt(trueF, statementToIf(replaceOptAndId(r, x), x)))
+                                            val result = features.map(x => Opt(trueF, statementToIf(transformRecursive(replaceOptAndId(r, x), x), x)))
                                             result
                                         } else {
-                                            if (currentContext.equivalentTo(trueF)) {
-                                                List(o)
-                                            } else {
-                                                List(Opt(trueF, replaceOptAndId(r, currentContext)))
-                                            }
+                                            List(transformRecursive(o, currentContext))
                                         }
                                     case g: GotoStatement =>
                                         noOfStatements = noOfStatements + 1
@@ -1349,12 +1345,12 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                         noOfStatements = noOfStatements + 1
                                         val features = computeNextRelevantFeatures(e, currentContext)
                                         if (!features.isEmpty) {
-                                            features.map(x => Opt(trueF, IfStatement(One(featureToCExpr(x)), One(CompoundStatement(List(Opt(trueF, replaceOptAndId(e, x.and(o.feature)))))), List(), None)))
+                                            features.map(x => Opt(trueF, IfStatement(One(featureToCExpr(x)), One(CompoundStatement(List(transformRecursive(Opt(trueF, replaceOptAndId(e, x.and(o.feature))), x.and(o.feature))))), List(), None)))
                                         } else {
                                             if (currentContext.equivalentTo(trueF)) {
-                                                List(o)
+                                                List(transformRecursive((o, currentContext)))
                                             } else {
-                                                List(Opt(trueF, ExprStatement(replaceOptAndId(e.expr, currentContext))))
+                                                List(transformRecursive(Opt(trueF, ExprStatement(replaceOptAndId(e.expr, currentContext))), currentContext))
                                             }
                                         }
                                     case w@WhileStatement(expr: Expr, s: Conditional[_]) =>
@@ -1392,8 +1388,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
                                     case td: TypelessDeclaration =>
                                         List(o)
-                                    case k: Product => List(transformRecursive(o, currentContext))
-                                    case _ => List(o)
+                                    case k: Product =>
+                                        List(transformRecursive(o, currentContext))
+                                    case _ =>
+                                        List(o)
                                 }
                             }
                         case k => List(transformRecursive(k))
