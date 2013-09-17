@@ -3,7 +3,6 @@ package de.fosd.typechef.crewrite
 import org.junit.{Ignore, Test}
 import de.fosd.typechef.featureexpr.sat._
 import de.fosd.typechef.parser.c._
-import de.fosd.typechef.crewrite.CASTEnv._
 import de.fosd.typechef.typesystem._
 import java.io._
 import java.util
@@ -139,7 +138,8 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val useDefMap = getUseDeclMap
 
         val optionsAst = i.getOptionFile(source_ast)
-        ("+++New Code+++\n" + PrettyPrinter.print(i.transformAst(source_ast, defUseMap, useDefMap)._1))
+        val newAst = i.transformAst(source_ast, defUseMap, useDefMap)._1
+        ("+++New Code+++\n" + PrettyPrinter.print(newAst))
     }
 
     def testFolder(path: String) {
@@ -320,31 +320,27 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val source_ast = getAST( """
       void foo_01(int a) {
         int optA = 1;
+        #if definedEx(A)
+        int i = 10;
+        #else
+        int i = 20;
+        #endif
+        #if definedEx(C)
+        int c = 5;
+        #endif
         switch (a) {
           case 0: printf("in 0\n"); break;
           case 1: printf("in 1\n"); break;
-          #if definedEx(A)
+          #if definedEx(B)
           case 2: printf("in 2\n"); break;
           #endif
+          case c: printf("in c\n"); break;
           case 3: printf("in 3\n"); break;
+          case i: printf("in i\n"); break;
         }
       }
                                  """)
-        val target_ast = getAST( """
-      void foo_01(int a) {
-        int optA = 1;
-        switch (a) {
-          case 0: printf("in 0\n"); break;
-          case 1: printf("in 1\n"); break;
-          case 2: if (optA) {
-            printf("in 2\n"); break;
-          } else {
-            break;
-          }
-          case 3: printf("in 3\n"); break;
-        }
-      }
-                                 """)
+        println(source_ast)
         println(testAst(source_ast))
     }
 
@@ -1176,9 +1172,6 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }}""")
         println(source_ast)
         println(testAst(source_ast))
-        println("DECLS: " + i.countNumberOfElements[Declaration](source_ast))
-        println("FUNCTIONDEFS: " + i.countNumberOfElements[FunctionDef](source_ast))
-        println("Declarations: " + i.countNumberOfDeclarations(source_ast))
     }
 
     @Test def test_if_choice() {
@@ -1612,28 +1605,6 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println(testAst(source_ast))
     }
 
-    @Test def lift_opt_test() {
-        val source_ast = getAST( """
-    void main {
-    int i = 0;
-    int j = 0;
-    j = i +
-    #if definedEx(A)
-    2
-    #endif
-    #if !definedEx(A)
-    3
-    #endif
-    ;}
-                                 """)
-
-        println(source_ast)
-        val newAst = i.liftOpts(source_ast)
-        println("Single lifted:\n" + PrettyPrinter.print(newAst))
-        val newNewAst = i.liftOpts(newAst)
-        println("\n\nDouble lifted:\n" + PrettyPrinter.print(newNewAst))
-    }
-
     @Test def feature_test() {
         val oneVariableContradiction = FunctionDef(List(Opt(fa, StaticSpecifier()), Opt(fa.not(), VoidSpecifier())), AtomicNamedDeclarator(List(), Id("main"), List()), List(), CompoundStatement(List()))
         val twoVariableContradiction = FunctionDef(List(Opt(fa, StaticSpecifier()), Opt(fa.not().and(fb.not()), VoidSpecifier()), Opt((fb.and(fa.not()).and(fb.or(fa))), VoidSpecifier())), AtomicNamedDeclarator(List(), Id("main"), List()), List(), CompoundStatement(List()))
@@ -1674,32 +1645,6 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println((fa.and(fb.not())))*/
     }
 
-    @Test def lift_opt2_test() {
-        val source_ast = getAST( """
-    void main {
-    int i = 0;
-    int j = 0;
-    j = i +
-    #if definedEx(A)
-    2
-    #endif
-    #if definedEx(B) && definedEx(A)
-    * 32
-    #endif
-    #if !definedEx(A)
-    3
-    #endif
-    ;}
-                                 """)
-
-        println(source_ast)
-        val env = createASTEnv(source_ast)
-        val newAst = i.liftOpts(source_ast)
-        println("Single lifted:\n" + PrettyPrinter.print(newAst))
-        val newNewAst = i.liftOpts(newAst)
-        println("\n\nDouble lifted:\n" + PrettyPrinter.print(newNewAst))
-    }
-
     @Ignore def option_ftest() {
         val source_ast = getAST( """
       #include "opt.h"
@@ -1710,9 +1655,9 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def multiple_declarations_test() {
-        val ast = i.getAstFromFile(new File(ifdeftoifTestPath + "do_statements.c"))
+        val ast = i.getAstFromFile(new File(ifdeftoifTestPath + "2.c"))
         println(ast)
-        println(testAst(ast))
+        testFile(new File(ifdeftoifTestPath + "2.c"))
     }
 
     @Ignore def context_variableids_test() {
@@ -1820,7 +1765,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val c = FeatureExprFactory.createDefinedExternal("C")
         val context = a.and(b)
         val typeChefMistake = a.or(b).or(c)
-        val fix = i.fixTypeChefsFeatureExpressions(typeChefMistake, context)
+        val fix = i.getRealFeatureForContext(typeChefMistake, context)
         println("Wrong: " + typeChefMistake.implies(context).isTautology)
         println("Right: " + fix.implies(context).isTautology)
         println("Right: " + fix.implies(FeatureExprFactory.True).isTautology)

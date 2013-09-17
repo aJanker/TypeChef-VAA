@@ -1,13 +1,14 @@
-struct passwd {
-  char *pw_name;
-  char *pw_passwd;
-  char *pw_gecos;
-  char *pw_dir;
-  char *pw_shell;
-} ;
-
-#if definedEx(CONFIG_USE_BB_PWD_GRP)
-extern struct passwd  *bb_internal_getpwnam(const char *__name);
+#if definedEx(CONFIG_X86_32)
+ struct pt_regs {
+    unsigned long ss;
+};
 #endif
-
-void main() {}
+#if !definedEx(CONFIG_X86_32)
+ struct pt_regs {
+    unsigned long ss;
+};
+#endif
+static unsigned long regs_get_register()
+{
+    return __builtin_expect((1 > (__builtin_offsetof(struct pt_regs,ss))), 0);
+}
