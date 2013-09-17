@@ -7,12 +7,13 @@ package de.fosd.typechef
 
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem._
-import de.fosd.typechef.crewrite._
+import crewrite._
 import java.io._
 import parser.TokenReader
 import de.fosd.typechef.options.{FrontendOptionsWithConfigFiles, FrontendOptions, OptionException}
 import de.fosd.typechef.parser.c.CTypeContext
 import de.fosd.typechef.parser.c.TranslationUnit
+import scala.Some
 
 object Frontend {
 
@@ -83,7 +84,6 @@ object Frontend {
         }
     }
 
-
     def processFile(opt: FrontendOptions) {
         val errorXML = new ErrorXML(opt.getErrorXMLFile)
         opt.setRenderParserError(errorXML.renderParserError)
@@ -93,14 +93,6 @@ object Frontend {
 
         val fm = opt.getLexerFeatureModel().and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
         opt.setFeatureModel(fm) //otherwise the lexer does not get the updated feature model with file presence conditions
-        /*
-        // create dimacs file from feature model
-        opt.getFeatureModelTypeSystem.asInstanceOf[SATFeatureModel].writeToDimacsFile(new File(
-            "/tmp/BB_fm.dimacs"
-        ))
-
-        System.exit(0)
-        */
         if (!opt.getFilePresenceCondition.isSatisfiable(fm)) {
             println("file has contradictory presence condition. existing.") //otherwise this can lead to strange parser errors, because True is satisfiable, but anything else isn't
             return
@@ -139,13 +131,7 @@ object Frontend {
                         new CTypeSystemFrontend(ast.asInstanceOf[TranslationUnit], fm_ts, opt) with CTypeCache
                     else new CTypeSystemFrontend(ast.asInstanceOf[TranslationUnit], fm_ts, opt)
 
-                /** I did some experiments with the TypeChef FeatureModel of Linux, in case I need the routines again, they are saved here. */
-                //Debug_FeatureModelExperiments.experiment(fm_ts)
-
                 if (opt.typecheck || opt.writeInterface) {
-                    //ProductGeneration.typecheckProducts(fm,fm_ts,ast,opt,
-                    //logMessage=("Time for lexing(ms): " + (t2-t1) + "\nTime for parsing(ms): " + (t3-t2) + "\n"))
-                    //ProductGeneration.estimateNumberOfVariants(ast, fm_ts)
 
                     stopWatch.start("typechecking")
                     println("type checking.")
@@ -163,9 +149,6 @@ object Frontend {
                     }
                     if (opt.ifdeftoif) {
                         if (typeCheckStatus) {
-                            //ProductGeneration.typecheckProducts(fm,fm_ts,ast,opt,
-                            //logMessage=("Time for lexing(ms): " + (t2-t1) + "\nTime for parsing(ms): " + (t3-t2) + "\n"))
-                            //ProductGeneration.estimateNumberOfVariants(ast, fm_ts)
                             val i = new IfdefToIf
                             val defUseMap = ts.getDeclUseMap
                             val useDefMap = ts.getUseDeclMap
@@ -201,7 +184,7 @@ object Frontend {
                     stopWatch.start("dumpCFG")
 
                     val cf = new CAnalysisFrontend(ast.asInstanceOf[TranslationUnit], fm_ts)
-                    cf.dumpCFG()
+                    cf.dumpCFG(new FileWriter((new IfdefToIf).outputStemToFileName(opt.getOutputStem()) + "_CFG.dot"))
                 }
                 if (opt.doublefree) {
                     stopWatch.start("doublefree")
