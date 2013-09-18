@@ -1,11 +1,12 @@
 package de.fosd.typechef
 
 import conditional.{Choice, Opt}
+import crewrite.{IfdefToIf, CAnalysisFrontend}
 import featureexpr.sat.SATFeatureModel
-import featureexpr.SingleFeatureExpr
+import featureexpr.{FeatureModel, SingleFeatureExpr}
 import java.io.{File, FileWriter}
 import options.FrontendOptions
-import parser.c.AST
+import parser.c.{FunctionDef, TranslationUnit, AST}
 
 /**
  * Created with IntelliJ IDEA.
@@ -74,4 +75,49 @@ object Extras {
 
     }
 
+    def getSimpleCFGfeatures(ast:AST, fm :FeatureModel) : Set[SingleFeatureExpr] = {
+        def getCalledFunctions(ast:AST, knownFunctionNames:Set[String]) : Set[String] = {
+            // for now, make it simple
+            // I only search for occurences of the function names I know
+            val astString = ast.toString
+            var ret :Set [String] = Set()
+            for (fname <- knownFunctionNames)
+                if (astString.contains(fname))
+                    ret = ret +fname
+            ret
+        }
+        def getUsedFeaturesRec(fName:String,
+                               functionToCalledFunctionsMap:Map[String,Set[String]],
+                               functionToASTMap : Map[String, FunctionDef],
+                               scannedFunctions : Set[String] = Set()) : Set[SingleFeatureExpr] = {
+            if (scannedFunctions.contains(fName)) {
+                Set()
+            } else {
+                val thisScannedFunctions = scannedFunctions + fName
+                var usedFeatures = getAllFeaturesRec(functionToASTMap.get(fName))
+                functionToCalledFunctionsMap.get(fName) match {
+                    case None => println ("no called function found for function " + fName)
+                    case Some(calledFunctions) => {
+                        for (calledF : String <- calledFunctions) {
+                            usedFeatures = usedFeatures ++ getUsedFeaturesRec(calledF, functionToCalledFunctionsMap, functionToASTMap, thisScannedFunctions)
+                        }
+                    }
+                }
+                usedFeatures
+            }
+        }
+
+        val cf = new CAnalysisFrontend(ast.asInstanceOf[TranslationUnit], fm)
+        val lst : List[FunctionDef] = cf.filterAllASTElems[FunctionDef](ast)
+        val functionNames : Set[String] = lst.map(x => x.declarator.getId.name).toSet
+        var functionToCalledFunctionsMap : Map[String, Set[String]] = Map()
+        var functionToASTMap : Map[String, FunctionDef] = Map()
+        for (x: FunctionDef <- lst) {
+            // problem: function overloading is not handled
+            functionToCalledFunctionsMap = functionToCalledFunctionsMap.updated(x.declarator.getId.name, getCalledFunctions(x, functionNames))
+            functionToASTMap = functionToASTMap.updated(x.declarator.getId.name, x)
+        }
+        val startFunction:String = "ldv_main0_sequence_infinite_withcheck_stateful"
+        getUsedFeaturesRec(startFunction, functionToCalledFunctionsMap, functionToASTMap)
+    }
 }
