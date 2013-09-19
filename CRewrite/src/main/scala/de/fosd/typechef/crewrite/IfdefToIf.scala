@@ -863,6 +863,12 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         usedef = usedecl
         val fileName = outputStemToFileName(outputStem)
 
+        var ifdeftoif_file = ""
+        if (newPath.equals("")) {
+            ifdeftoif_file = outputStemToifdeftoif(outputStem)
+        } else {
+            ifdeftoif_file = newPath
+        }
 
         val time = tb.getCurrentThreadCpuTime()
         val new_ast = transformRecursive(source_ast)
@@ -873,12 +879,6 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         val result_ast = TranslationUnit(featureStruct.defs ++ new_ast.asInstanceOf[TranslationUnit].defs)
         exportRenamings()
 
-        var ifdeftoif_file = ""
-        if (newPath.equals("")) {
-            ifdeftoif_file = outputStemToifdeftoif(outputStem)
-        } else {
-            ifdeftoif_file = newPath
-        }
         PrettyPrinter.printF(result_ast, ifdeftoif_file)
 
         // @fgarbe: lazy can be removed, since typeCheckSuccessful is always used, i.e., it's not part of a conditional branch.
@@ -958,7 +958,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 outputStem.substring(0, lastSepIndex)
             }
         }
-        outputStemToFileNameWithoutExtension(outputStem) + "_ifdeftoif.c"
+        if ((new File(outputStem)).getName.contains(".")) // if the filename has a extension, remove it
+            outputStemToFileNameWithoutExtension(outputStem) + "_ifdeftoif.c"
+        else
+            outputStem + "_ifdeftoif.c"
     }
 
     /**
@@ -1662,6 +1665,18 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
                 case d@Opt(ft, entry: InitDeclaratorI) =>
                     (if (!ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) List(getRealFeatureForContext(ft, currentContext)) else List()) ++ entry.declarator.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext))) ++ entry.attributes.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                    case d@Opt(ft, entry: StructDeclarator) =>
+                        if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                    case d@Opt(ft, entry: Statement) =>
+                        if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+    // Attribute Stuff
+                    case d@Opt(ft, entry: GnuAttributeSpecifier) =>
+                        entry.attributeList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                    case d@Opt(ft, entry: AttributeSequence) =>
+                        entry.attributes.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                    case d@Opt(ft, entry: CompoundAttribute) =>
+                        entry.inner.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+    //End - Attribute Stuff
                 case d@Opt(ft, entry) =>
                     if (!ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) List(getRealFeatureForContext(ft, currentContext)) else List()
                 case l: List[_] =>
