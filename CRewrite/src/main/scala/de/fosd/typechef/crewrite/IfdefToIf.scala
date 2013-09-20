@@ -1552,11 +1552,13 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     features3 = List(trueF)
                 }
                 val result = features1.flatMap(x => features2.map(y => y.and(x))).flatMap(x => features3.map(y => y.and(x)))
-                result.filterNot(x => x.equivalentTo(trueF))
+                // last operation might have introduced "false" expressions
+                result.filterNot(x => x.equivalentTo(trueF) || x.equivalentTo(FeatureExprFactory.False))
             case d@Declaration(declSpecs, init) =>
                 val features1 = computationHelper(declSpecs, currentContext, true)
                 val features2 = computationHelper(init, currentContext, true).diff(features1)
-                val result = computeCarthesianProduct(List(features1, features2)).filterNot(x => x.equals(trueF))
+                // last operation might have introduced "false" expressions
+                val result = computeCarthesianProduct(List(features1, features2)).filterNot(x => x.equals(trueF) || x.equivalentTo(FeatureExprFactory.False))
                 result
             case nfd: NestedFunctionDef =>
                 val features1 = computationHelper(nfd.specifiers, currentContext, true)
@@ -1569,7 +1571,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     features3 = List(trueF)
                 }
                 val result = features1.flatMap(x => features2.map(y => y.and(x))).flatMap(x => features3.map(y => y.and(x)))
-                result.filterNot(x => x.equivalentTo(trueF))
+                // last operation might have introduced "false" expressions
+                result.filterNot(x => x.equivalentTo(trueF) || x.equivalentTo(FeatureExprFactory.False))
             case k =>
                 computationHelper(k, currentContext)
         }
@@ -2025,7 +2028,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         if (optDeclaration.feature.equivalentTo(trueF)) {
             optDeclaration.entry match {
                 case d@Declaration(declSpecs, init) =>
-                    val features = computeNextRelevantFeatures(d).map(x => x.and(currentContext))
+                    // filter for false features, because the and-operation might introduce FeatureExprFactory.False
+                    val features = computeNextRelevantFeatures(d).map(x => x.and(currentContext)).filterNot(_.equivalentTo(FeatureExprFactory.False))
                     if (!features.isEmpty) {
                         val result = features.map(x => Opt(trueF, transformRecursive(replaceOptAndId(Declaration(declSpecs, convertIds(init, x)), x), x)))
                         result
@@ -2106,9 +2110,6 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         } else {
             context = trueF
         }
-        if(context == FeatureExprFactory.False) {
-            println("False context found for " + optDeclaration)
-        }
 
         // 2. Step
         val features = computeNextRelevantFeatures(newOptDecl.entry, context)
@@ -2137,14 +2138,16 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     if (fd.getName.equals("input_backward")) {
                         print("")
                     }
-                    val features = computeNextRelevantFeatures(fd, currentContext)
+                    // filtering the "false" feature
+                    val features = computeNextRelevantFeatures(fd, currentContext).filterNot(FeatureExprFactory.False.equals(_))
                     if (features.isEmpty) {
                         List(Opt(trueF, FunctionDef(replaceOptAndId(spec, currentContext), replaceOptAndId(convertStructId(decl, currentContext), currentContext), replaceOptAndId(par, currentContext), transformRecursive(replaceOptAndId(stmt, currentContext), currentContext))))
                     } else {
                         features.map(x => Opt(trueF, FunctionDef(replaceOptAndId(spec, x), replaceOptAndId(convertStructId(decl, x), x), replaceOptAndId(par, x), transformRecursive(replaceOptAndId(stmt, x), x))))
                     }
                 case nfd@NestedFunctionDef(isAuto, spec, decl, par, stmt) =>
-                    val features = computeNextRelevantFeatures(nfd, currentContext)
+                    // filtering the "false" feature
+                    val features = computeNextRelevantFeatures(nfd, currentContext).filterNot(FeatureExprFactory.False.equals(_))
                     if (features.isEmpty) {
                         List(Opt(trueF, NestedFunctionDef(isAuto, replaceOptAndId(spec, currentContext), replaceOptAndId(convertStructId(decl, currentContext), currentContext), replaceOptAndId(par, currentContext), transformRecursive(replaceOptAndId(stmt, currentContext), currentContext))))
                     } else {
@@ -2393,7 +2396,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             writeToFile("renamings.txt", (replaceId.keySet().toArray().toList.map(x => {
                 val id = x.asInstanceOf[Id]
                 id.name + " -> " + getPrefixFromIdMap(replaceId.get(x)) + id.name +
-                " if " + replaceId.get(x).toTextExpr
+                " if " + replaceId.get(x).toString
             }).sorted) mkString ("\n"))
         } else {
             ""
