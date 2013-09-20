@@ -11,7 +11,7 @@ TaskKey[File]("mkrun") <<= (baseDirectory, fullClasspath in Runtime, mainClass i
 //java -ea -Xmx1536m -Xms128m -Xss10m -classpath "%s" %s "$@"
 //"""
   val template = """#!/bin/sh
-java -ea -Xmx4096m -Xms1024m -Xss32m -classpath "%s" %s "$@"
+java -ea -Xmx5000m -Xms1024m -Xss150m -classpath "%s" %s "$@"
 """
   val mainStr = main getOrElse error("No main class specified")
   val contents = template.format(cp.files.absString, mainStr)
