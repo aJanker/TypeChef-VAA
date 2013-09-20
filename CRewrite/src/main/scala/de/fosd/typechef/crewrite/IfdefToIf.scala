@@ -2106,6 +2106,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         } else {
             context = trueF
         }
+        if(context == FeatureExprFactory.False) {
+            println("False context found for " + optDeclaration)
+        }
 
         // 2. Step
         val features = computeNextRelevantFeatures(newOptDecl.entry, context)
@@ -2389,7 +2392,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         if (!replaceId.isEmpty) {
             writeToFile("renamings.txt", (replaceId.keySet().toArray().toList.map(x => {
                 val id = x.asInstanceOf[Id]
-                id.name + " -> " + getPrefixFromIdMap(replaceId.get(x)) + id.name
+                id.name + " -> " + getPrefixFromIdMap(replaceId.get(x)) + id.name +
+                " if " + replaceId.get(x).toTextExpr
             }).sorted) mkString ("\n"))
         } else {
             ""
