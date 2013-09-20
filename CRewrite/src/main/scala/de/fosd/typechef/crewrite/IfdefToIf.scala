@@ -104,7 +104,6 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     val renamedIdentifierMap: util.IdentityHashMap[String, String] = new IdentityHashMap()
     var liftOptReplaceMap: Map[Opt[_], List[Opt[_]]] = Map()
 
-    //TODO: alex: print variable renaming map
     val idsToBeReplaced: IdentityHashMap[Id, Set[FeatureExpr]] = new IdentityHashMap()
     val writeOptionsIntoFile = true
 
@@ -2393,11 +2392,22 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
     def exportRenamings() = {
         if (!replaceId.isEmpty) {
-            writeToFile("renamings.txt", (replaceId.keySet().toArray().toList.map(x => {
+            writeToFile("renamings_Functions.txt", (replaceId.keySet().toArray().toList.map(x => {
                 val id = x.asInstanceOf[Id]
                 id.name + " -> " + getPrefixFromIdMap(replaceId.get(x)) + id.name +
                 " if " + replaceId.get(x).toString
             }).sorted) mkString ("\n"))
+        } else {
+            ""
+        }
+        if (!idsToBeReplaced.isEmpty) {
+            writeToFile("renamings_StructsAndVars.txt", (idsToBeReplaced.keySet().toArray().toList.map(x => {
+                val id = x.asInstanceOf[Id]
+                id.name + " -> \n" +
+                    idsToBeReplaced.get(x).map(fex =>
+                    "\t" + getPrefixFromIdMap(fex) + id.name + " if " + fex.toString
+                    ).mkString("\n")
+            })) mkString ("\n"))
         } else {
             ""
         }
