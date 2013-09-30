@@ -396,7 +396,11 @@ trait CDeclUse extends CEnv with CEnvCache {
             case One(x) =>
                 List(x)
             case c@Choice(ft, thenBranch, elseBranch) =>
-                conditionalToTuple(c).filter(x => context.implies(x._1).isTautology()).map(x => x._2)
+                if (context.equivalentTo(FeatureExprFactory.True)) {
+                    conditionalToTuple(c).map(x => x._2)
+                } else {
+                    conditionalToTuple(c).filter(x => context.implies(x._1).isTautology()).map(x => x._2)
+                }
         }
     }
 
