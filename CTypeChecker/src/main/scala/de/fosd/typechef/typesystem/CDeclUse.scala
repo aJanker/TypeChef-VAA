@@ -383,11 +383,20 @@ trait CDeclUse extends CEnv with CEnvCache {
     }
 
 
-    private def conditionalToTuple(cond: Conditional[_], fexp: FeatureExpr = FeatureExprFactory.True): List[(FeatureExpr, AST)] = {
+    private def conditionalToTuple[T <: Any](cond: Conditional[T], fexp: FeatureExpr = FeatureExprFactory.True): List[(FeatureExpr, T)] = {
         cond match {
-            case One(a: AST) => List((fexp, a))
+            case One(a: T) => List((fexp, a))
             case Choice(ft, thenExpr, elseBranch) => conditionalToTuple(thenExpr, ft) ++ conditionalToTuple(elseBranch, ft.not())
             case _ => List()
+        }
+    }
+
+    def getFieldsForFeature(structEnv: StructEnv, structName: String, isUnion: Boolean, context: FeatureExpr): List[ConditionalTypeMap] = {
+        structEnv.getFields(structName, isUnion) match {
+            case One(x) =>
+                List(x)
+            case c@Choice(ft, thenBranch, elseBranch) =>
+                conditionalToTuple(c).filter(x => context.implies(x._1).isTautology()).map(x => x._2)
         }
     }
 
@@ -395,7 +404,8 @@ trait CDeclUse extends CEnv with CEnvCache {
         entry match {
             case i@Id(name) => {
                 if (env.structEnv.someDefinition(structName, isUnion)) {
-                    env.structEnv.getFieldsMerged(structName, isUnion).getAstOrElse(i.name, null) match {
+                    val validFields = getFieldsForFeature(env.structEnv, structName, isUnion, featureExpr).map(x => x.getAstOrElse(i.name, null))
+                    validFields.foreach(x => x match {
                         case One(null) =>
                             addStructDeclUse(i, env, isUnion, featureExpr)
                         case One(AtomicNamedDeclarator(_, i2: Id, _)) =>
@@ -407,7 +417,20 @@ trait CDeclUse extends CEnv with CEnvCache {
                         case One(NestedNamedDeclarator(_, AtomicNamedDeclarator(_, i2: Id, _), _, _)) =>
                             addToDeclUseMap(i2, i)
                         case k => logger.error("Missed addStructUse " + env.varEnv.getAstOrElse(i.name, null))
-                    }
+                    })
+                    /*env.structEnv.getFieldsMerged(structName, isUnion).getAstOrElse(i.name, null) match {
+                        case One(null) =>
+                            addStructDeclUse(i, env, isUnion, featureExpr)
+                        case One(AtomicNamedDeclarator(_, i2: Id, _)) =>
+                            addToDeclUseMap(i2, i)
+                        case One(i2: Id) =>
+                            addToDeclUseMap(i2, i)
+                        case c@Choice(_, _, _) =>
+                            addStructUseChoice(c, i)
+                        case One(NestedNamedDeclarator(_, AtomicNamedDeclarator(_, i2: Id, _), _, _)) =>
+                            addToDeclUseMap(i2, i)
+                        case k => logger.error("Missed addStructUse " + env.varEnv.getAstOrElse(i.name, null))
+                    }*/
                 } else {
                     env.typedefEnv.getAstOrElse(i.name, null) match {
                         case One(i2: Id) =>
