@@ -76,6 +76,7 @@ trait CTypeEnv extends CTypes with CTypeSystemInterface with CEnv with CDeclTypi
         case e@StructOrUnionSpecifier(isUnion, Some(i@Id(name)), Some(attributes), _, _) => {
             //for parsing the inner members, the struct itself is available incomplete
             var env = initEnv.updateStructEnv(initEnv.structEnv.addIncomplete(i, isUnion, featureExpr, initEnv.scope))
+            // Struct redeclaration
             addDefinition(i, env)
             attributes.foreach(x => addDefinition(x.entry, env))
             val members = parseStructMembers(attributes, featureExpr, env)
@@ -90,9 +91,10 @@ trait CTypeEnv extends CTypes with CTypeSystemInterface with CEnv with CDeclTypi
             //we only add an incomplete declaration in specific cases when a declaration does not have a declarator ("struct x;")
             if (declareIncompleteTypes) {
                 var env = initEnv.updateStructEnv(initEnv.structEnv.addIncomplete(i, isUnion, featureExpr, initEnv.scope))
-                addDefinition(i, env)
+                // TODO: necessary? addDefinition(i, env)
                 env
             } else {
+                //addDefinition(i, initEnv, featureExpr)
                 addStructDeclUse(i, initEnv, isUnion, featureExpr)
                 initEnv
             }

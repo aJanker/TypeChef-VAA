@@ -7,6 +7,9 @@
  struct pt_regs {
     unsigned long ss;
 	unsigned long bb;
+	#if !definedEx(CONFIG_TEST)
+	unsigned long tt;
+	#endif
 };
 #endif
 static unsigned long regs_get_register()
@@ -19,9 +22,10 @@ static unsigned long regs_get_register()
 	#if !definedEx(CONFIG_X86_32)
 	test.ss = 2;
 	#endif
-	#if (!definedEx(CONFIG_X86_32) && definedEx(CONFIG_TEST))
+	#if (!definedEx(CONFIG_X86_32) && !definedEx(CONFIG_TEST))
 	test.ss = 3;
 	test.bb = 4;
+	test.tt = 5;
 	#endif
 	
     return 0;

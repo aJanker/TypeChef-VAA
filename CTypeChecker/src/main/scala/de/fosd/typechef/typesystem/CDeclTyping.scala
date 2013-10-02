@@ -140,10 +140,12 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
         for (specifier <- specifiers) specifier match {
             case StructOrUnionSpecifier(isUnion, Some(id), _, _, _) =>
                 addStructDeclUse(id, env, isUnion, featureExpr)
-                if (hasTransparentUnionAttribute(specifiers))
+                if (hasTransparentUnionAttribute(specifiers)) {
                     types = types :+ One(CIgnore().toCType) //ignore transparent union for now
-                else
+                }
+                else {
                     types = types :+ One(CStruct(id.name, isUnion).toCType)
+                }
             case StructOrUnionSpecifier(isUnion, None, members, _, _) =>
                 if (hasTransparentUnionAttribute(specifiers))
                     types = types :+ One(CIgnore().toCType) //ignore transparent union for now
@@ -346,7 +348,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
                 }
                 for (Opt(f2, enum) <- enums) {
                     enum.assignment.map(checkEnumInitializer(_, f and f2 and featureExpr, localEnv))
-                    addDecl(enum, featureExpr and f and f2, env)
+                    //addDecl(enum, featureExpr and f and f2, env)
                     /*enum match {
                         case Enumerator(_, Some(BuiltinOffsetof(TypeName(specs, decl), offsetMember))) =>
                             for (Opt(f, TypeDefTypeSpecifier(name)) <- specs) {
@@ -354,6 +356,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
                             }
                         case _ =>
                     }*/
+                    addDefinition(enum.id, env)
                     localEnv = localEnv.addVar(enum.id.name, featureExpr and f and f2, enum, One(CSigned(CInt()).toCType), KEnumVar, env.scope, One(NoLinkage))
                     result = (enum.id.name, featureExpr and f and f2, enum, One(CSigned(CInt()).toCType), KEnumVar, One(NoLinkage)) :: result
                 }
@@ -412,7 +415,9 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
         //this is an absurd order but seems to be as specified
         //cf. http://www.ericgiguere.com/articles/reading-c-declarations.html
         decl match {
-            case AtomicNamedDeclarator(ptrList, name, e) => rtype
+            case AtomicNamedDeclarator(ptrList, name, e) =>
+                addDefinition(name, env, featureExpr)
+                rtype
             case NestedNamedDeclarator(ptrList, innerDecl, e, _) => getDeclaratorType(innerDecl, rtype, featureExpr, env)
         }
     }

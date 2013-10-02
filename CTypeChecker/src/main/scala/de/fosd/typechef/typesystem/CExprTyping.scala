@@ -106,19 +106,19 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                                 structEnvLookup(env.structEnv, s, isUnion, id, p, f).map(_.toObj)
                             case (f, CType(CStruct(s, isUnion), false, _, _)) =>
                                 structEnvLookup(env.structEnv, s, isUnion, id, p, f).mapf(f, {
-                                case (f, e) if (arrayType(e)) =>
-                                    reportTypeError(f, "expression " + p + " must not have array " + e, p)
-                                case (f, e) => e
-                            })
+                                    case (f, e) if (arrayType(e)) =>
+                                        reportTypeError(f, "expression " + p + " must not have array " + e, p)
+                                    case (f, e) => e
+                                })
                             case (f, e) =>
                                 One(reportTypeError(f, "request for member " + id + " in something not a structure or union (" + p + "; " + e + ")", p))
                         })
                     //e->n (by rewrite to *e.n)
                     case p@PostfixExpr(expr, PointerPostfixSuffix("->", i@Id(id))) =>
                         val newExpr = PostfixExpr(PointerDerefExpr(expr), PointerPostfixSuffix(".", i))
-                        newExpr.setPositionRange(p.getPositionFrom,p.getPositionTo)//enable line reporting in error messages
-                        newExpr.p.setPositionRange(expr.getPositionFrom,expr.getPositionTo)//enable line reporting in error messages
-                        newExpr.s.setPositionRange(i.getPositionFrom,i.getPositionTo)//enable line reporting in error messages
+                        newExpr.setPositionRange(p.getPositionFrom, p.getPositionTo) //enable line reporting in error messages
+                        newExpr.p.setPositionRange(expr.getPositionFrom, expr.getPositionTo) //enable line reporting in error messages
+                        newExpr.s.setPositionRange(i.getPositionFrom, i.getPositionTo) //enable line reporting in error messages
                         et(newExpr)
                     //(a)b
                     case ce@CastExpr(targetTypeName, expr) =>
@@ -504,7 +504,7 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                 addUse(i, featureExpr, env)
             case pd@PointerDerefExpr(i: Id) =>
                 // TODO: isUnion is set to true
-                addStructDeclUse(i, env, true, featureExpr)
+                addStructDeclUse(i, env, false, featureExpr, true)
             case pd@PointerDerefExpr(NAryExpr(p, expr)) => addStructUsageFromSizeOfExprU(p, featureExpr, env)
             case pd@PointerDerefExpr(c: CastExpr) =>
                 getExprType(c, featureExpr, env)

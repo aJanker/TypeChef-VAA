@@ -34,6 +34,9 @@ trait CDeclUse extends CEnv with CEnvCache {
     private val newIdentifierName = "rnd_ident"
 
     private def putToDeclUseMap(decl: Id) = {
+        if (decl.name.equals("_IO_FILE")) {
+            print("")
+        }
         if (!declUseMap.contains(decl)) {
             declUseMap.put(decl, Collections.newSetFromMap[Id](new util.IdentityHashMap()))
         }
@@ -81,10 +84,12 @@ trait CDeclUse extends CEnv with CEnvCache {
         definition match {
             case id: Id =>
                 if (isFunctionDeclarator) addFunctionDeclaration(env, id, feature)
-                else putToDeclUseMap(id)
+                else {
+                    putToDeclUseMap(id)
+                }
             case StructDeclaration(quals, decls) => decls.foreach(x => {
                 addDecl(x.entry, x.feature, env)
-                quals.foreach(x => addDecl(x.entry, x.feature, env))
+                //quals.foreach(x => addDecl(x.entry, x.feature, env))
             })
             case _ => logger.error("Missed ForwardDeclaration of: " + definition)
         }
@@ -273,7 +278,7 @@ trait CDeclUse extends CEnv with CEnvCache {
                  */
                 val structOrUnion = filterASTElements[Id](typeName)
                 members.foreach(x => addStructUse(x.entry, feature, env, structOrUnion.head.name, !env.structEnv.someDefinition(structOrUnion.head.name, false)))
-            case default => filterASTElements[Id](entry).foreach(id => {
+            case default => filterASTElements[Id](entry).foreach(id => if (!useDeclMap.containsKey(id)) {
                 env.varEnv.getAstOrElse(id.name, null) match {
                     case o@One(_) => addUseOne(o, id, env)
                     case c@Choice(_, _, _) => addChoice(c, feature, id, env, addUseOne)
@@ -486,7 +491,7 @@ trait CDeclUse extends CEnv with CEnvCache {
         }
     }
 
-    def addStructDeclUse(entry: Id, env: Env, isUnion: Boolean, feature: FeatureExpr) {
+    def addStructDeclUse(entry: Id, env: Env, isUnion: Boolean, feature: FeatureExpr, tryUnionAndStruct: Boolean = false) {
         def addOne(one: One[AST], use: Id) = {
             one match {
                 case One(id: Id) => addToDeclUseMap(id, use)
@@ -508,7 +513,21 @@ trait CDeclUse extends CEnv with CEnvCache {
                                 }
                             })
                     }
-                } else {
+                } else if (tryUnionAndStruct && env.structEnv.someDefinition(name, !isUnion)) {
+                    env.structEnv.getId(name, !isUnion) match {
+                        case o@One(key: Id) =>
+                            addOne(o, use)
+                        case c@Choice(_, _, _) =>
+                            val tuple = conditionalToTuple(c)
+                            tuple.foreach(x => {
+                                if (feature.equivalentTo(FeatureExprFactory.True) || feature.implies(x._1).isTautology) {
+                                    addToDeclUseMap(x._2.asInstanceOf[Id], use)
+                                }
+                            })
+                    }
+                }
+                else {
+                    //print("")
                     addDefinition(use, env)
                 }
             }
@@ -643,7 +662,7 @@ trait CDeclUse extends CEnv with CEnvCache {
                     addStructDeclUse(i, env, isUnion, structSpecFeature)
                 }
                 addDecl(decl, featureExpr, env)
-            case Enumerator(i@Id(name), Some(o)) =>
+            /*case Enumerator(i@Id(name), Some(o)) =>
                 addDefinition(i, env)
                 o match {
                     case i: Id =>
@@ -651,7 +670,7 @@ trait CDeclUse extends CEnv with CEnvCache {
                     case k => addDecl(k, featureExpr, env)
                 }
             case Enumerator(i@Id(name), _) =>
-                addDefinition(i, env)
+                addDefinition(i, env)*/
             case BuiltinOffsetof(typeName, members) =>
                 typeName.specifiers.foreach(x => addDecl(x.entry, featureExpr, env))
                 members.foreach(x => addDecl(x.entry, featureExpr, env))
