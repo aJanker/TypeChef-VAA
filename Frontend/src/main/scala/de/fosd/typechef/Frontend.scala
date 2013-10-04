@@ -9,7 +9,6 @@ import parser.TokenReader
 import de.fosd.typechef.options.{FrontendOptionsWithConfigFiles, FrontendOptions, OptionException}
 import de.fosd.typechef.parser.c.CTypeContext
 import de.fosd.typechef.parser.c.TranslationUnit
-import de.fosd.typechef.featureexpr.FeatureExpr
 
 object Frontend extends EnforceTreeHelper {
 
@@ -134,9 +133,9 @@ object Frontend extends EnforceTreeHelper {
 
                 // some dataflow analyses require typing information
                 val ts = if (opt.typechecksa)
-                            new CTypeSystemFrontend(ast, fm_ts, opt) with CTypeCache with CDeclUse
-                         else
-                            new CTypeSystemFrontend(ast, fm_ts, opt)
+                    new CTypeSystemFrontend(ast, fm_ts, opt) with CTypeCache with CDeclUse
+                else
+                    new CTypeSystemFrontend(ast, fm_ts, opt)
 
 
                 /** I did some experiments with the TypeChef FeatureModel of Linux, in case I need the routines again, they are saved here. */
@@ -172,8 +171,9 @@ object Frontend extends EnforceTreeHelper {
                             //ProductGeneration.estimateNumberOfVariants(ast, fm_ts)
                             val i = new IfdefToIf
                             val defUseMap = ts.getDeclUseMap
+                            val useDefMap = ts.getUseDeclMap
                             val fileName = i.outputStemToFileName(opt.getOutputStem())
-                            val tuple = i.ifdeftoif(ast, defUseMap, fm, opt.getOutputStem(), stopWatch.get("lexing") + stopWatch.get("parsing"), opt.ifdeftoifstatistics)
+                            val tuple = i.ifdeftoif(ast, defUseMap, useDefMap, fm, opt.getOutputStem(), stopWatch.get("lexing") + stopWatch.get("parsing"), opt.ifdeftoifstatistics)
                             tuple._1 match {
                                 case None =>
                                     println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")
@@ -272,6 +272,6 @@ object Frontend extends EnforceTreeHelper {
         fr.close()
         ast
     } catch {
-        case e:ObjectStreamException => System.err.println("failed loading serialized AST: "+e.getMessage); null
+        case e: ObjectStreamException => System.err.println("failed loading serialized AST: " + e.getMessage); null
     }
 }
