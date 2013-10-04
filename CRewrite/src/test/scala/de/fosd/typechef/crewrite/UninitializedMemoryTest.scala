@@ -4,47 +4,71 @@ import org.junit.Test
 import org.scalatest.matchers.ShouldMatchers
 import de.fosd.typechef.featureexpr.FeatureExprFactory
 import de.fosd.typechef.parser.c._
-import de.fosd.typechef.typesystem.{CDeclUse, CTypeSystemFrontend}
+import de.fosd.typechef.typesystem.{CTypeCache, CDeclUse, CTypeSystemFrontend}
+import de.fosd.typechef.conditional.Opt
 
 class UninitializedMemoryTest extends TestHelper with ShouldMatchers with CFGHelper with EnforceTreeHelper {
 
-    private def getUninitializedVariables(code: String) = {
-        val a = parseCompoundStmt(code)
-        val um = new UninitializedMemory(CASTEnv.createASTEnv(a), null, null)
-        um.gen(a)
+    private def getKilledVariables(code: String) = {
+        val a = parseFunctionDef(code)
+        val ts = new CTypeSystemFrontend(TranslationUnit(List(Opt(FeatureExprFactory.True, a)))) with CDeclUse
+        assert(ts.checkASTSilent, "typecheck fails!")
+        val dum = ts.getDeclUseMap
+        val udm = ts.getUseDeclMap
+        val um = new UninitializedMemory(CASTEnv.createASTEnv(a), dum, udm, FeatureExprFactory.empty, a)
+        um.kill(a).map {case ((x, _), f) => (x, f)}
+    }
+
+    private def getGeneratedVariables(code: String) = {
+        val a = parseFunctionDef(code)
+        val um = new UninitializedMemory(CASTEnv.createASTEnv(a), null, null, null, a)
+        um.gen(a).map {case ((x, _), f) => (x, f)}
     }
 
     private def getFunctionCallArguments(code: String) = {
-        val a = parseExpr(code)
-        val um = new UninitializedMemory(CASTEnv.createASTEnv(a), null, null)
-        um.getFunctionCallArguments(a)
+        val a = parseFunctionDef(code)
+        val um = new UninitializedMemory(CASTEnv.createASTEnv(a), null, null, null, a)
+        um.getFunctionCallArguments(a).map {case ((x, _), f) => (x, f)}
     }
 
     def uninitializedMemory(code: String): Boolean = {
         val tunit = prepareAST[TranslationUnit](parseTranslationUnit(code))
-        val um = new CIntraAnalysisFrontend(tunit)
-        val ts= new CTypeSystemFrontend(tunit) with CDeclUse
+        val ts = new CTypeSystemFrontend(tunit) with CTypeCache with CDeclUse
         assert(ts.checkASTSilent, "typecheck fails!")
+        val um = new CIntraAnalysisFrontend(tunit, ts)
         um.uninitializedMemory()
     }
 
     @Test def test_variables() {
-        getUninitializedVariables("{ int a; }") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        getUninitializedVariables("{ int a = 2; }") should be(Map())
-        getUninitializedVariables("{ int a, b = 1; }") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        getUninitializedVariables("{ int a = 1, b; }") should be(Map(FeatureExprFactory.True -> Set(Id("b"))))
-        getUninitializedVariables("{ int *a; }") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        getUninitializedVariables("{ int a[5]; }") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        getUninitializedVariables("""{
+        getKilledVariables("void foo(){ int a; }") should be(Map())
+        getKilledVariables("void foo(){ int a = 2; }") should be(Map(Id("a") -> FeatureExprFactory.True))
+        getKilledVariables("void foo(){ int a, b = 1; }") should be(Map(Id("b") -> FeatureExprFactory.True))
+        getKilledVariables("void foo(){ int a = 1, b; }") should be(Map(Id("a") -> FeatureExprFactory.True))
+        getKilledVariables("void foo(){ int *a; }") should be(Map())
+        getKilledVariables("void foo(){ int a; a = 2; }") should be(Map(Id("a") -> FeatureExprFactory.True))
+        getKilledVariables("void foo(){ int a[5]; }") should be(Map())
+        getKilledVariables("""void foo(){
               #ifdef A
               int a;
               #endif
-              }""".stripMargin) should be(Map(fa -> Set(Id("a"))))
+              }""".stripMargin) should be(Map())
+        getGeneratedVariables("void foo(){ int a; }") should be(Map(Id("a") -> FeatureExprFactory.True))
+        getGeneratedVariables("void foo(){ int a = 2; }") should be(Map())
+        getGeneratedVariables("void foo(){ int a, b = 1; }") should be(Map(Id("a") -> FeatureExprFactory.True))
+        getGeneratedVariables("void foo(){ int a = 1, b; }") should be(Map(Id("b") -> FeatureExprFactory.True))
+        getGeneratedVariables("void foo(){ int *a; }") should be(Map(Id("a") -> FeatureExprFactory.True))
+        getGeneratedVariables("void foo(){ a = 2; }") should be(Map())
+        getGeneratedVariables("void foo(){ int a[5]; }") should be(Map(Id("a") -> FeatureExprFactory.True))
+        getGeneratedVariables("""void foo(){
+              #ifdef A
+              int a;
+              #endif
+              }""".stripMargin) should be(Map(Id("a") -> fa))
     }
 
     @Test def test_functioncall_arguments() {
-        getFunctionCallArguments("foo(a,b)") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        getFunctionCallArguments("foo(a,bar(c))") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("c"))))
+        getFunctionCallArguments("void foo(){ foo(a,b); }") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        getFunctionCallArguments("void foo(){ foo(a,bar(c)); }") should be(Map(Id("a") -> FeatureExprFactory.True, Id("c") -> FeatureExprFactory.True))
     }
 
     @Test def test_uninitialized_memory_simple() {
@@ -63,7 +87,7 @@ class UninitializedMemoryTest extends TestHelper with ShouldMatchers with CFGHel
             int sign;
             get_sign(number, &sign);
             return (sign < 0); // diagnostic required
-        }""".stripMargin) should be(false)
+        }""".stripMargin) should be(true)
 
         uninitializedMemory( """
         int do_auth() { return 0; }

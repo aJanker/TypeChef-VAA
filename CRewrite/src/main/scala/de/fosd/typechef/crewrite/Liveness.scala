@@ -4,50 +4,45 @@ import de.fosd.typechef.featureexpr._
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem.UseDeclMap
 
-import de.fosd.typechef.conditional.Opt
-
 // liveness analysis based on monotone framework
 // liveness computes all variables that are used before their next write
 //
-// cf. http://www.cs.colostate.edu/~mstrout/CS553/slides/lecture03.pdf
-// page 5
-//  in(n) = gen(n) + (out(n) - kill(n))
-// out(n) = for s in succ(n) r = r + in(s); r
-class Liveness(env: ASTEnv, udm: UseDeclMap, fm: FeatureModel) extends MonotoneFW[Id](env, udm, fm) with IntraCFG with UsedDefinedDeclaredVariables {
+// instance of the liveness analysis using the monotone framework
+// L  = P(Var*)
+// ⊑  = ⊆             // see MonotoneFW
+// ∐  = ⋃            // combinationOperator
+// ⊥  = ∅             // b
+// i  = ∅
+// E  = {FunctionDef} // see MonotoneFW
+// F  = flowR
+class Liveness(env: ASTEnv, udm: UseDeclMap, fm: FeatureModel) extends MonotoneFWId(env, udm, fm) with IntraCFG with UsedDefinedDeclaredVariables {
 
     // returns all declared variables with their annotation
-    val declaresVar: PartialFunction[(Any), Map[FeatureExpr, Set[Id]]] = {
-        case a => addAnnotation2ResultSet(declares(a))
+    val declaresVar: PartialFunction[(Any), L] = {
+        case a => addAnnotations(declares(a))
     }
 
-    def gen(a: AST): Map[FeatureExpr, Set[Id]] = { addAnnotation2ResultSet(uses(a)) }
-    def kill(a: AST): Map[FeatureExpr, Set[Id]] = { addAnnotation2ResultSet(defines(a)) }
-
-    protected def flow(e: AST) = flowSucc(e)
-
-    protected def unionio(e: AST) = incached(e)
-    protected def genkillio(e: AST) = outcached(e)
-
-    // we create fresh T elements (here Id) using a counter
-    private var freshTctr = 0
-
-    private def getFreshCtr: Int = {
-        freshTctr = freshTctr + 1
-        freshTctr
+    def gen(a: AST): L = {
+        addAnnotations(uses(a))
     }
 
-    def t2T(i: Id) = Id(getFreshCtr + "_" + i.name)
-
-    def t2SetT(i: Id) = {
-        var freshidset = Set[Id]()
-
-        if (udm.containsKey(i)) {
-            for (vi <- udm.get(i)) {
-                freshidset = freshidset.+(createFresh(vi))
-            }
-            freshidset
-        } else {
-            Set(addFreshT(i))
-        }
+    def kill(a: AST):L = {
+        addAnnotations(defines(a))
     }
+
+    protected val i = l
+    protected def b = l
+    protected def combinationOperator(l1: L, l2: L) = union(l1, l2)
+
+    // liveness analysis is a backward analysis (flowR)
+    // so circle concerns exit conditions
+    // and point concerns entry conditions
+    protected def F(e: AST) = flowR(e)
+
+    // cf. http://www.cs.colostate.edu/~mstrout/CS553/slides/lecture03.pdf
+    // page 5
+    //  in(a) = gen(a) + (out(a) - kill(a))
+    // out(a) = for s in succ(n) r = r + in(s); r
+    protected def incached(a: AST): L = f_lcached(a)
+    protected def outcached(a: AST): L = combinatorcached(a)
 }

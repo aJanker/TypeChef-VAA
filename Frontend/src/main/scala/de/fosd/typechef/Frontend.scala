@@ -1,9 +1,5 @@
 package de.fosd.typechef
 
-/*
-* temporarily copied from PreprocessorFrontend due to technical problems
-*/
-
 
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem._
@@ -13,8 +9,9 @@ import parser.TokenReader
 import de.fosd.typechef.options.{FrontendOptionsWithConfigFiles, FrontendOptions, OptionException}
 import de.fosd.typechef.parser.c.CTypeContext
 import de.fosd.typechef.parser.c.TranslationUnit
+import de.fosd.typechef.featureexpr.FeatureExpr
 
-object Frontend {
+object Frontend extends EnforceTreeHelper {
 
 
     def main(args: Array[String]) {
@@ -54,29 +51,32 @@ object Frontend {
     private class StopWatch {
         var lastStart: Long = 0
         var currentPeriod: String = "none"
-        var times: Map[String, Long] = Map()
+        var currentPeriodId: Int = 0
+        var times: Map[(Int, String), Long] = Map()
+
+        private def genId(): Int = { currentPeriodId += 1; currentPeriodId }
 
         private def measure(checkpoint: String) {
-            times = times + (checkpoint -> System.currentTimeMillis())
+            times = times + ((genId(), checkpoint) -> System.currentTimeMillis())
         }
 
         def start(period: String) {
             val now = System.currentTimeMillis()
             val lastTime = now - lastStart
-            times = times + (currentPeriod -> lastTime)
+            times = times + ((genId(), currentPeriod) -> lastTime)
             lastStart = now
             currentPeriod = period
         }
 
-        def get(period: String): Long = times.getOrElse(period, 0)
+        def get(period: String): Long = times.filter(v => v._1._2 == period).headOption.map(_._2).getOrElse(0)
 
         override def toString = {
             var res = "timing "
-            val switems = times.toList.filterNot(x => x._1 == "none" || x._1 == "done")
+            val switems = times.toList.filterNot(x => x._1._2 == "none" || x._1._2 == "done").sortBy(_._1._1)
 
             if (switems.size > 0) {
                 res = res + "("
-                res = res + switems.map(_._1).reduce(_ + ", " + _)
+                res = res + switems.map(_._1._2).reduce(_ + ", " + _)
                 res = res + ")\n"
                 res = res + switems.map(_._2.toString).reduce(_ + ";" + _)
             }
@@ -103,6 +103,7 @@ object Frontend {
         if (opt.reuseAST && opt.parse && new File(opt.getSerializedASTFilename).exists()) {
             println("loading AST.")
             ast = loadSerializedAST(opt.getSerializedASTFilename)
+            ast = prepareAST[TranslationUnit](ast)
             if (ast == null)
                 println("... failed reading AST\n")
         }
@@ -119,6 +120,7 @@ object Frontend {
                 //no parsing and serialization if read serialized ast
                 val parserMain = new ParserMain(new CParser(fm))
                 ast = parserMain.parserMain(in, opt).asInstanceOf[TranslationUnit]
+                ast = prepareAST[TranslationUnit](ast)
 
                 if (ast != null && opt.serializeAST) {
                     stopWatch.start("serialize")
@@ -129,8 +131,13 @@ object Frontend {
 
             if (ast != null) {
                 val fm_ts = opt.getTypeSystemFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
-                val ts = new CTypeSystemFrontend(ast, fm_ts, opt)
-                lazy val sa = new CIntraAnalysisFrontend(ast, fm_ts, opt)
+
+                // some dataflow analyses require typing information
+                val ts = if (opt.typechecksa)
+                            new CTypeSystemFrontend(ast, fm_ts, opt) with CTypeCache with CDeclUse
+                         else
+                            new CTypeSystemFrontend(ast, fm_ts, opt)
+
 
                 /** I did some experiments with the TypeChef FeatureModel of Linux, in case I need the routines again, they are saved here. */
                 //Debug_FeatureModelExperiments.experiment(fm_ts)
@@ -142,6 +149,8 @@ object Frontend {
 
                     stopWatch.start("typechecking")
                     println("type checking.")
+                    ts.checkAST()
+                    ts.errors.map(errorXML.renderTypeError)
                     val typeCheckStatus = ts.checkAST()
                     if (opt.decluse) {
                         if (typeCheckStatus) {
@@ -199,9 +208,37 @@ object Frontend {
                     val dotwriter = new DotGraph(new FileWriter(new File(opt.getCCFGDotFilename)))
                     cf.writeCFG(opt.getFile, new ComposedWriter(List(dotwriter, writer)))
                 }
-                if (opt.warning_double_free) {
-                    stopWatch.start("doublefree")
-                    sa.doubleFree()
+
+                if (opt.staticanalyses) {
+                    val sa = new CIntraAnalysisFrontend(ast, ts.asInstanceOf[CTypeSystemFrontend with CTypeCache with CDeclUse], fm_ts)
+                    if (opt.warning_double_free) {
+                        stopWatch.start("doublefree")
+                        sa.doubleFree()
+                    }
+                    if (opt.warning_uninitialized_memory) {
+                        stopWatch.start("uninitializedmemory")
+                        sa.uninitializedMemory()
+                    }
+                    if (opt.warning_xfree) {
+                        stopWatch.start("xfree")
+                        sa.xfree()
+                    }
+                    if (opt.warning_dangling_switch_code) {
+                        stopWatch.start("danglingswitchcode")
+                        sa.danglingSwitchCode()
+                    }
+                    if (opt.warning_cfg_in_non_void_func) {
+                        stopWatch.start("cfginnonvoidfunc")
+                        sa.cfgInNonVoidFunc()
+                    }
+                    if (opt.warning_stdlib_func_return) {
+                        stopWatch.start("checkstdlibfuncreturn")
+                        sa.stdLibFuncReturn()
+                    }
+                    if (opt.warning_dead_store) {
+                        stopWatch.start("deadstore")
+                        sa.deadStore()
+                    }
                 }
 
             }
@@ -235,6 +272,6 @@ object Frontend {
         fr.close()
         ast
     } catch {
-        case e: ObjectStreamException => System.err.println("failed loading serialized AST: " + e.getMessage); null
+        case e:ObjectStreamException => System.err.println("failed loading serialized AST: "+e.getMessage); null
     }
 }

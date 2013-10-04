@@ -14,13 +14,12 @@ trait FeatureExpr extends Serializable {
     def toTextExpr: String
     //or other ToString variations for debugging etc
     def collectDistinctFeatures: Set[String]
-  	def collectDistinctFeatureObjects: Set[SingleFeatureExpr]
-  	def getSatisfiableAssignment(featureModel: FeatureModel, interestingFeatures : Set[SingleFeatureExpr],preferDisabledFeatures:Boolean): Option[Pair[List[SingleFeatureExpr],List[SingleFeatureExpr]]]
+    def collectDistinctFeatureObjects: Set[SingleFeatureExpr]
+    def getSatisfiableAssignment(featureModel: FeatureModel, interestingFeatures: Set[SingleFeatureExpr], preferDisabledFeatures: Boolean): Option[Pair[List[SingleFeatureExpr], List[SingleFeatureExpr]]]
 
     def or(that: FeatureExpr): FeatureExpr
     def and(that: FeatureExpr): FeatureExpr
     def not(): FeatureExpr
-
 
     //equals, hashcode
 
@@ -40,8 +39,8 @@ trait FeatureExpr extends Serializable {
      * If the expression is more complex, None is returned.
      * @return
      */
-  def getConfIfSimpleAndExpr() : Option[(Set[SingleFeatureExpr],Set[SingleFeatureExpr])]
-  def getConfIfSimpleOrExpr() : Option[(Set[SingleFeatureExpr],Set[SingleFeatureExpr])]
+    def getConfIfSimpleAndExpr(): Option[(Set[SingleFeatureExpr], Set[SingleFeatureExpr])]
+    def getConfIfSimpleOrExpr(): Option[(Set[SingleFeatureExpr], Set[SingleFeatureExpr])]
 
     final def orNot(that: FeatureExpr) = this or (that.not)
     final def andNot(that: FeatureExpr) = this and (that.not)
@@ -59,6 +58,15 @@ trait FeatureExpr extends Serializable {
     def isTautology(fm: FeatureModel): Boolean = !this.not.isSatisfiable(fm)
     def isContradiction(fm: FeatureModel): Boolean = !isSatisfiable(fm)
 
+    /**
+     * unique existential quantification over feature "feature".
+     *
+     * This has the effect of substituting the feature by true and false respectively and returning the xor of both:
+     * this[feature->True] xor this[feature->False]
+     *
+     * It can be seen as identifying under which condition the feature matters for the result of the formula
+     */
+    def unique(feature: SingleFeatureExpr): FeatureExpr
 
     /**
      * uses a SAT solver to determine whether two expressions are
@@ -105,6 +113,20 @@ trait FeatureExpr extends Serializable {
 
     //this method needs to be copied into all concrete subclasses!
     private def writeReplace(): Object = new FeatureExprSerializationProxy(this.toTextExpr)
+}
+
+object FeatureExpr {
+    private var totalSatCalls = 0
+    def incSatCalls = { totalSatCalls += 1 }
+
+    private var cachedSatCalls = 0
+    def incCachedSatCalls = { cachedSatCalls += 1 }
+
+    def printSatStatistics = {
+        println("#total sat calls:  " + totalSatCalls)
+        println("#cached sat calls: " + cachedSatCalls)
+        println("in percent: " + (cachedSatCalls*100.0/totalSatCalls))
+    }
 }
 
 class FeatureExprSerializationProxy(fexpr: String) extends Serializable {

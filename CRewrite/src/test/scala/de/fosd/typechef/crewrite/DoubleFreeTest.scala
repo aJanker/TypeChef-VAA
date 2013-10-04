@@ -4,36 +4,38 @@ import org.junit.Test
 import org.scalatest.matchers.ShouldMatchers
 import de.fosd.typechef.featureexpr.FeatureExprFactory
 import de.fosd.typechef.parser.c._
-import de.fosd.typechef.typesystem.{CDeclUse, CTypeSystemFrontend}
+import de.fosd.typechef.typesystem.{CDeclUse, CTypeCache, CTypeSystemFrontend}
 
 class DoubleFreeTest extends TestHelper with ShouldMatchers with CFGHelper with EnforceTreeHelper {
 
     // check freed pointers
     private def getFreedMem(code: String) = {
-        val a = parseCompoundStmt(code)
-        val df = new DoubleFree(CASTEnv.createASTEnv(a), null, null, "")
-        df.gen(a)
+        val a = parseFunctionDef(code)
+        val df = new DoubleFree(CASTEnv.createASTEnv(a), null, null, null, a, "")
+        df.gen(a).map {case ((x, _), f) => (x, f)}
     }
 
     def doubleFree(code: String): Boolean = {
         val tunit = prepareAST[TranslationUnit](parseTranslationUnit(code))
-        val df = new CIntraAnalysisFrontend(tunit)
+        val ts = new CTypeSystemFrontend(tunit) with CTypeCache with CDeclUse
+        assert(ts.checkASTSilent, "typecheck fails!")
+        val df = new CIntraAnalysisFrontend(tunit, ts)
         df.doubleFree()
     }
 
     @Test def test_free() {
-        getFreedMem("{ free(a); }") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
+        getFreedMem("void f() { free(a); }") should be(Map(Id("a") -> FeatureExprFactory.True))
         getFreedMem(
             """
-            {
+              void f() {
               #ifdef A
               free(a);
               #endif
             }
-            """.stripMargin) should be(Map(fa -> Set(Id("a"))))
+            """.stripMargin) should be(Map(Id("a") -> fa))
         getFreedMem(
             """
-            {
+            void f() {
               free(
               #ifdef A
               a
@@ -42,16 +44,16 @@ class DoubleFreeTest extends TestHelper with ShouldMatchers with CFGHelper with 
               #endif
               );
             }
-            """.stripMargin) should be(Map(fa -> Set(Id("a")), fa.not() -> Set(Id("b"))))
+            """.stripMargin) should be(Map(Id("a") -> fa, Id("b") -> fa.not()))
         getFreedMem(
             """
-            {
+            void f() {
               realloc(a, 2);
             }
-            """.stripMargin) should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
+            """.stripMargin) should be(Map(Id("a") -> FeatureExprFactory.True))
         getFreedMem(
             """
-            {
+            void f() {
               realloc(
             #ifdef A
               a
@@ -60,10 +62,10 @@ class DoubleFreeTest extends TestHelper with ShouldMatchers with CFGHelper with 
             #endif
               , 2);
             }
-            """.stripMargin) should be(Map(fa -> Set(Id("a")), fa.not() -> Set(Id("b"))))
+            """.stripMargin) should be(Map(Id("a") -> fa, Id("b") -> fa.not()))
         getFreedMem(
             """
-            {
+            void f() {
               realloc(
               a,
             #ifdef A
@@ -73,16 +75,46 @@ class DoubleFreeTest extends TestHelper with ShouldMatchers with CFGHelper with 
             #endif
             );
             }
-            """.stripMargin) should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        getFreedMem( """ { free(a->b); } """.stripMargin) should be(Map(FeatureExprFactory.True -> Set(Id("b"))))
-        getFreedMem( """ { free(&(a->b)); } """.stripMargin) should be(Map(FeatureExprFactory.True -> Set(Id("b"))))
-        getFreedMem( """ { free(*(a->b)); } """.stripMargin) should be(Map(FeatureExprFactory.True -> Set(Id("b"))))
-        getFreedMem( """ { free(a->b->c); } """.stripMargin) should be(Map(FeatureExprFactory.True -> Set(Id("c"))))
-        getFreedMem( """ { free(a.b); } """.stripMargin) should be(Map(FeatureExprFactory.True -> Set(Id("b"))))
-        getFreedMem( """ { free(a[i]); }""".stripMargin) should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        getFreedMem( """ { free(*a); }""".stripMargin) should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        getFreedMem( """ { free(&a); }""".stripMargin) should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        getFreedMem( """ { free(a[i]->b); }""".stripMargin) should be(Map(FeatureExprFactory.True -> Set(Id("b"))))
+            """.stripMargin) should be(Map(Id("a") -> FeatureExprFactory.True))
+        getFreedMem( """ void f() { free(a->b); } """.stripMargin) should be(Map(Id("b") -> FeatureExprFactory.True))
+        getFreedMem( """ void f() { free(&(a->b)); } """.stripMargin) should be(Map(Id("b") -> FeatureExprFactory.True))
+        getFreedMem( """ void f() { free(*(a->b)); } """.stripMargin) should be(Map(Id("b") -> FeatureExprFactory.True))
+        getFreedMem( """ void f() { free(a->b->c); } """.stripMargin) should be(Map(Id("c") -> FeatureExprFactory.True))
+        getFreedMem( """ void f() { free(a.b); } """.stripMargin) should be(Map(Id("b") -> FeatureExprFactory.True))
+        getFreedMem( """ void f() { free(a[i]); }""".stripMargin) should be(Map(Id("a") -> FeatureExprFactory.True))
+        getFreedMem( """ void f() { free(*a); }""".stripMargin) should be(Map(Id("a") -> FeatureExprFactory.True))
+        getFreedMem( """ void f() { free(&a); }""".stripMargin) should be(Map(Id("a") -> FeatureExprFactory.True))
+        getFreedMem( """ void f() { free(a[i]->b); }""".stripMargin) should be(Map(Id("b") -> FeatureExprFactory.True))
+    }
+
+    @Test def test_shadowing() {
+        doubleFree( """
+              void* malloc(int i) { return ((void*)0); }
+              void free(void* p) { }
+              void foo() {
+                  int *a = malloc(2);
+                  if (a) {
+                    #ifdef A
+                    int *a = malloc(3);
+                    #endif
+                    free(a);
+                  }
+                  free(a);  // diagnostic
+              }
+                    """.stripMargin) should be(false)
+    }
+
+    @Test def test_assign() {
+        doubleFree( """
+              void* malloc(int i) { return ((void*)0); }
+              void free(void* p) { }
+              void foo() {
+                  int *a = malloc(2);
+                  free(a);
+                  a = malloc(3);
+                  free(a);
+              }
+                    """.stripMargin) should be(true)
     }
 
     @Test def test_double_free_simple() {
@@ -110,16 +142,6 @@ class DoubleFreeTest extends TestHelper with ShouldMatchers with CFGHelper with 
                      free(a);
                  #endif
                  } """) should be(false)
-        doubleFree( """
-              void* malloc(int i) { return ((void*)0); }
-              void free(void* p) { }
-              void foo() {
-                  int *a = malloc(2);
-                  free(a);
-                  a = malloc(2);
-                  free(a);
-              }
-                    """.stripMargin) should be(true)
         doubleFree( """
               void* malloc(int i) { return ((void*)0); }
               void free(void* p) { }

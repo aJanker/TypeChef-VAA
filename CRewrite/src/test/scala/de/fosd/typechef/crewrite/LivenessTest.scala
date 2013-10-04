@@ -30,19 +30,19 @@ class LivenessTest extends TestHelper with ShouldMatchers with IntraCFG with CFG
     private def runDefinesExample(code: String) = {
         val a = parseStmt(code)
         val lv = new Liveness(CASTEnv.createASTEnv(a), null, null)
-        lv.kill(a)
+        lv.kill(a).map {case (x, f) => (x, f)}
     }
 
     private def runUsesExample(code: String) = {
         val a = parseStmt(code)
         val lv = new Liveness(CASTEnv.createASTEnv(a), null, null)
-        lv.gen(a)
+        lv.gen(a).map {case (x, f) => (x, f)}
     }
 
     private def runDeclaresExample(code: String) = {
         val a = parseDecl(code)
         val lv = new Liveness(CASTEnv.createASTEnv(a), null, null)
-        lv.declaresVar(a)
+        lv.declaresVar(a).map {case (x, f) => (x, f)}
     }
 
     @Test def test_return_function() {
@@ -256,6 +256,19 @@ class LivenessTest extends TestHelper with ShouldMatchers with IntraCFG with CFG
                     """)
     }
 
+    @Test def test_simple_alternative() {
+        runExample(
+            """
+              int foo() {
+                int x = 0;
+                #ifdef A
+                x = 2;
+                #endif
+                int y = x;
+              }
+            """.stripMargin)
+    }
+
     @Test def test_alternative() {
         runExample( """
       int foo() {
@@ -419,72 +432,131 @@ class LivenessTest extends TestHelper with ShouldMatchers with IntraCFG with CFG
                     """)
     }
 
+    @Test def test_paper() {
+        runExample(
+            """
+            int foo(int a
+            #ifdef B
+            , int b
+            #endif
+            ) {
+            if (a) {
+              return a;
+            }
+            int c = a;
+            if (c) {
+              c += a;
+              #ifdef B
+              c += b;
+              #endif
+            }
+            return c;
+            }
+            """.stripMargin)
+    }
+
+    @Test def test_NNH() {
+        runExample(
+            """
+      void foo(int x, int y, int z) {
+        x = 2;  // dead code
+        y = 4;
+        x = 1;
+        if (y > x) {
+          z = y;
+        } else {
+          z = y*y;
+        }
+        x = z;
+      }
+            """)
+    }
+
+    @Test def test_NNH_var() {
+        runExample(
+            """
+      void foo(int x, int y, int z) {
+        x = 2;   // not dead since x = 1 is variable
+        y = 4;
+        #ifdef A
+        x = 1;
+        #endif
+        if (y > x) {
+          z = y;
+        } else {
+          z = y*y;
+        }
+        x = z;
+      }
+            """)
+    }
+
 
     // http://www.exforsys.com/tutorials/c-language/c-expressions.html
     @Test def test_uses() {
-        runUsesExample("a;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runUsesExample("a++;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runUsesExample("++a;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runUsesExample("a[b];") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("f(a, b, c);") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"), Id("c"))))
-        runUsesExample("a.b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runUsesExample("a->b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runUsesExample("return f(a,b,c);") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"), Id("c"))))
+        runUsesExample("a;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runUsesExample("a++;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runUsesExample("++a;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runUsesExample("a[b];") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("f(a, b, c);") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True, Id("c") -> FeatureExprFactory.True))
+        runUsesExample("a.b;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runUsesExample("a->b;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runUsesExample("return f(a,b,c);") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True, Id("c") -> FeatureExprFactory.True))
         runUsesExample( """return f(a,
                        #if definedEx(B)
                          b,
                        #endif
                        c);
-                        """) should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("c")), fb -> Set(Id("b"))))
+                        """) should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> fb, Id("c") -> FeatureExprFactory.True))
         runUsesExample( """a = (b < 2) ? c : d;
 
-                        """) should be(Map(FeatureExprFactory.True -> Set(Id("b")))) // TODO conditional expressions.
+                        """) should be(Map(Id("b") -> FeatureExprFactory.True)) // TODO conditional expressions.
 
-        runUsesExample("&a;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runUsesExample("*a;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runUsesExample("!a;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runUsesExample("~a;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runUsesExample("-a;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runUsesExample("+a;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
+        runUsesExample("&a;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runUsesExample("*a;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runUsesExample("!a;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runUsesExample("~a;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runUsesExample("-a;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runUsesExample("+a;") should be(Map(Id("a") -> FeatureExprFactory.True))
 
-        runUsesExample("a * b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a - b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a / b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a % b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a & b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a ^ b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
+        runUsesExample("a * b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a - b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a / b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a % b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a & b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a ^ b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
 
-        runUsesExample("a && b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a || b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a | b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a << b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a >> b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
+        runUsesExample("a && b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a || b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a | b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a << b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a >> b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
 
-        runUsesExample("a = b;") should be(Map(FeatureExprFactory.True -> Set(Id("b"))))
-        runUsesExample("a = b++;") should be(Map(FeatureExprFactory.True -> Set(Id("b"))))
-        runUsesExample("a *= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a += b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a -= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a /= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a %= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a &= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a ^= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a |= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a >>= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a <<= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
+        runUsesExample("a = b;") should be(Map(Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a = b++;") should be(Map(Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a *= b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a += b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a -= b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a /= b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a %= b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a &= b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a ^= b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a |= b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a >>= b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a <<= b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
 
-        runUsesExample("a == b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a != b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a < b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a > b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a <= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runUsesExample("a >= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
+        runUsesExample("a == b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a != b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a < b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a > b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a <= b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runUsesExample("a >= b;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
     }
 
     @Test def test_defines() {
         runDefinesExample("a;") should be(Map())
-        runDefinesExample("a++;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runDefinesExample("++a;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
+        runDefinesExample("a++;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runDefinesExample("++a;") should be(Map(Id("a") -> FeatureExprFactory.True))
         runDefinesExample("a[b];") should be(Map())
         runDefinesExample("f(a, b, c);") should be(Map())
         runDefinesExample("a.b;") should be(Map())
@@ -510,18 +582,18 @@ class LivenessTest extends TestHelper with ShouldMatchers with IntraCFG with CFG
         runDefinesExample("a << b;") should be(Map())
         runDefinesExample("a >> b;") should be(Map())
 
-        runDefinesExample("a = b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runDefinesExample("a = b++;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runDefinesExample("a *= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runDefinesExample("a += b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runDefinesExample("a -= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runDefinesExample("a /= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runDefinesExample("a %= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runDefinesExample("a &= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runDefinesExample("a ^= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runDefinesExample("a |= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runDefinesExample("a >>= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runDefinesExample("a <<= b;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
+        runDefinesExample("a = b;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runDefinesExample("a = b++;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runDefinesExample("a *= b;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runDefinesExample("a += b;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runDefinesExample("a -= b;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runDefinesExample("a /= b;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runDefinesExample("a %= b;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runDefinesExample("a &= b;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runDefinesExample("a ^= b;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runDefinesExample("a |= b;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runDefinesExample("a >>= b;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runDefinesExample("a <<= b;") should be(Map(Id("a") -> FeatureExprFactory.True))
 
         runDefinesExample("a == b;") should be(Map())
         runDefinesExample("a != b;") should be(Map())
@@ -533,28 +605,28 @@ class LivenessTest extends TestHelper with ShouldMatchers with IntraCFG with CFG
 
     // http://en.wikipedia.org/wiki/C_data_types
     @Test def test_declares() {
-        runDeclaresExample("int a = 0;") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runDeclaresExample("int a, b = 0;") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        runDeclaresExample("int a[10];") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        runDeclaresExample("char *c;") should be(Map(FeatureExprFactory.True -> Set(Id("c"))))
-        runDeclaresExample("float f;") should be(Map(FeatureExprFactory.True -> Set(Id("f"))))
+        runDeclaresExample("int a = 0;") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runDeclaresExample("int a, b = 0;") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        runDeclaresExample("int a[10];") should be(Map(Id("a") -> FeatureExprFactory.True))
+        runDeclaresExample("char *c;") should be(Map(Id("c") -> FeatureExprFactory.True))
+        runDeclaresExample("float f;") should be(Map(Id("f") -> FeatureExprFactory.True))
         runDeclaresExample( """
       struct {
         int i;
-      } s;""") should be(Map(FeatureExprFactory.True -> Set(Id("s"))))
+      } s;""") should be(Map(Id("s") -> FeatureExprFactory.True))
         runDeclaresExample( """
       struct k {
         int i;
-      } s;""") should be(Map(FeatureExprFactory.True -> Set(Id("s"))))
+      } s;""") should be(Map(Id("s") -> FeatureExprFactory.True))
         runDeclaresExample( """
       struct k {
         int i;
       };""") should be(Map())
         runDeclaresExample( """
-      struct k s;""") should be(Map(FeatureExprFactory.True -> Set(Id("s"))))
+      struct k s;""") should be(Map(Id("s") -> FeatureExprFactory.True))
         runDeclaresExample( """
       union {
         int i;
-      } u;""") should be(Map(FeatureExprFactory.True -> Set(Id("u"))))
+      } u;""") should be(Map(Id("u") -> FeatureExprFactory.True))
     }
 }
