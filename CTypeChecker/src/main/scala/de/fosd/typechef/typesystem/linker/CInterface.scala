@@ -86,7 +86,6 @@ case class CInterface(
             }
         }
 
-
         val r = for ((k, v) <- importMap.iterator)
         yield CSignature(k._1, k._2, v._1, v._2, k._3)
         r.toSeq
