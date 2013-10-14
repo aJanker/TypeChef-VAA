@@ -791,6 +791,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             ifdeftoif_file = newPath
         }
         PrettyPrinter.printF(result_ast, ifdeftoif_file)
+        println("Printed ifdeftoif to file " + ifdeftoif_file)
 
         val typeCheckSuccessful = getTypeSystem(result_ast).checkASTSilent
 
@@ -861,14 +862,18 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      */
     def outputStemToifdeftoif(outputStem: String): String = {
         def outputStemToFileNameWithoutExtension(outputStem: String): String = {
-            val lastSepIndex = outputStem.lastIndexOf(".")
+            val lastPathElement = outputStem.substring(outputStem.lastIndexOf(File.separatorChar));
+            val lastSepIndex = lastPathElement.lastIndexOf(".")
             if (lastSepIndex == -1) {
                 outputStem
             } else {
                 outputStem.substring(0, lastSepIndex)
             }
         }
-        outputStemToFileNameWithoutExtension(outputStem) + "_ifdeftoif.c"
+        if ((new File(outputStem)).getName.contains(".")) // if the filename has a extension, remove it
+            outputStemToFileNameWithoutExtension(outputStem) + "_ifdeftoif.c"
+        else
+            outputStem + "_ifdeftoif.c"
     }
 
     /**
