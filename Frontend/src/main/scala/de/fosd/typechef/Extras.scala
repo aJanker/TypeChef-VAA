@@ -1,17 +1,12 @@
 package de.fosd.typechef
 
-import conditional.Choice
-import conditional.Opt
 import conditional.{Choice, Opt}
-import crewrite.{IfdefToIf, CAnalysisFrontend}
 import featureexpr.sat.SATFeatureModel
-import featureexpr.{FeatureModel, SingleFeatureExpr}
+import featureexpr.{FeatureExprFactory, FeatureModel, SingleFeatureExpr}
 import java.io.{File, FileWriter}
-import options.FrontendOptions
 import parser.c._
 import parser.c.FunctionDef
 import parser.c.PostfixExpr
-import parser.c.TranslationUnit
 import scala.Some
 
 /**
@@ -81,6 +76,29 @@ object Extras {
 
     }
 
+    // copied from de.fosd.typechef.crewrite.CIntraAnalysisFrontend.CIntraAnalysisFrontend
+    // in contrast to filterASTElems, filterAllASTElems visits all elements of the tree-wise input structure
+    def filterAllASTElems[T <: AST](a: Any)(implicit m: ClassManifest[T]): List[T] = {
+        a match {
+            case p: Product if (m.erasure.isInstance(p)) => List(p.asInstanceOf[T]) ++
+                p.productIterator.toList.flatMap(filterASTElems[T])
+            case l: List[_] => l.flatMap(filterASTElems[T])
+            case p: Product => p.productIterator.toList.flatMap(filterASTElems[T])
+            case _ => List()
+        }
+    }
+    // copied from de.fosd.typechef.crewrite.CIntraAnalysisFrontend.CIntraAnalysisFrontend
+    // method recursively filters all AST elements for a given type
+    // base case is the element of type T
+    def filterASTElems[T <: AST](a: Any)(implicit m: ClassManifest[T]): List[T] = {
+        a match {
+            case p: Product if (m.erasure.isInstance(p)) => List(p.asInstanceOf[T])
+            case l: List[_] => l.flatMap(filterASTElems[T])
+            case p: Product => p.productIterator.toList.flatMap(filterASTElems[T])
+            case _ => List()
+        }
+    }
+
     def getSimpleCFGfeatures(ast:AST, fm :FeatureModel) : Set[SingleFeatureExpr] = {
         def getCalledFunctions(ast:Any) : Set[String] = {
             ast match {
@@ -125,8 +143,7 @@ object Extras {
             }
         }
 
-        val cf = new CAnalysisFrontend(ast.asInstanceOf[TranslationUnit], fm)
-        val lst : List[FunctionDef] = cf.filterAllASTElems[FunctionDef](ast)
+        val lst : List[FunctionDef] = filterAllASTElems[FunctionDef](ast)
         //val functionNames : Set[String] = lst.map(x => x.declarator.getId.name).toSet
         var functionToCalledFunctionsMap : Map[String, Set[String]] = Map()
         var functionToASTMap : Map[String, FunctionDef] = Map()
@@ -137,5 +154,26 @@ object Extras {
         }
         val startFunction:String = "ldv_main0_sequence_infinite_withcheck_stateful"
         getUsedFeaturesRec(startFunction, functionToCalledFunctionsMap, functionToASTMap)
+    }
+
+
+
+    def testFexCaching(fm : FeatureModel) {
+        val A = FeatureExprFactory.createDefinedExternal("A")
+        val B = FeatureExprFactory.createDefinedExternal("B")
+
+        val AB = (A.and(B)).or(B.and(A))
+        val AB2 = A.and(B).and(FeatureExprFactory.True)
+        val BA = B.and(A)
+
+        println(AB.hashCode())
+        println(AB2.hashCode())
+        println(BA.hashCode())
+
+        val sat1 = AB.isSatisfiable(fm)
+        val sat2 = AB2.isSatisfiable(fm)
+        val sat3 = BA.isSatisfiable(fm)
+
+        println()
     }
 }

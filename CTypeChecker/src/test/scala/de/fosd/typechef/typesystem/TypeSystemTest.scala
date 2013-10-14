@@ -20,6 +20,8 @@ class TypeSystemTest extends FunSuite with ShouldMatchers with TestHelper {
         new CTypeSystemFrontend(ast).checkAST()
     }
 
+    protected def correct(code: String) = expect(true) {check(code)}
+    protected def error(code: String) = expect(false) {check(code)}
 
     test("typecheck simple translation unit") {
         expect(true) {
@@ -1029,6 +1031,82 @@ return 1;
                 """.stripMargin)
         }
 
+
+    }
+
+    test("static/external problem") {
+        //problem from uclibc, that initially reported that static and extern occur together
+        val c = """
+                  |#if definedEx(__UCLIBC_HAS_THREADS__)
+                  |static pthread_mutex_t mylock =
+                  |#if (definedEx(__UCLIBC_HAS_THREADS__) && definedEx(__UCLIBC_HAS_THREADS_NATIVE__))
+                  |{ { 0, 0, 0, 0, 0, 0, { 0, 0 } } }
+                  |#endif
+                  |#if (!definedEx(__UCLIBC_HAS_THREADS_NATIVE__) && definedEx(__LINUXTHREADS_NEW__) && definedEx(__UCLIBC_HAS_THREADS__))
+                  |{0, 0, 0, PTHREAD_MUTEX_TIMED_NP,
+                  |
+                  |{ 0,
+                  |
+                  |0
+                  |
+                  |
+                  | }
+                  |
+                  |
+                  |}
+                  |#endif
+                  |#if (definedEx(__LINUXTHREADS_OLD__) && !definedEx(__LINUXTHREADS_NEW__) && !definedEx(__UCLIBC_HAS_THREADS_NATIVE__) && definedEx(__UCLIBC_HAS_THREADS__))
+                  |{0, 0, 0, PTHREAD_MUTEX_ADAPTIVE_NP,
+                  |
+                  |{ 0,
+                  |
+                  |0
+                  |
+                  |
+                  | }
+                  |
+                  |
+                  |}
+                  |#endif
+                  |#if (!definedEx(__UCLIBC_HAS_THREADS__) || (!definedEx(__LINUXTHREADS_OLD__) && !definedEx(__LINUXTHREADS_NEW__) && !definedEx(__UCLIBC_HAS_THREADS_NATIVE__)))
+                  |PTHREAD_MUTEX_INITIALIZER
+                  |#endif
+                  |
+                  |#endif
+                  |#if !definedEx(__UCLIBC_HAS_THREADS__)
+                  |extern void *__UCLIBC_MUTEX_DUMMY_mylock
+                  |#endif
+                  |;
+                """.stripMargin
+
+        expect(true) {
+            check(c)
+        }
+    }
+
+
+    test("enum initializer") {
+        correct( """
+                   |enum {
+                   |   A = 0,
+                   |   B = A + 0
+                   |};
+                   |void foo() { int x = A; }
+                 """.stripMargin)
+        error( """
+                   |enum {
+                   |   A = 0,
+                   |   B = A + 0
+                   |};
+                   |void foo() { int x = C; }
+                 """.stripMargin)
+
+        error( """
+                  |enum {
+                  |   _1_A = 0,
+                  |   B = A + 0
+                  |};
+                """.stripMargin)
 
     }
 }

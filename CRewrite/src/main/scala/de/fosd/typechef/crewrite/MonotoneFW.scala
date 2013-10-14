@@ -3,7 +3,7 @@ package de.fosd.typechef.crewrite
 import org.kiama.attribution.AttributionBase
 
 import de.fosd.typechef.parser.c._
-import de.fosd.typechef.typesystem.UseDeclMap
+import de.fosd.typechef.typesystem.{DeclUseMap, UseDeclMap}
 import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureModel, FeatureExpr}
 
 // this abstract class provides a standard implementation of
@@ -24,36 +24,39 @@ import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureModel, FeatureEx
 // determination
 //
 // for more information about monotone frameworks
-// see "Principles of Program Analysis" by (Nielson, Nielson, Hankin)
+// see "Principles of Program Analysis" by (Nielson, Nielson, Hankin) [NNH99]
 
 // env: ASTEnv; environment used for navigation in the AST during predecessor and
 //              successor determination
-// udm: UseDeclMap; map of variable usages to their corresponding declarations
-//                  a variable here can have different declarations (alternative types)
 // fm: FeatureModel; feature model used for filtering out false positives
-abstract class MonotoneFW[T](val env: ASTEnv, val udm: UseDeclMap, val fm: FeatureModel) extends AttributionBase with IntraCFG {
+sealed abstract class MonotoneFW[T](val env: ASTEnv, val fm: FeatureModel) extends AttributionBase with IntraCFG {
 
     // dataflow, such as identifiers (type Id) may have different declarations
     // (alternative types). so we track alternative elements here using two
     // maps
-    // t2FreshT is a 1:1 mapping of T declarations to fresh T elements for our analysis
+    // t2FreshT is a 1:1 mapping of T declarations to fresh T elements for our analysis;
+    //          fresh means we use a new identifier that does not exist yet.
     // freshT2T is the reverse of t2FreshT
     private val t2FreshT = new java.util.IdentityHashMap[T, Set[T]]()
-    private val dId2Fresh = new java.util.IdentityHashMap[T, T]()
     private val freshT2T = new java.util.IdentityHashMap[T, T]()
 
-    // create fresh T elements that we use in our analysis the declaration
-    // of an incoming element
-    protected def createFresh(i: T) = {
-        if (! dId2Fresh.containsKey(i)) {
+    // due to shadowing and multiple types a single variable can have,
+    // we assign each variable a new identifier
+    // definition 2 fresh definition
+    private val dId2Freshd = new java.util.IdentityHashMap[T, T]()
+
+    // create a fresh definition for a given definition
+    protected def createFreshDefinition(i: T) = {
+        if (!dId2Freshd.containsKey(i)) {
             val nt = t2T(i)
-            dId2Fresh.put(i, nt)
+            dId2Freshd.put(i, nt)
         }
-        dId2Fresh.get(i)
+        dId2Freshd.get(i)
     }
 
-    protected def getFresh(i: T) = {
-        if (! t2FreshT.containsKey(i)) {
+    // add all fresh definitions of a given (usage) variable to the caches
+    protected def getFreshDefinitionFromUsage(i: T) = {
+        if (!t2FreshT.containsKey(i)) {
             val nt = t2SetT(i)
             for (e <- nt)
                 freshT2T.put(e, i)
@@ -62,52 +65,43 @@ abstract class MonotoneFW[T](val env: ASTEnv, val udm: UseDeclMap, val fm: Featu
         t2FreshT.get(i)
     }
 
-    protected def addFreshT(i: T) = {
-        val nt = createFresh(i)
+    // add a fresh definition for a given "old" definition
+    protected def getFreshDefinition(i: T) = {
+        val nt = createFreshDefinition(i)
         freshT2T.put(nt, i)
         nt
     }
 
-    // get the original T element of a freshly created T element
+    // get the original T element
     protected def getOriginal(i: T) = freshT2T.get(i)
 
     // abstract function that creates the fresh T elements we use here
-    // in our analysis. typical for analysis such as double free
-    // we create new Id using the freshTctr counter.
+    // in our analysis.
     protected def t2SetT(i: T): Set[T]
     protected def t2T(i: T): T
 
+    // map given elements from gen/kill to those elements maintained by the framework
+    protected def mapGenKillElements2MonotoneElements(s: L): L
+    private def updateFeatureExprOfMonotoneElements(s: L, f: FeatureExpr): L = {
+        var res = l
 
-
-    protected val incache = new IdentityHashMapCache[ResultMap]()
-    protected val outcache = new IdentityHashMapCache[ResultMap]()
-
-    // add annotation to elements of a Set[Id]
-    protected def addAnnotation2ResultSet(in: Set[Id]): Map[FeatureExpr, Set[Id]] = {
-        var res = Map[FeatureExpr, Set[Id]]()
-
-        for (r <- in) {
-            val rfexp = env.featureExpr(r)
-
-            val key = res.find(_._1 equivalentTo rfexp)
-            key match {
-                case None => res = res.+((rfexp, Set(r)))
-                case Some((k, v)) => res = res.+((k, v ++ Set(r)))
-            }
-        }
-
+        for ((x, of) <- s)
+            res += ((x, of and f))
         res
     }
 
-    // gen and kill function, will be implemented by the concrete dataflow classes
-    def gen(a: AST): Map[FeatureExpr, Set[T]]
-    def kill(a: AST): Map[FeatureExpr, Set[T]]
+    private val f_lcache = new IdentityHashMapCache[L]()
+    private val combinatorcache = new IdentityHashMapCache[L]()
+
+    // gen and kill function, will be implemented by the concrete dataflow analysis
+    def gen(a: AST): L
+    def kill(a: AST): L
 
     // while monotone framework usually works on Sets
     // we use maps here for efficiency reasons:
-    //   1. the obvious shift from non-variability-aware monotone framework to
+    //   1. The obvious shift from non-variability-aware monotone framework to
     //      a variability-aware version is to change the type of the result set
-    //      from Set[Id] to Set[Opt[Id]]. However this changes involves many lookups
+    //      from Set[Id] to Set[Opt[Id]]. However this changes involves many look-ups
     //      and changes to the set.
     //   2. We use Map[T, FeatureExpr] since T is our basic element of interest.
     //      FeatureExpr do not matter so far (they are prominent when using Opt
@@ -115,117 +109,186 @@ abstract class MonotoneFW[T](val env: ASTEnv, val udm: UseDeclMap, val fm: Featu
     //      are easy and can be delayed to the point at which we *really* need
     //      the result. The delay also involves simplifications of feature
     //      expressions such as "a or (not a) => true".
-    type ResultMap = Map[T, FeatureExpr]
+    //   3. In general, Map[Id, FeatureExpr] is the generalization of Set[Id] with
+    //      FeatureExpr in {True, False}. Therefore, we adopt a Map here instead of a Set.
+    //
+    // property space L represents a complete lattice, i.e., it is a partially ordered set (L,⊑)
+    // ⊑ is either ⊆ (subset) or ⊇ (superset)
+    // according to the ascending chain condition (see [NNH99], Appendix A)
+    // l1 ⊑ l2 ⊑ ... eventually stabilises (finite set of T elements in analysis), i.e., ∃n: ln = ln+1 = ...
+    type L = Map[T, FeatureExpr]
 
-    private def diff(map: ResultMap, fexp: FeatureExpr, d: Set[T]) = {
-        var curmap = map
-        for (e <- d) {
-            curmap.get(e) match {
+    // preserve the generic type of the MonotoneFW class, so that it is available in subclasses
+    type PGT = T
+    protected def l = Map[T, FeatureExpr]()
+
+    private def diff(l: L, l2: L): L = {
+        var curl = l
+        for ((e, fexp) <- l2) {
+            curl.get(e) match {
                 case None =>
                 case Some(x) => {
-                    if (fexp.not and x isContradiction())
-                        curmap = curmap.-(e)
-                    else
-                        curmap = curmap + ((e, fexp.not and x))
+                    if (fexp.not and x isContradiction()) curl = curl - e
+                    else curl = curl + ((e, fexp.not and x))
                 }
             }
         }
-        curmap
+        curl
     }
 
-    private def union(map: ResultMap, fexp: FeatureExpr, j: Set[T]) = {
-        var curmap = map
-        for (e <- j) {
-            curmap.get(e) match {
-                case None => curmap = curmap.+((e, fexp))
-                case Some(x) => curmap = curmap.+((e, fexp or x))
+    protected def intersection(l1: L, l2: L): L = {
+        var curl = l1
+        val k1 = l1.keySet
+        val k2 = l2.keySet
+        curl --= ((k1 union k2) diff (k1 intersect k2))
+        for ((e, fexp) <- l2) {
+            curl.get(e) match {
+                case None =>
+                case Some(x) => curl = curl + ((e, fexp and x))
             }
         }
-        curmap
+        curl
+    }
+
+    protected def union(l: L, l2: L): L = {
+        var curl = l
+        for (i@(e, fexp) <- l2) {
+            curl.get(e) match {
+                case None => curl = curl + i
+                case Some(x) => curl = curl + ((e, fexp or x))
+            }
+        }
+        curl
     }
 
 
+    // finite flow F (flow => succ and flowR => pred)
+    // beware [NNH99] define the analysis: Analysis_○(l) = ∐{Analysis_●(l') | (l',l) ∈ F} ⊔ i_E^l
+    // so they reverse the order going from l to l' (notice that (l',l) ∈ F)
+    //  flow  => predecessor (forward analysis)
+    //           result elements flow from predecessor to successor
+    //  flowR => successor (backward analysis);
+    //           result elements flow from successor to predecessor
+    // we don't reverse the order here but keep the names for flow and flowR consistent with the book
+    protected def F(e: AST): CFG
+    protected def flow(e: AST): CFG = pred(e, FeatureExprFactory.empty, env)
+    protected def flowR(e: AST): CFG = succ(e, FeatureExprFactory.empty, env)
 
-    // flow functions (flow => succ and flow => pred) functions of the
-    // framework
-    protected def flow(e: AST): CFG
-    protected def flowSucc(e: AST): CFG = succ(e, FeatureExprFactory.empty, env)
-    protected def flowPred(e: AST): CFG = pred(e, FeatureExprFactory.empty, env)
+    // we compute the flow on the fly and FunctionDef represents our only element in E (extremal labels),
+    // i.e., FunctionDef is the "last" and the "first" element (label) in flow resp. flowR (see F definition)
+    private type E = FunctionDef
 
-    protected def unionio(e: AST): ResultMap
-    protected def genkillio(e: AST): ResultMap
+    // extremal value for E
+    protected val i: L
 
-    protected val uniononly: AST => ResultMap = {
-        circular[AST, ResultMap](Map[T, FeatureExpr]()) {
-            case e => {
-                var fl = flow(e)
+    // bottom element of our lattice ⊥; we can't use ⊥ as a variable name
+    // this needs to be a function since we have to create each time a new, fresh bottom element
+    // otherwise the fix-point computation in circular ends up with a NullPointerException
+    protected def b: L
 
-                fl = fl.filterNot(x => x.entry.isInstanceOf[FunctionDef])
+    // dataflow computations based on the monotone framework use a fix-point algorithm
+    // for the implementation we use kiama's circular function, which keeps track
+    // of the results
+    // the framework defines two functions:
+    //   Analysis_○(l) = ∐{Analysis_●(l') | (l',l) ∈ F} ⊔ i_E^l
+    //                   where i_E^l = i if l ∈ E
+    //                     or  i_E^l = ⊥ if l ∉ E
+    //   Analysis_●(l) = f_l(Analysis_○(l))
+    //
+    // for forward analysis such as available expressions, F is flow, Analysis_○ concerns entry, Analysis_● concerns exit
+    // for backward analysis such as liveness analysis, F is flowR, Analysis_○ concerns exit, Analysis_● concerns entry
+    // we name the two functions ∐ and f_l in Analysis_○ and Analysis_● combinator and f_l
+    // we name Analysis_○ circle and Analysis_● point
 
-                var res = Map[T, FeatureExpr]()
+    // ∐ is either ⋃ (n-ary union) or ⋂ (n-ary intersection) and has to be defined by the analysis instance
+    protected def combinationOperator(l1: L, l2: L): L
+
+    // depending on the analysis in and out are defined differently, although they always represent the
+    // results before a CFG statement resp. after a CFG statement
+    // forward analysis: F is flow (results flow from predecessor to successor elements)
+    // backward analysis: F is flowR (results flow from successor to predecessor elements)
+    // the side (in/out) at which the flow function is called also calls combinator (we merge results)
+    // the remaining side calls f_l
+    //      in          |      (combinator)  ∧       (f_l)
+    //    x++;          | flow (pred)        | flowR (succ)
+    //      out         ∨      (f_l)         |       (combinator)
+    protected def circle(e: AST): L = combinatorcached(e)
+    protected def point(e: AST): L = f_lcached(e)
+
+    protected val combinator: AST => L = {
+        circular[AST, L](b) {
+            case _: E => i
+            case a => {
+                val fl = F(a)
+
+                var res = b
+
+                // propagate flow condition to current result elements and combine them using
+                // combinationOperator
                 for (s <- fl) {
-                    for ((r, f) <- unionio(s.entry))
-                        res = union(res, f and s.feature, Set(r))
+                    val x = updateFeatureExprOfMonotoneElements(point(s.entry), s.feature)
+                    res = combinationOperator(res, x)
                 }
+
                 res
             }
         }
     }
 
-    protected val genkill: AST => ResultMap = {
-        circular[AST, ResultMap](Map[T, FeatureExpr]()) {
-            case FunctionDef(_, _, _, _) => Map[T, FeatureExpr]()
-            case t => {
-                val g = gen(t)
-                val k = kill(t)
+    protected val f_l: AST => L = {
+        circular[AST, L](b) {
+            case _: E => i
+            case a => {
+                val g = gen(a)
+                val k = kill(a)
 
-                var res = genkillio(t)
-                for ((fexp, v) <- k)
-                    for (x <- v)
-                        res = diff(res, fexp, getFresh(x))
+                var res = circle(a)
+                res = diff(res, mapGenKillElements2MonotoneElements(k))
 
-                for ((fexp, v) <- g)
-                    for (x <- v)
-                        res = union(res, fexp, getFresh(x))
+                res = union(res, mapGenKillElements2MonotoneElements(g))
                 res
             }
         }
     }
 
-    // using caching for efficiency and filtering out false positives
-    // using the feature model
-    protected def outcached(a: AST) = {
-        outcache.lookup(a) match {
+    // using caching for efficiency
+    protected def combinatorcached(a: AST): L = {
+        combinatorcache.lookup(a) match {
             case Some(v) => v
             case None => {
-                val r = uniononly(a)
-                outcache.update(a, r)
+                val r = combinator(a)
+                combinatorcache.update(a, r)
                 r
             }
         }
     }
+
+    protected def outcached(a: AST): L
 
     def out(a: AST) = {
         val o = outcached(a)
         var res = List[(T, FeatureExpr)]()
-
         for ((x, f) <- o) {
             val orig = getOriginal(x)
             res = (orig, f) :: res
         }
-        res.filter(_._2.isSatisfiable(fm))
+        // joining values from different paths can lead to duplicates.
+        // remove them and filter out values from unsatisfiable paths.
+        res.distinct.filter { case (_, f) => f.isSatisfiable(fm) }
     }
 
-    protected def incached(a: AST) = {
-        incache.lookup(a) match {
+    protected def f_lcached(a: AST): L = {
+        f_lcache.lookup(a) match {
             case Some(v) => v
             case None => {
-                val r = genkill(a)
-                incache.update(a, r)
+                val r = f_l(a)
+                f_lcache.update(a, r)
                 r
             }
         }
     }
+
+    protected def incached(a: AST): L
 
     def in(a: AST) = {
         val o = incached(a)
@@ -235,7 +298,117 @@ abstract class MonotoneFW[T](val env: ASTEnv, val udm: UseDeclMap, val fm: Featu
             val orig = getOriginal(x)
             res = (orig, f) :: res
         }
-        res.filter(_._2.isSatisfiable(fm))
+        res.distinct.filter { case (_, f) => f.isSatisfiable(fm) }
+    }
+}
+
+// specialization of MonotoneFW for Ids (Var); helps to reduce code cloning, i.e., cloning of t2T, ...
+abstract class MonotoneFWId(env: ASTEnv, udm: UseDeclMap, fm: FeatureModel) extends MonotoneFW[Id](env, fm) {
+    // add annotation to elements of a Set[PGT]
+    // this function is used to add feature expression information to set generated by gen and kill
+    protected def addAnnotations(in: Set[PGT]): L = {
+        var res = l
+
+        for (r <- in)
+            res += ((r, env.featureExpr(r)))
+
+        res
+    }
+
+    // we create fresh T elements (here Id) using a counter
+    private var freshTctr = 0
+
+    private def getFreshCtr: Int = {
+        freshTctr = freshTctr + 1
+        freshTctr
+    }
+
+    protected def t2T(i: PGT) = Id(getFreshCtr + "_" + i.name)
+
+    protected def t2SetT(i: PGT) = {
+        var freshidset = Set[PGT]()
+
+        if (udm.containsKey(i)) {
+            for (vi <- udm.get(i)) {
+                freshidset = freshidset.+(createFreshDefinition(vi))
+            }
+            freshidset
+        } else {
+            Set(getFreshDefinition(i))
+        }
+    }
+
+    protected def mapGenKillElements2MonotoneElements(s: L): L = {
+        var res = l
+
+        for ((x, f) <- s)
+            for (n <- getFreshDefinitionFromUsage(x))
+                res += ((n, f))
+        res
+    }
+}
+
+// specialization of MonotoneFW for Ids with Labels (Var* x Lab*)
+// we use as label System.identityHashCode of the tracked variables
+abstract class MonotoneFWIdLab(env: ASTEnv, dum: DeclUseMap, udm: UseDeclMap, fm: FeatureModel, f: FunctionDef) extends MonotoneFW[(Id, Int)](env, fm) {
+    // add annotation to elements of a Set[PGT]
+    // this function is used to add feature expression information to set generated by gen and kill
+    protected def addAnnotations(in: Set[PGT]): L = {
+        var res = l
+
+        for (r <- in)
+            res += ((r, env.featureExpr(r._1)))
+
+        res
+    }
+
+    // all three functions do basically nothing, since the PGT (Id x its HashCode) input
+    // is already in a form (i.e., unique elements) that can be maintained by the monotone framework
+    protected def t2T(i: PGT) = i
+
+    protected def t2SetT(i: PGT) = Set(getFreshDefinition(i))
+
+    protected def mapGenKillElements2MonotoneElements(s: L): L = {
+        // we traverse the input so all elements from s are added
+        // to our internal cache t2FreshT
+        for ((x, _) <- s)
+            getFreshDefinitionFromUsage(x)
+
+        // the output remains the same since freshT == T
+        s
+    }
+
+    // we store PGT elements in a cache so we can return each time the same PGT elements
+    // is is crucial for the computations within the monotone framework, since
+    // () is an operator and returns every time a new object, with a new IdentityHashCode.
+    // so (1, "1") has not the same reference as (1, "1")
+    private val cachePGT = new IdentityHashMapCache[(PGT, FeatureExpr)]()
+
+    protected def fromCache(i: Id, isKill: Boolean = false): L = {
+        var res = l
+        if (cachePGT.lookup(i).isEmpty) cachePGT.update(i, ((i, System.identityHashCode(i)), env.featureExpr(i)))
+        res += cachePGT.lookup(i).get
+
+        if (isKill) {
+            if (udm.containsKey(i))
+                for (x <- udm.get(i)) {
+                    if (cachePGT.lookup(x).isEmpty)
+                        cachePGT.update(x, ((x, System.identityHashCode(x)), env.featureExpr(x)))
+                    res += cachePGT.lookup(x).get
+
+                    if (dum.containsKey(x))
+                        for (tu <- dum.get(x)) {
+                            if (cachePGT.lookup(tu).isEmpty)
+                                cachePGT.update(tu, ((tu, System.identityHashCode(x)), env.featureExpr(tu)))
+                            res += cachePGT.lookup(tu).get
+                        }
+
+//                    if (add2FVs)
+//                        if (! isPartOf(x, f.stmt)) fvs += cachePGT.lookup(x).get
+                }
+        }
+
+        res
     }
 }
 

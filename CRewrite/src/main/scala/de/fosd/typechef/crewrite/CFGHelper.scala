@@ -1,6 +1,6 @@
 package de.fosd.typechef.crewrite
 
-import de.fosd.typechef.parser.c.AST
+import de.fosd.typechef.parser.c.{ASTEnv, AST}
 import de.fosd.typechef.featureexpr.FeatureModel
 import de.fosd.typechef.conditional.Opt
 
@@ -8,7 +8,7 @@ trait CFGHelper extends IntraCFG {
 
     // determine recursively all succs check
     def getAllSucc(i: AST, fm: FeatureModel, env: ASTEnv) = {
-        var r = List[(AST, List[Opt[AST]])]()
+        var r = List[(AST, CFG)]()
         var s = List(i)
         var d = List[AST]()
         var c: AST = null
@@ -28,7 +28,7 @@ trait CFGHelper extends IntraCFG {
 
     // determine recursively all pred
     def getAllPred(i: AST, fm: FeatureModel, env: ASTEnv) = {
-        var r = List[(AST, List[Opt[AST]])]()
+        var r = List[(AST, CFG)]()
         var s = List(i)
         var d = List[AST]()
         var c: AST = null

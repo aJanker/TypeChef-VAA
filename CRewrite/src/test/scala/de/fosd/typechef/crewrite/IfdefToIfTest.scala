@@ -45,10 +45,6 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             param.close()
         }
 
-    def getCSVHeader(): String = {
-        "File name,Number of AST nodes before,Number of AST nodes after,AST node difference,Features,Declarations,Optional declarations,Declarations duplicated,Functions,Optional functions,Functions duplicated,If statements before,If statements after,Renamings,Renaming usages,Parsing,Transformation,PrettyPrinting\n"
-    }
-
     def getTypeSystem(ast: AST): CTypeSystemFrontend = {
         new CTypeSystemFrontend(ast.asInstanceOf[TranslationUnit])
     }
@@ -115,7 +111,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
 
 
             //val csvEntry = i.createCsvEntry(source_ast, new_ast._1, fileNameWithoutExtension, timeToParseAndTypeCheck, timeToTransform)
-            writeToTextFile(singleFilePath ++ fileNameWithoutExtension ++ ".csv", getCSVHeader() + new_ast._2)
+            writeToTextFile(singleFilePath ++ fileNameWithoutExtension ++ ".csv", i.getCSVHeader + new_ast._2)
             val result_ast = i.getAstFromFile(new File(singleFilePath ++ fileNameWithoutExtension ++ "_ifdeftoif.c"))
             if (result_ast == null) {
                 if (i.getTypeSystem(new_ast._1).checkAST()) {
@@ -1474,7 +1470,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         }
         new File(path).mkdirs()
         if (!checkForExistingFiles || !(new File(path ++ "statistics.csv").exists)) {
-            writeToFile(path ++ "statistics.csv", getCSVHeader())
+            writeToFile(path ++ "statistics.csv", i.getCSVHeader)
         }
         transformPiFiles(dirToAnalyse)
     }
@@ -1509,7 +1505,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         if (dirToAnalyse.exists()) {
             new File(path).mkdirs()
             if (!checkForExistingFiles || !(new File(path ++ "statistics.csv").exists)) {
-                writeToFile(path ++ "statistics.csv", getCSVHeader())
+                writeToFile(path ++ "statistics.csv", i.getCSVHeader)
             }
 
             transformPiFiles(dirToAnalyse)

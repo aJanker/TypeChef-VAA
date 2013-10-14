@@ -14,13 +14,12 @@ object FeatureExprHelper {
         freshFeatureNameCounter = freshFeatureNameCounter + 1;
         "__fresh" + freshFeatureNameCounter;
     }
-
     /** map for caching of already solved SAT checks
      * Different objects A and B of class BDDFeatureExpr may refer to the same internal BDD and have the same hashcode and have equal-equality.
-     * If a result was stored for A, this result will also be returned for B, because A.equals(B) .
+     * If a result was stored for A, this result will also be returned for B, because A.equals(B).
+     * We use BDD here, because in contrast to BDDFeatureExpr BDD is never freed by GC and so we avoid redundant SAT checks.
      */
-    val cacheIsSatisfiable: WeakHashMap[(BDDFeatureExpr, FeatureModel), Boolean] = WeakHashMap()
-
+    val cacheIsSatisfiable: WeakHashMap[(BDD, FeatureModel), Boolean] = WeakHashMap()
 }
 
 
@@ -149,6 +148,9 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
     override def implies(that: FeatureExpr) = FExprBuilder.imp(this, asBDDFeatureExpr(that))
     override def xor(that: FeatureExpr) = FExprBuilder.xor(this, asBDDFeatureExpr(that))
 
+    override def unique(feature: SingleFeatureExpr): FeatureExpr = FExprBuilder.unique(this, asSingleBDDFeatureExpr(feature))
+
+
     // According to advanced textbooks, this representation is not always efficient:
     // not (a equiv b) generates 4 clauses, of which 2 are tautologies.
     // In positions of negative polarity (i.e. contravariant?), a equiv b is best transformed to
@@ -220,7 +222,7 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
         //combination with a small FeatureExpr feature model
         else if (fm.clauses.isEmpty) (bdd and fm.extraConstraints.bdd and fm.assumptions.bdd).satOne() != FExprBuilder.FALSE
         //combination with SAT
-        else FeatureExprHelper.cacheIsSatisfiable.getOrElseUpdate((this,fm),
+        else FeatureExprHelper.cacheIsSatisfiable.getOrElseUpdate((this.bdd,fm),
             SatSolver.isSatisfiable(fm, toDnfClauses(toScalaAllSat((bdd and fm.extraConstraints.bdd).not().allsat())), FExprBuilder.lookupFeatureName)
         )
     }
@@ -259,18 +261,18 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
     def toTextExpr: String =
         toSATFeatureExpr().toTextExpr
 
-  	/**
-   	* Iterator[Array[(Byte,String)]]
-   	* Returns a iterator. Each element of the iterator is a clause of the CNF formula.
-   	* Each element of the clause-array is a single feature.
-   	* The feature is given as tuple (a,b): a==0 means the feature is negated, b is the name of the feature.
-   	*/
-  	def getBddAllSat: Iterator[Array[(Byte, String)]] = {
-    	def clause(d: Array[Byte]): Array[(Byte, String)] = d.zip(0 to (d.length - 1)).filter(_._1 >= 0).map(
-      		x => (x._1, FExprBuilder.lookupFeatureName(x._2))
-    	)
-    	bddAllSat.map(clause(_))
-  	}
+    /**
+     * Iterator[Array[(Byte,String)]]
+     * Returns a iterator. Each element of the iterator is a clause of the CNF formula.
+     * Each element of the clause-array is a single feature.
+     * The feature is given as tuple (a,b): a==0 means the feature is negated, b is the name of the feature.
+     */
+    def getBddAllSat: Iterator[Array[(Byte, String)]] = {
+        def clause(d: Array[Byte]): Array[(Byte, String)] = d.zip(0 to (d.length - 1)).filter(_._1 >= 0).map(
+            x => (x._1, FExprBuilder.lookupFeatureName(x._2))
+        )
+        bddAllSat.map(clause(_))
+    }
 
     override def toString: String =
         toSATFeatureExpr().toString
@@ -316,6 +318,10 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
         )
         allsat.map(clause(_))
     }
+
+
+
+
 
     /**
      * helper function for statistics and such that determines which
@@ -456,6 +462,7 @@ private[bdd] object FExprBuilder {
     def imp(a: BDDFeatureExpr, b: BDDFeatureExpr): BDDFeatureExpr = new BDDFeatureExpr(a.bdd imp b.bdd)
     def biimp(a: BDDFeatureExpr, b: BDDFeatureExpr): BDDFeatureExpr = new BDDFeatureExpr(a.bdd biimp b.bdd)
     def xor(a: BDDFeatureExpr, b: BDDFeatureExpr): BDDFeatureExpr = new BDDFeatureExpr(a.bdd xor b.bdd)
+    def unique(a: BDDFeatureExpr, b: SingleBDDFeatureExpr): BDDFeatureExpr = new BDDFeatureExpr(a.bdd.unique(b.bdd))
 
     def not(a: BDDFeatureExpr): BDDFeatureExpr = new BDDFeatureExpr(a.bdd.not())
 
@@ -530,6 +537,11 @@ object CastHelper {
     else {
         assert(fexpr.isInstanceOf[BDDFeatureExpr], "Expected BDDFeatureExpr but found " + fexpr.getClass.getCanonicalName + "; do not mix implementations of FeatureExprLib.") //FMCAST
         fexpr.asInstanceOf[BDDFeatureExpr]
+    }
+    def asSingleBDDFeatureExpr(fexpr: SingleFeatureExpr): SingleBDDFeatureExpr = if (fexpr == null) null
+    else {
+        assert(fexpr.isInstanceOf[SingleBDDFeatureExpr], "Expected SingleBDDFeatureExpr but found " + fexpr.getClass.getCanonicalName + "; do not mix implementations of FeatureExprLib.") //FMCAST
+        fexpr.asInstanceOf[SingleBDDFeatureExpr]
     }
     def asBDDFeatureModel(fm: FeatureModel): BDDFeatureModel =
         if (fm == null) null

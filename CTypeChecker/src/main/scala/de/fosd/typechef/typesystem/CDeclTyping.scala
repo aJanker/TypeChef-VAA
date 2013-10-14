@@ -138,34 +138,35 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
         //type specifiers
         var types = List[Conditional[CType]]()
         for (specifier <- specifiers) specifier match {
-            case StructOrUnionSpecifier(isUnion, Some(id), _) =>
+            case StructOrUnionSpecifier(isUnion, Some(id), _, _, _) =>
                 addStructDeclUse(id, env, isUnion, featureExpr)
+                if (hasTransparentUnionAttribute(specifiers)) {
+                    types = types :+ One(CIgnore().toCType) //ignore transparent union for now
+                }
+                else {
+                    types = types :+ One(CStruct(id.name, isUnion).toCType)
+                }
+            case StructOrUnionSpecifier(isUnion, None, members, _, _) =>
                 if (hasTransparentUnionAttribute(specifiers))
-                    types = types :+ One(CIgnore()) //ignore transparent union for now
+                    types = types :+ One(CIgnore().toCType) //ignore transparent union for now
                 else
-                    types = types :+ One(CStruct(id.name, isUnion))
-            case StructOrUnionSpecifier(isUnion, None, members) =>
-                if (hasTransparentUnionAttribute(specifiers))
-                    types = types :+ One(CIgnore()) //ignore transparent union for now
-                else
-                    types = types :+ One(CAnonymousStruct(parseStructMembers(members.getOrElse(Nil), featureExpr, env), isUnion))
+                    types = types :+ One(CAnonymousStruct(parseStructMembers(members.getOrElse(Nil), featureExpr, env), isUnion).toCType)
             case e@TypeDefTypeSpecifier(Id(typedefname)) => {
                 val typedefEnvironment = env.typedefEnv
                 //typedef name can be shadowed by variable
                 val shadow = env.varEnv(typedefname).simplify(featureExpr)
                 types = types :+ shadow.mapfr(featureExpr, {
-                    case (f, CUnknown(_)) => //normal case: there is no variable by that name
+                    case (f, t) if t.isUnknown => //normal case: there is no variable by that name
                         if (typedefEnvironment contains typedefname) typedefEnvironment(typedefname)
-                        else One(reportTypeError(f, "type not defined " + typedefname, e, Severity.Crash)) //should not occur, because the parser should reject this already. exceptions could be caused by local type declarations
+                        else One(reportTypeError(f, "type not defined " + typedefname, e, Severity.Crash).toCType) //should not occur, because the parser should reject this already. exceptions could be caused by local type declarations
                     case (f, t) =>
-                        One(reportTypeError(f, "type " + typedefname + " not defined (shadowed by variable with type " + t + ")", e))
+                        One(reportTypeError(f, "type " + typedefname + " not defined (shadowed by variable with type " + t + ")", e).toCType)
                 })
             }
             case EnumSpecifier(_, _) =>
                 //according to tests with GCC, this should be unsigned int (see test "enum type is unsigned int" in TypeSystemTest)
-                types = types :+ One(CUnsigned(CInt())) //TODO check that enum name is actually defined (not urgent, there is not much checking possible for enums anyway)
-            case TypeOfSpecifierT(typename) =>
-                types = types :+ getTypenameType(typename, featureExpr, env)
+                types = types :+ One(CUnsigned(CInt()).toCType) //TODO check that enum name is actually defined (not urgent, there is not much checking possible for enums anyway)
+            case TypeOfSpecifierT(typename) => types = types :+ getTypenameType(typename, featureExpr, env)
             case TypeOfSpecifierU(expr) =>
                 types = types :+ getExprType(expr, featureExpr, env)
             case _ =>
@@ -195,21 +196,28 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
         if (has(ShortSpecifier()))
             types = types :+ sign(CShort())
         if (has(DoubleSpecifier()) && has(LongSpecifier()))
-            types = types :+ One(CLongDouble())
+            types = types :+ One(CLongDouble().toCType)
         if (has(DoubleSpecifier()) && !has(LongSpecifier()))
-            types = types :+ One(CDouble())
+            types = types :+ One(CDouble().toCType)
         if (has(FloatSpecifier()))
-            types = types :+ One(CFloat())
+            types = types :+ One(CFloat().toCType)
         if ((isSigned || isUnsigned || has(IntSpecifier())) && !has(ShortSpecifier()) && !has(LongSpecifier()) && !has(CharSpecifier()))
             types = types :+ sign(CInt())
         if (has(OtherPrimitiveTypeSpecifier("_Bool")))
-            types = types :+ One(CBool())
+            types = types :+ One(CBool().toCType)
 
         if (has(VoidSpecifier()))
-            types = types :+ One(CVoid())
+            types = types :+ One(CVoid().toCType)
 
         //TODO prevent invalid combinations completely?
 
+
+        for (specifier <- specifiers) specifier match {
+            case VolatileSpecifier() => types = types.map(_.map(_.toVolatile()))
+            case ConstSpecifier() => types = types.map(_.map(_.toConst()))
+
+            case _ =>
+        }
 
         if (types.size == 1)
             types.head
@@ -239,23 +247,20 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
      *
      * used for example when declaring or dereferencing a variable
      */
-    protected def checkStructCompleteness(ctype: CType, expr: FeatureExpr, env: Env, where: AST, checkedStructs: List[String] = Nil): Unit = {
-        ctype match {
-            case CObj(t) => checkStructCompleteness(t, expr, env, where, checkedStructs)
-            case CArray(t, _) => checkStructCompleteness(t, expr, env, where, checkedStructs)
-            case CStruct(name, isUnion) =>
-                val declExpr = env.structEnv.isComplete(name, isUnion)
-                if ((expr andNot declExpr).isSatisfiable()) {
-                    val msg = (if (isUnion) "Union " else "Struct ") + name + " not defined or not complete." +
-                        (if ((expr and declExpr).isSatisfiable()) " (complete only in context " + declExpr + ")" else "")
-                    reportTypeError(expr andNot declExpr, msg, where, Severity.TypeLookupError)
-                }
-            case CAnonymousStruct(fields, _) => //check fields
-                val fieldTypes = fields.keys.map(k => fields.getOrElse(k, CUnknown()))
-                fieldTypes.map(ct => checkStructCompletenessC(ct, expr, env, where, checkedStructs))
-            case CPointer(_) => // do not check internals of pointers. pointers may point to incomplete structs
-            case _ =>
-        }
+    protected def checkStructCompleteness(ctype: CType, expr: FeatureExpr, env: Env, where: AST, checkedStructs: List[String] = Nil): Unit = ctype.atype match {
+        case CArray(t, _) => checkStructCompleteness(t.toCType, expr, env, where, checkedStructs)
+        case CStruct(name, isUnion) =>
+            val declExpr = env.structEnv.isComplete(name, isUnion)
+            if ((expr andNot declExpr).isSatisfiable()) {
+                val msg = (if (isUnion) "Union " else "Struct ") + name + " not defined or not complete." +
+                    (if ((expr and declExpr).isSatisfiable()) " (complete only in context " + declExpr + ")" else "")
+                reportTypeError(expr andNot declExpr, msg, where, Severity.TypeLookupError)
+            }
+        case CAnonymousStruct(fields, _) => //check fields
+            val fieldTypes = fields.keys.map(k => fields.getOrElse(k, CUnknown()))
+            fieldTypes.map(ct => checkStructCompletenessC(ct, expr, env, where, checkedStructs))
+        case CPointer(_) => // do not check internals of pointers. pointers may point to incomplete structs
+        case _ =>
     }
     /**
      * under which condition is modifier extern defined?
@@ -282,7 +287,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
                 for (Opt(f, init) <- decl.init) yield {
                     val ctype = filterTransparentUnion(getDeclaratorType(init.declarator, returnType, featureExpr and f, eenv), init.attributes).simplify(featureExpr and f)
                     val declKind = if (init.hasInitializer) KDefinition else KDeclaration
-                    val linkage = getLinkage(init.getName, false, decl.declSpecs, env, decl)
+                    val linkage = getLinkage(init.getName, false, decl.declSpecs, featureExpr and f, env, decl)
 
                     eenv = eenv.addVar(init.getName, featureExpr and f, init, ctype,
                         declKind, env.scope, linkage)
@@ -313,7 +318,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
 
     //replace union types by CIgnore if attribute transparent_union is set
     private def filterTransparentUnion(t: Conditional[CType], attributes: List[Opt[AttributeSpecifier]]) =
-        t.map({
+        t.map(_ map {
             case x@CStruct(_, true) =>
                 if (hasTransparentUnionAttributeOpt(attributes))
                     CIgnore()
@@ -333,6 +338,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
       * important: this recurses into structures!
       * */
     protected def enumDeclarations(specs: List[Opt[Specifier]], featureExpr: FeatureExpr, d: AST, env: Env): List[(String, FeatureExpr, AST, Conditional[CType], DeclarationKind, Conditional[Linkage])] = {
+        var localEnv = env
         var result = List[(String, FeatureExpr, AST, Conditional[CType], DeclarationKind, Conditional[Linkage])]()
         for (Opt(f, spec) <- specs) spec match {
             case EnumSpecifier(optId, Some(enums)) =>
@@ -341,7 +347,8 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
                     case _ =>
                 }
                 for (Opt(f2, enum) <- enums) {
-                    addDecl(enum, featureExpr and f and f2, env)
+                    enum.assignment.map(checkEnumInitializer(_, f and f2 and featureExpr, localEnv))
+                    //addDecl(enum, featureExpr and f and f2, env)
                     /*enum match {
                         case Enumerator(_, Some(BuiltinOffsetof(TypeName(specs, decl), offsetMember))) =>
                             for (Opt(f, TypeDefTypeSpecifier(name)) <- specs) {
@@ -349,16 +356,20 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
                             }
                         case _ =>
                     }*/
-                    result = (enum.id.name, featureExpr and f and f2, enum, One(CSigned(CInt())), KEnumVar, One(NoLinkage)) :: result
+                    addDefinition(enum.id, env)
+                    localEnv = localEnv.addVar(enum.id.name, featureExpr and f and f2, enum, One(CSigned(CInt()).toCType), KEnumVar, env.scope, One(NoLinkage))
+                    result = (enum.id.name, featureExpr and f and f2, enum, One(CSigned(CInt()).toCType), KEnumVar, One(NoLinkage)) :: result
                 }
             //recurse into structs
-            case StructOrUnionSpecifier(_, _, fields) =>
+            case StructOrUnionSpecifier(_, _, fields, _, _) =>
                 for (Opt(f2, structDeclaration) <- fields.getOrElse(Nil))
                     result = result ++ enumDeclarations(structDeclaration.qualifierList, featureExpr and f and f2, structDeclaration, env)
             case _ =>
         }
         result
     }
+
+    protected def checkEnumInitializer(initializer: Expr, fexpr: FeatureExpr, env: Env)
 
 
     /**
@@ -404,8 +415,10 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
         //this is an absurd order but seems to be as specified
         //cf. http://www.ericgiguere.com/articles/reading-c-declarations.html
         decl match {
-            case AtomicNamedDeclarator(ptrList, name, e) => rtype
-            case NestedNamedDeclarator(ptrList, innerDecl, e) => getDeclaratorType(innerDecl, rtype, featureExpr, env)
+            case AtomicNamedDeclarator(ptrList, name, e) =>
+                addDefinition(name, env, featureExpr)
+                rtype
+            case NestedNamedDeclarator(ptrList, innerDecl, e, _) => getDeclaratorType(innerDecl, rtype, featureExpr, env)
         }
     }
 
@@ -416,7 +429,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
         //cf. http://www.ericgiguere.com/articles/reading-c-declarations.html
         decl match {
             case AtomicAbstractDeclarator(ptrList, e) => rtype
-            case NestedAbstractDeclarator(ptrList, innerDecl, e) => getAbstractDeclaratorType(innerDecl, rtype, featureExpr, env)
+            case NestedAbstractDeclarator(ptrList, innerDecl, e, _) => getAbstractDeclaratorType(innerDecl, rtype, featureExpr, env)
         }
     }
 
@@ -429,47 +442,47 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
                     val parameterTypes: List[Opt[CType]] = idList.flatMap({
                         case Opt(f, id) => oldStyleParameterTypes.getOrElse(id.name, CUnsigned(CInt())).toOptList.map(_.and(f and fexpr))
                     })
-                    var paramLists: Conditional[List[CType]] =
+                    val paramLists: Conditional[List[CType]] =
                         ConditionalLib.explodeOptList(parameterTypes)
-                    paramLists.map(CFunction(_, rtype))
+                    paramLists.map(param => CFunction(param, rtype).toCType)
                 case DeclParameterDeclList(parameterDecls) =>
-                    var paramLists: Conditional[List[CType]] =
+                    val paramLists: Conditional[List[CType]] =
                         ConditionalLib.explodeOptList(getParameterTypes(parameterDecls, fexpr, env))
-                    paramLists.map(CFunction(_, rtype))
+                    paramLists.map(param => CFunction(param, rtype).toCType)
                 case DeclArrayAccess(expr) =>
                     expr match {
                         case Some(expr: Expr) =>
                             getExprType(expr, featureExpr, env)
                         case _ =>
                     }
-                    One(CArray(rtype))
+                    One(rtype.map(CArray(_)))
             }
         )
 
     private def decorateDeclaratorPointer(t: Conditional[CType], pointers: List[Opt[Pointer]]): Conditional[CType] =
-        ConditionalLib.conditionalFoldRight(pointers, t, (a: Pointer, b: CType) => CPointer(b))
+        ConditionalLib.conditionalFoldRight(pointers, t, (a: Pointer, b: CType) => b.map(CPointer(_)))
 
 
     private def getParameterTypes(parameterDecls: List[Opt[ParameterDeclaration]], featureExpr: FeatureExpr, env: Env): List[Opt[CType]] = {
         val r: List[Opt[Conditional[CType]]] = for (Opt(f, param) <- parameterDecls) yield param match {
-            case p@PlainParameterDeclaration(specifiers) => Opt(f, constructType(specifiers, featureExpr and f, env, p))
-            case p@ParameterDeclarationD(specifiers, decl) =>
-                for (Opt(g, StructOrUnionSpecifier(isUnion, Some(id), None)) <- specifiers) {
+            case p@PlainParameterDeclaration(specifiers, _) => Opt(f, constructType(specifiers, featureExpr and f, env, p))
+            case p@ParameterDeclarationD(specifiers, decl, _) =>
+                for (Opt(g, StructOrUnionSpecifier(isUnion, Some(id), None, _, _)) <- specifiers) {
                     addStructDeclUse(id, env, isUnion, featureExpr)
                 }
                 for (Opt(g, TypeDefTypeSpecifier(name)) <- specifiers) {
                     addTypeUse(name, env, featureExpr)
                 }
                 Opt(f, getDeclaratorType(decl, constructType(specifiers, featureExpr and f, env, p), featureExpr and f, env))
-            case p@ParameterDeclarationAD(specifiers, decl) =>
-                for (Opt(g, StructOrUnionSpecifier(isUnion, Some(id), None)) <- specifiers) {
+            case p@ParameterDeclarationAD(specifiers, decl, _) =>
+                for (Opt(g, StructOrUnionSpecifier(isUnion, Some(id), None, _, _)) <- specifiers) {
                     addStructDeclUse(id, env, isUnion, featureExpr)
                 }
                 for (Opt(g, TypeDefTypeSpecifier(name)) <- specifiers) {
                     addTypeUse(name, env, featureExpr)
                 }
                 Opt(f, getAbstractDeclaratorType(decl, constructType(specifiers, featureExpr and f, env, p), featureExpr and f, env))
-            case VarArgs() => Opt(f, One(CVarArgs()))
+            case VarArgs() => Opt(f, One(CVarArgs().toCType))
         }
         Conditional.flatten(r)
     }
@@ -491,10 +504,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
                         checkStructCompletenessC(ctype, fexpr, env, structDeclaration)
 
                         //member should not have function type (pointer to function is okay)
-                        val isFunction = ctype.when({
-                            case CFunction(_, _) => true;
-                            case _ => false
-                        })
+                        val isFunction = ctype.when(_.isFunction)
                         if ((fexpr and isFunction).isSatisfiable())
                             reportTypeError(fexpr and isFunction, "member " + decl.getName + " must not have function type", decl, Severity.OtherError)
 
@@ -507,7 +517,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
                 def inlineAnonymousStructs(t: Conditional[CType]) {
                     t match {
                         case Choice(f, x, y) => inlineAnonymousStructs(x); inlineAnonymousStructs(y)
-                        case One(CAnonymousStruct(fields, _)) => result = result ++ fields
+                        case One(CType(CAnonymousStruct(fields, _), _, _, _)) => result = result ++ fields
                         //                case CStruct(name, _) => //TODO inline as well
                         case e => //don't care about other types
                     }
@@ -588,12 +598,12 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
      *
      * see http://publications.gbdirect.co.uk/c_book/chapter8/declarations_and_definitions.html
      */
-    protected def getLinkage(symbol: String, isFunctionDef: Boolean, specifiers: List[Opt[Specifier]], env: Env, where: AST): Conditional[Linkage] = {
+    protected def getLinkage(symbol: String, isFunctionDef: Boolean, specifiers: List[Opt[Specifier]], fexpr: FeatureExpr, env: Env, where: AST): Conditional[Linkage] = {
         val isStatic = getStaticCondition(specifiers)
         val isExtern = getExternCondition(specifiers)
         val isFileLevelScope = env.scope == 0
 
-        //issueTypeError(Severity.OtherError, isStatic and isExtern, "static and extern specificers cannot occur together", where)
+        issueTypeError(Severity.OtherError, fexpr and isStatic and isExtern, "static and extern specificers cannot occur together", where)
 
         val wasInternal = env.varEnv.lookupIsInternalLinkage(symbol)
 

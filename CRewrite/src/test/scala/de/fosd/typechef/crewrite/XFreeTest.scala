@@ -4,26 +4,32 @@ import org.junit.Test
 import org.scalatest.matchers.ShouldMatchers
 import de.fosd.typechef.featureexpr.FeatureExprFactory
 import de.fosd.typechef.parser.c._
+import scala.Predef._
+import de.fosd.typechef.parser.c.TranslationUnit
+import de.fosd.typechef.parser.c.Id
+import de.fosd.typechef.typesystem.{CDeclUse, CTypeCache, CTypeSystemFrontend}
 
 class XFreeTest extends TestHelper with ShouldMatchers with CFGHelper with EnforceTreeHelper {
 
     private def getUninitializedVariables(code: String) = {
-        val a = parseCompoundStmt(code)
-        val xf = new XFree(CASTEnv.createASTEnv(a), null, null, "")
-        xf.gen(a)
+        val a = parseFunctionDef(code)
+        val xf = new XFree(CASTEnv.createASTEnv(a), null, null, null, a, "")
+        xf.gen(a).map {case ((x, _), f) => (x, f)}
     }
 
     def xfree(code: String): Boolean = {
         val tunit = prepareAST[TranslationUnit](parseTranslationUnit(code))
-        val xf = new CAnalysisFrontend(tunit)
+        val ts = new CTypeSystemFrontend(tunit) with CTypeCache with CDeclUse
+        assert(ts.checkASTSilent, "typecheck fails!")
+        val xf = new CIntraAnalysisFrontend(tunit, ts)
         xf.xfree()
     }
 
     @Test def test_variables() {
-        getUninitializedVariables("{ int a; }") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        getUninitializedVariables("{ int a = 2; }") should be(Map(FeatureExprFactory.True -> Set(Id("a"))))
-        getUninitializedVariables("{ int a, b = 1; }") should be(Map(FeatureExprFactory.True -> Set(Id("a"), Id("b"))))
-        getUninitializedVariables("{ int *a = (int*)malloc(2); }") should be(Map())
+        getUninitializedVariables("void foo() { int a; }") should be(Map(Id("a") -> FeatureExprFactory.True))
+        getUninitializedVariables("void foo() { int a = 2; }") should be(Map(Id("a") -> FeatureExprFactory.True))
+        getUninitializedVariables("void foo() { int a, b = 1; }") should be(Map(Id("a") -> FeatureExprFactory.True, Id("b") -> FeatureExprFactory.True))
+        getUninitializedVariables("void foo() { int *a = (int*)malloc(2); }") should be(Map())
     }
 
     @Test def test_xfree_simple() {

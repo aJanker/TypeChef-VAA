@@ -110,7 +110,7 @@ object PrettyPrinter {
                     "#endif" ~
                         line
             } else {
-                    "#if" ~~ f.toTextExpr *
+                "#if" ~~ f.toTextExpr *
                     prettyPrint(a, f :: list_feature_expr) *
                     "#else" *
                     prettyPrint(b, f.not :: list_feature_expr) *
@@ -127,7 +127,7 @@ object PrettyPrinter {
                     "#endif" ~
                         line
             } else {
-                    "#if" ~~ f.toTextExpr *
+                "#if" ~~ f.toTextExpr *
                     ppConditional(a, f :: list_feature_expr) *
                     "#else" *
                     ppConditional(b, f.not :: list_feature_expr) *
@@ -146,10 +146,11 @@ object PrettyPrinter {
                 "#endif" ~
                     line
         } else {
-                "#if" ~~ e.feature.toTextExpr *
+            "#if" ~~ e.feature.toTextExpr *
                 prettyPrint(e.entry, e.feature :: list_feature_expr) *
                 "#endif"
         }
+
     }
 
     def prettyPrint(ast: AST, list_feature_expr: List[FeatureExpr] = List(FeatureExprFactory.True)): Doc = {
@@ -222,7 +223,7 @@ object PrettyPrinter {
                 else {
                     if (hasContent(selem))
                         res = res * "#if" ~~ selemfexp.toTextExpr * selem * "#endif" * prettyOptStr(celem)
-                    else
+                	else
                         res = res * prettyOptStr(celem)
                 }
 
@@ -321,7 +322,7 @@ object PrettyPrinter {
             case TranslationUnit(ext) => sep(ext, _ * _)
             case Id(name) => name
             case Constant(v) => v
-            case StringLit(v) => sepsVaware(v, space.s)
+            case StringLit(v) => sepsVaware(v, "")
             case SimplePostfixSuffix(t) => t
             case PointerPostfixSuffix(kind, id) => kind ~ id
             case FunctionCall(params) => "(" ~ params ~ ")"
@@ -413,12 +414,12 @@ object PrettyPrinter {
             case AtomicNamedDeclarator(pointers, id, extensions) =>
                 sep(pointers, _ ~ _) ~ id ~ sep(extensions, _ ~ _)
 
-            case NestedNamedDeclarator(pointers, nestedDecl, extensions) =>
-                sep(pointers, _ ~ _) ~ "(" ~ nestedDecl ~ ")" ~ sep(extensions, _ ~ _)
+            case NestedNamedDeclarator(pointers, nestedDecl, extensions, attr) =>
+                sep(pointers, _ ~ _) ~ "(" ~ sep(attr, _ ~~ _) ~~ nestedDecl ~ ")" ~ sep(extensions, _ ~ _)
             case AtomicAbstractDeclarator(pointers, extensions) =>
                 sep(pointers, _ ~ _) ~ sep(extensions, _ ~ _)
-            case NestedAbstractDeclarator(pointers, nestedDecl, extensions) =>
-                sep(pointers, _ ~ _) ~ "(" ~ nestedDecl ~ ")" ~ sep(extensions, _ ~ _)
+            case NestedAbstractDeclarator(pointers, nestedDecl, extensions, attr) =>
+                sep(pointers, _ ~ _) ~ "(" ~ sep(attr, _ ~~ _) ~~ nestedDecl ~ ")" ~ sep(extensions, _ ~ _)
 
             case DeclIdentifierList(idList) => "(" ~ commaSep(idList) ~ ")"
             case DeclParameterDeclList(parameterDecls) => "(" ~ sepVaware(parameterDecls, ",") ~ ")"
@@ -430,15 +431,16 @@ object PrettyPrinter {
                 } else {
                     "*" ~ spaceSep(specifier) ~ " "
                 }
-            case PlainParameterDeclaration(specifiers) => spaceSep(specifiers)
-            case ParameterDeclarationD(specifiers, decl) => spaceSep(specifiers) ~~ decl
-            case ParameterDeclarationAD(specifiers, decl) => spaceSep(specifiers) ~~ decl
+            case PlainParameterDeclaration(specifiers, attr) => spaceSep(specifiers) ~~ sep(attr, _ ~~ _)
+            case ParameterDeclarationD(specifiers, decl, attr) => spaceSep(specifiers) ~~ decl ~~ sep(attr, _ ~~ _)
+            case ParameterDeclarationAD(specifiers, decl, attr) => spaceSep(specifiers) ~~ decl ~~ sep(attr, _ ~~ _)
             case VarArgs() => "..."
             case EnumSpecifier(id, Some(enums)) => "enum" ~~ opt(id) ~~ block(sepVaware(enums, ",", line))
             case EnumSpecifier(Some(id), None) => "enum" ~~ id
             case Enumerator(id, Some(init)) => id ~~ "=" ~~ init
             case Enumerator(id, None) => id
-            case StructOrUnionSpecifier(isUnion, id, enumerators) => (if (isUnion) "union" else "struct") ~~ opt(id) ~~ (if (enumerators.isDefined) block(sep(enumerators.get, _ * _)) else Empty)
+            case StructOrUnionSpecifier(isUnion, id, enumerators, attr1, attr2) =>
+                (if (isUnion) "union" else "struct") ~~ sep(attr1, _ ~~ _) ~~ opt(id) ~~ (if (enumerators.isDefined) block(sep(enumerators.get, _ * _)) else Empty) ~~ sep(attr2, _ ~~ _)
             case StructDeclaration(qualifierList, declaratorList) => spaceSep(qualifierList) ~~ commaSep(declaratorList) ~ ";"
             case StructDeclarator(decl, initializer, _) => decl ~ optExt(initializer, ":" ~~ _)
             case StructInitializer(expr, _) => ":" ~~ expr

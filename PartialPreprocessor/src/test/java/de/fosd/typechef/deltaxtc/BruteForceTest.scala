@@ -195,7 +195,7 @@
 //        in.delete()
 //    }
 //
-//    val sysIncludePath: java.util.List[String] = List(
+//    val sysIncludePath: java.evaluation_utils.List[String] = List(
 //        "/usr0/home/ckaestne/work/TypeChef/xtc/tests/cpp/include1",
 //        "/usr0/home/ckaestne/work/TypeChef/xtc/tests/cpp/include2",
 //    "/usr0/home/ckaestne/work/TypeChef/xtc/tests/cpp/sys"

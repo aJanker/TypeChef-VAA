@@ -61,11 +61,12 @@ trait AST extends Product with Serializable with Cloneable with WithPosition {
     override def clone(): AST.this.type = super.clone().asInstanceOf[AST.this.type]
 }
 
-sealed abstract class Expr extends AST
+trait CFGStmt extends AST
+trait CDef extends AST
+
+sealed abstract class Expr extends AST with CFGStmt
 
 sealed abstract class PrimaryExpr extends Expr
-
-trait CDef extends AST
 
 case class Id(name: String) extends PrimaryExpr
 
@@ -126,9 +127,9 @@ abstract sealed class Statement extends AST
 
 case class CompoundStatement(innerStatements: List[Opt[Statement]]) extends Statement
 
-case class EmptyStatement() extends Statement
+case class EmptyStatement() extends Statement with CFGStmt
 
-case class ExprStatement(expr: Expr) extends Statement
+case class ExprStatement(expr: Expr) extends Statement with CFGStmt
 
 case class WhileStatement(expr: Expr, s: Conditional[Statement]) extends Statement
 
@@ -136,19 +137,19 @@ case class DoStatement(expr: Expr, s: Conditional[Statement]) extends Statement
 
 case class ForStatement(expr1: Option[Expr], expr2: Option[Expr], expr3: Option[Expr], s: Conditional[Statement]) extends Statement
 
-case class GotoStatement(target: Expr) extends Statement
+case class GotoStatement(target: Expr) extends Statement with CFGStmt
 
-case class ContinueStatement() extends Statement
+case class ContinueStatement() extends Statement with CFGStmt
 
-case class BreakStatement() extends Statement
+case class BreakStatement() extends Statement with CFGStmt
 
-case class ReturnStatement(expr: Option[Expr]) extends Statement
+case class ReturnStatement(expr: Option[Expr]) extends Statement with CFGStmt
 
-case class LabelStatement(id: Id, attribute: Option[AttributeSpecifier]) extends Statement
+case class LabelStatement(id: Id, attribute: Option[AttributeSpecifier]) extends Statement with CFGStmt
 
-case class CaseStatement(c: Expr) extends Statement
+case class CaseStatement(c: Expr) extends Statement with CFGStmt
 
-case class DefaultStatement() extends Statement
+case class DefaultStatement() extends Statement with CFGStmt
 
 case class IfStatement(condition: Conditional[Expr], thenBranch: Conditional[Statement], elifs: List[Opt[ElifStatement]], elseBranch: Option[Conditional[Statement]]) extends Statement
 
@@ -156,7 +157,7 @@ case class ElifStatement(condition: Conditional[Expr], thenBranch: Conditional[S
 
 case class SwitchStatement(expr: Expr, s: Conditional[Statement]) extends Statement
 
-abstract sealed class CompoundDeclaration extends Statement
+abstract sealed class CompoundDeclaration extends Statement with CFGStmt
 
 case class DeclarationStatement(decl: Declaration) extends CompoundDeclaration
 
@@ -226,7 +227,7 @@ case class CompoundAttribute(inner: List[Opt[AttributeSequence]]) extends Attrib
 case class Declaration(declSpecs: List[Opt[Specifier]], init: List[Opt[InitDeclarator]]) extends ExternalDef with OldParameterDeclaration
 
 
-abstract class InitDeclarator(val declarator: Declarator, val attributes: List[Opt[AttributeSpecifier]]) extends AST with CDef {
+abstract class InitDeclarator(val declarator: Declarator, val attributes: List[Opt[AttributeSpecifier]]) extends AST {
     def getId = declarator.getId
     def getName = declarator.getName
     def getExpr: Option[Expr]
@@ -271,14 +272,14 @@ case class AtomicNamedDeclarator(override val pointers: List[Opt[Pointer]], id: 
     def getName = id.name
 }
 
-case class NestedNamedDeclarator(override val pointers: List[Opt[Pointer]], nestedDecl: Declarator, override val extensions: List[Opt[DeclaratorExtension]]) extends Declarator(pointers, extensions) {
+case class NestedNamedDeclarator(override val pointers: List[Opt[Pointer]], nestedDecl: Declarator, override val extensions: List[Opt[DeclaratorExtension]], attr: List[Opt[AttributeSpecifier]]) extends Declarator(pointers, extensions) {
     def getId = nestedDecl.getId
     def getName = nestedDecl.getName
 }
 
 case class AtomicAbstractDeclarator(override val pointers: List[Opt[Pointer]], override val extensions: List[Opt[DeclaratorAbstrExtension]]) extends AbstractDeclarator(pointers, extensions)
 
-case class NestedAbstractDeclarator(override val pointers: List[Opt[Pointer]], nestedDecl: AbstractDeclarator, override val extensions: List[Opt[DeclaratorAbstrExtension]]) extends AbstractDeclarator(pointers, extensions)
+case class NestedAbstractDeclarator(override val pointers: List[Opt[Pointer]], nestedDecl: AbstractDeclarator, override val extensions: List[Opt[DeclaratorAbstrExtension]], attr: List[Opt[AttributeSpecifier]]) extends AbstractDeclarator(pointers, extensions)
 
 
 sealed abstract class DeclaratorExtension extends AST
@@ -311,11 +312,11 @@ case class Pointer(specifier: List[Opt[Specifier]]) extends AST
 
 abstract class ParameterDeclaration(val specifiers: List[Opt[Specifier]]) extends AST
 
-case class PlainParameterDeclaration(override val specifiers: List[Opt[Specifier]]) extends ParameterDeclaration(specifiers)
+case class PlainParameterDeclaration(override val specifiers: List[Opt[Specifier]], attr: List[Opt[AttributeSpecifier]]) extends ParameterDeclaration(specifiers)
 
-case class ParameterDeclarationD(override val specifiers: List[Opt[Specifier]], decl: Declarator) extends ParameterDeclaration(specifiers)
+case class ParameterDeclarationD(override val specifiers: List[Opt[Specifier]], decl: Declarator, attr: List[Opt[AttributeSpecifier]]) extends ParameterDeclaration(specifiers)
 
-case class ParameterDeclarationAD(override val specifiers: List[Opt[Specifier]], decl: AbstractDeclarator) extends ParameterDeclaration(specifiers)
+case class ParameterDeclarationAD(override val specifiers: List[Opt[Specifier]], decl: AbstractDeclarator, attr: List[Opt[AttributeSpecifier]]) extends ParameterDeclaration(specifiers)
 
 trait OldParameterDeclaration extends AST
 
@@ -325,7 +326,7 @@ case class EnumSpecifier(id: Option[Id], enumerators: Option[List[Opt[Enumerator
 
 case class Enumerator(id: Id, assignment: Option[Expr]) extends AST
 
-case class StructOrUnionSpecifier(isUnion: Boolean, id: Option[Id], enumerators: Option[List[Opt[StructDeclaration]]]) extends TypeSpecifier
+case class StructOrUnionSpecifier(isUnion: Boolean, id: Option[Id], enumerators: Option[List[Opt[StructDeclaration]]], attributesBeforeBody: List[Opt[AttributeSpecifier]], attributesAfterBody: List[Opt[AttributeSpecifier]]) extends TypeSpecifier
 
 case class StructDeclaration(qualifierList: List[Opt[Specifier]], declaratorList: List[Opt[StructDecl]]) extends AST
 
@@ -337,7 +338,7 @@ case class StructInitializer(expr: Expr, attributes: List[Opt[AttributeSpecifier
 
 case class AsmExpr(isVolatile: Boolean, expr: Expr) extends AST with ExternalDef
 
-case class FunctionDef(specifiers: List[Opt[Specifier]], declarator: Declarator, oldStyleParameters: List[Opt[OldParameterDeclaration]], stmt: CompoundStatement) extends AST with ExternalDef with CDef {
+case class FunctionDef(specifiers: List[Opt[Specifier]], declarator: Declarator, oldStyleParameters: List[Opt[OldParameterDeclaration]], stmt: CompoundStatement) extends AST with ExternalDef with CFGStmt with CDef {
     def getName = declarator.getName
 }
 
@@ -346,7 +347,7 @@ case class NestedFunctionDef(isAuto: Boolean, specifiers: List[Opt[Specifier]], 
 }
 
 
-trait ExternalDef extends AST
+trait ExternalDef extends AST with CFGStmt
 
 case class EmptyExternalDef() extends ExternalDef
 

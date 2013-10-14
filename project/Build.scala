@@ -208,7 +208,7 @@ object TypeChef extends Build {
         file("CParser"),
         settings = buildSettings ++
             Seq(parallelExecution in Test := false,
-                libraryDependencies <+= scalaVersion(kiamaDependency(_, true)))
+                libraryDependencies <+= scalaVersion(kiamaDependency(_)))
     ) dependsOn(featureexpr, jcpp, parserexp, conditionallib, errorlib)
 
 

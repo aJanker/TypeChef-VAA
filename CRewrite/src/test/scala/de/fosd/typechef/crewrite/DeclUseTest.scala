@@ -2,7 +2,7 @@ package de.fosd.typechef.crewrite
 
 import org.junit.{Ignore, Test}
 import de.fosd.typechef.parser.c._
-import de.fosd.typechef.crewrite.CASTEnv._
+import CASTEnv._
 import de.fosd.typechef.typesystem._
 import java.io.{FilenameFilter, FileInputStream, File}
 import de.fosd.typechef.parser.c.Id
@@ -12,49 +12,22 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
 
     val decluseTestPath = new File(".").getCanonicalPath() ++ "/CRewrite/src/test/resources/decluse_testfiles/"
 
-    @Test def test_int_def_use {
+    @Test def test_cstruct_def_use {
         val source_ast = getAST( """
-      int foo(int *x, int z) {
-        int i2 = x + 5;
-        i2 = 5;
-        int y;
-        y = 5;
-        return x + i2 + z;
-      }
-      int main(void) {
-        int i = 0;
-        i = i + 1;
-        foo(i);
-        int b = 666;
-        foo(b);
-
-        int if3 = 5;
-        if (if3 == 5) {
-          if3 = 10;
-        } else {
-          if3 = 30;
-        }
-        int for4;
-        for (for4 = 0; for4 < 10; for4++) {
-          println(for4);
-        }
-        int j;
-        j = 10;
-        i = (j * (j*(j-(j+j)))) - (j*j) + j;
-        return (i > j) ? i : j;
-      }
+    struct test {
+    	int test;
+    };
+    typedef struct test test;
+    enum test {test};
+    void main() {
+    	int test = 0;
+    	test test_1;
+    	test_1.test = 0;
+    	enum test my_test = test;
+    }
                                  """);
-        val env = createASTEnv(source_ast)
-
-        typecheckTranslationUnit(source_ast)
-        val defUseMap = getDeclUseMap
-        val useDeclMap = getUseDeclMap
-
-        println("+++PrettyPrinted+++\n" + PrettyPrinter.print(source_ast))
-        println("Source:\n" + source_ast)
-        println("Ids:\n" + filterASTElems[Id](source_ast))
-        println("\nDef Use Map:\n" + defUseMap)
-        println(checkDefuse(source_ast, defUseMap)._1)
+        val result = runDefUseOnAst(source_ast)
+        println(result)
     }
 
     @Test def test_array_def_use {
@@ -106,7 +79,11 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         return plusgleich;
       }
                                  """);
-        runDefUseOnAst(source_ast)
+        val result = runDefUseOnAst(source_ast)
+        val numberOfDefinitions = 18
+        val numberOfEntries = 33
+        val numberOfVariableIds = 2
+        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
     }
 
     private def getAstFromPi(fileToAnalyse: File): TranslationUnit = {
@@ -203,7 +180,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val result = runDefUseOnAst(source_ast)
         val numberOfDefinitions = 7
         val numberOfEntries = 1
-        val numberOfVariableIds = 0
+        val numberOfVariableIds = 1
         assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
     }
 
@@ -227,6 +204,27 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
     }
 
+    @Test def test_similar_structs {
+        val source_ast = getAstFromPi(new File(decluseTestPath + "struct_ptregs.c"))
+        println(source_ast)
+        val result = runDefUseOnAst(source_ast)
+        val numberOfDefinitions = 8
+        val numberOfEntries = 13
+        val numberOfVariableIds = 2
+        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+    }
+
+    @Test def test_struct_sigevent {
+        val source_ast = getAstFromPi(new File(decluseTestPath + "struct_sigevent.c"))
+        println(source_ast)
+        val result = runDefUseOnAst(source_ast)
+        val numberOfDefinitions = 8
+        val numberOfEntries = 13
+        val numberOfVariableIds = 2
+        println(result)
+        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+    }
+
     @Ignore def test_gzip_pi {
         val source_ast = getAstFromPi(new File("../TypeChef-BusyboxAnalysis/busybox-1.18.5/" + "archival/rpm.pi"))
         runDefUseOnAst(source_ast)
@@ -234,7 +232,12 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
 
     @Test def test_decompress_unxz_pi {
         val source_ast = getAstFromPi(new File("../TypeChef-BusyboxAnalysis/busybox-1.18.5/archival/libarchive/decompress_unxz.pi"))
-        runDefUseOnAst(source_ast)
+        val result = runDefUseOnAst(source_ast)
+        val numberOfDefinitions = 6838
+        val numberOfEntries = 4512
+        val numberOfVariableIds = 47
+        println(result)
+        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_struct_def_use {
@@ -449,7 +452,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         fw.write(sb.toString)
         fw.close()*/
         println("TypeChecking Runtime:\t" + (endtime - starttime) / 1000.0 + " seconds.\n")
-        println("DeclUseMap: " + declUse)
+        println("DeclUseMap:\n" + (declUse.keySet().toArray.toList.map(x => x.asInstanceOf[Id].name + "@" + x.asInstanceOf[Id].range.get._1.getLine + " = (" + (declUse.get(x).map(y => y.name + "@" + y.range.get._1.getLine) mkString (",")) + ")") mkString ("; ")))
         println(success + "\n\n")
         Thread.sleep(2000)
         (quad._2, quad._3, quad._4)

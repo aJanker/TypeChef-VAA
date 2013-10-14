@@ -77,7 +77,11 @@ sealed abstract class SATFeatureExpr extends FeatureExpr {
     def notS(): SATFeatureExpr = FExprBuilder.not(this)
     def not(): SATFeatureExpr = notS()
 
-  def getSatisfiableAssignment(featureModel: FeatureModel, interestingFeatures : Set[SingleFeatureExpr],preferDisabledFeatures:Boolean): Option[Pair[List[SingleFeatureExpr],List[SingleFeatureExpr]]] = {
+    override def unique(feature: SingleFeatureExpr): FeatureExpr = substitute(feature, False) xor substitute(feature, True)
+
+    def substitute(feature: SingleFeatureExpr, replacement: SATFeatureExpr): SATFeatureExpr
+
+    def getSatisfiableAssignment(featureModel: FeatureModel, interestingFeatures : Set[SingleFeatureExpr],preferDisabledFeatures:Boolean): Option[Pair[List[SingleFeatureExpr],List[SingleFeatureExpr]]] = {
     val fm = asSATFeatureModel(featureModel)
     // optimization: if the interestingFeatures-Set is empty and this FeatureExpression is TRUE, we will always return empty sets
     // here we assume that the featureModel is satisfiable (which is checked at FM-instantiation)
@@ -136,6 +140,18 @@ sealed abstract class SATFeatureExpr extends FeatureExpr {
             assert(fm.isInstanceOf[SATFeatureModel])
             fm.asInstanceOf[SATFeatureModel]
         }
+
+        // count total and cached sat calls for solving feature expressions with SAT
+        // we only consider non-trivial (!= True, and != False) feature expressions
+        if (this != FeatureExprFactory.True && this != FeatureExprFactory.False) {
+            if (!cacheIsSatisfiable.isDefinedAt(f))
+                FeatureExpr.incSatCalls
+            else {
+                FeatureExpr.incCachedSatCalls
+                FeatureExpr.incSatCalls
+            }
+        }
+
         cacheIsSatisfiable.getOrElseUpdate(f, new SatSolver().isSatisfiable(toCnfEquiSat, f))
     }
 
@@ -618,6 +634,7 @@ object True extends And(Set()) with DefaultPrint {
     override def debug_print(ind: Int) = indent(ind) + toTextExpr + "\n"
     override def isSatisfiable(fm: FeatureModel) = true
     override def evaluate(selectedFeatures: Set[String]) = true
+    override def substitute(feature: SingleFeatureExpr, replacement: SATFeatureExpr): SATFeatureExpr = this
     private def writeReplace(): Object = new FeatureExprSerializationProxy(this.toTextExpr)
 }
 
@@ -627,6 +644,7 @@ object False extends Or(Set()) with DefaultPrint {
     override def debug_print(ind: Int) = indent(ind) + toTextExpr + "\n"
     override def isSatisfiable(fm: FeatureModel) = false
     override def evaluate(selectedFeatures: Set[String]) = false
+    override def substitute(feature: SingleFeatureExpr, replacement: SATFeatureExpr): SATFeatureExpr = this
     private def writeReplace(): Object = new FeatureExprSerializationProxy(this.toTextExpr)
 }
 
@@ -744,6 +762,9 @@ abstract class BinaryLogicConnective[This <: BinaryLogicConnective[This]] extend
         else
             this
     })
+
+    override def substitute(feature: SingleFeatureExpr, replacement: SATFeatureExpr): SATFeatureExpr = create(clauses.map(_.substitute(feature,replacement)))
+
 }
 
 //private[featureexpr]
@@ -915,6 +936,8 @@ class Not(val expr: SATFeatureExpr) extends HashCachingFeatureExpr {
 
     override def evaluate(selectedFeatures: Set[String]) =
         !expr.evaluate(selectedFeatures)
+    override def substitute(feature: SingleFeatureExpr, replacement: SATFeatureExpr): SATFeatureExpr = expr.substitute(feature, replacement).not
+
     private def writeReplace(): Object = new FeatureExprSerializationProxy(this.toTextExpr)
 }
 
@@ -964,6 +987,8 @@ class DefinedExternal(name: String) extends DefinedExpr {
     override def toString = "def(" + name + ")"
     def countSize() = 1
     def isExternal = true
+    override def substitute(feature: SingleFeatureExpr, replacement: SATFeatureExpr): SATFeatureExpr =
+        if (feature == this) replacement else this
     override def evaluate(selectedFeatures: Set[String]) = selectedFeatures contains name
     private def writeReplace(): Object = new FeatureExprSerializationProxy(this.toTextExpr)
 }
@@ -986,6 +1011,7 @@ class DefinedMacro(val name: String, val presenceCondition: SATFeatureExpr, val 
     //override def collectDistinctFeatures=presenceCondition.resolveToExternal.collectDistinctFeatures
     //override def collectDistinctFeatureObjects=presenceCondition.resolveToExternal.collectDistinctFeatureObjects
 	override def evaluate(selectedFeatures: Set[String]) = presenceCondition.evaluate(selectedFeatures)
+    override def substitute(feature: SingleFeatureExpr, replacement: SATFeatureExpr): SATFeatureExpr = this
     private def writeReplace(): Object = throw new RuntimeException("cannot serialize DefinedMacro")
 }
 
