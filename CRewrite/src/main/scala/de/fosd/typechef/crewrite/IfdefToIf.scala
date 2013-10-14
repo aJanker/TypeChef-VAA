@@ -1592,7 +1592,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         List()
       }*/
         val result = getNextFeatureHelp(a, currentContext).distinct
-        debugGetNextFeatureHelp(a, result)
+        //debugGetNextFeatureHelp(a, result)
         result
     }
 
