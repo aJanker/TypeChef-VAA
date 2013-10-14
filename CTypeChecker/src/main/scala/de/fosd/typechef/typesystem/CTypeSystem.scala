@@ -451,7 +451,8 @@ trait CTypeSystem extends CTypes with CEnv with CDeclTyping with CTypeEnv with C
                 })
             case SizeOfExprT(_) => One(VAnyInt())
             case SizeOfExprU(_) => One(VAnyInt())
-            case BuiltinOffsetof(_, _) => One(VAnyInt())
+            case BuiltinOffsetof(_, _) =>
+                One(VAnyInt())
 
             case _ => One(VUnknown())
         })

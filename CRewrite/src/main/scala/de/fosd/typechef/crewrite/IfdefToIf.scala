@@ -861,7 +861,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      */
     def outputStemToifdeftoif(outputStem: String): String = {
         def outputStemToFileNameWithoutExtension(outputStem: String): String = {
-            val lastSepIndex = outputStem.lastIndexOf(".")
+            val indexOfLastFolderSep = outputStem.lastIndexOf(File.separatorChar)
+            val lastPathElement = outputStem.substring(indexOfLastFolderSep);
+            val lastSepIndex = indexOfLastFolderSep + lastPathElement.lastIndexOf(".")
             if (lastSepIndex == -1) {
                 outputStem
             } else {
@@ -874,7 +876,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     /**
      * Makes #ifdef to if transformation on given AST element. Returns new AST element and a statistics String.
      */
-    def transformAst(t: TranslationUnit, decluse: IdentityHashMap[Id, List[Id]], usedecl: IdentityHashMap[Id, List[Id]], featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty): (TranslationUnit, String) = {
+    def transformAst(t: TranslationUnit, decluse: IdentityHashMap[Id, List[Id]], usedecl: IdentityHashMap[Id, List[Id]], parseTime: Long, featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty): (TranslationUnit, String) = {
         if (featureModel.equals(FeatureExprLib.featureModelFactory.empty) && isBusyBox) {
             fm = FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile("C:/Users/Flo/Dropbox/HiWi/busybox/TypeChef-BusyboxAnalysis/busybox/featureModel"))
         } else {
@@ -894,7 +896,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         val features = getSingleFeatures(source_ast)
         noOfFeatures = features.size
 
-        val csvEntry = createCsvEntry(source_ast, result, "unnamed", 0, transformTime)
+        val csvEntry = createCsvEntry(source_ast, result, "unnamed", parseTime, transformTime)
         resetValues()
         if (writeOptionsIntoFile) {
             (TranslationUnit(getInitialTranslationUnit(features).defs ++ result.asInstanceOf[TranslationUnit].defs), csvEntry)
@@ -2294,7 +2296,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         if (!replaceId.isEmpty) {
             writeToFile("renamings.txt", (replaceId.keySet().toArray().toList.map(x => {
                 val id = x.asInstanceOf[Id]
-                id.name + " -> " + getPrefixFromIdMap(replaceId.get(x)) + id.name
+                id.name + "@" + id.getPositionFrom.getLine + " -> " + getPrefixFromIdMap(replaceId.get(x)) + id.name
             }).sorted) mkString ("\n"))
         } else {
             ""
