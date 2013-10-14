@@ -27,6 +27,7 @@ trait BusyBoxEvaluation extends Evaluation with ASTNavigation with ConditionalNa
     val featureModel_DIMACS: String = completeBusyBoxPath + "/BB_fm.dimacs"
     val featuresFile: String = completeBusyBoxPath + "/features"
 
+    val runTimeout = 180000
 
     val FORCE_VARIABILITY = true
     val MAX_DEPTH = 27

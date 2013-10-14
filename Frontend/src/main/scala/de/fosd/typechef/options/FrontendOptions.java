@@ -14,32 +14,6 @@ import java.util.List;
 
 
 public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
-    public boolean parse = true,
-            typecheck = false,
-            ifdeftoif = false,
-            ifdeftoifstatistics = false,
-            decluse = false,
-            refEval = false,
-            writeInterface = false,
-            dumpcfg = false,
-            doublefree = false,
-            uninitializedmemory = false,
-            xfree = false,
-            danglingswitchcode = false,
-            serializeAST = false,
-            reuseAST = false,
-            writeDebugInterface = false,
-            recordTiming = false,
-            parserStatistics = false,
-            parserResults = true,
-            writePI = false;
-    protected File errorXMLFile = null;
-    private final File _autoErrorXMLFile = new File(".");
-    String outputStem = "";
-    private String filePresenceConditionFile = "";
-    private RefactorType refEvalType = RefactorType.NONE;
-
-
     private final static char F_PARSE = Options.genOptionId();
     private final static char F_INTERFACE = Options.genOptionId();
     private final static char statF_WRITEPI = Options.genOptionId();
@@ -61,8 +35,38 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_IFDEFTOIFSTATISTICS = Options.genOptionId();
     private final static char F_DECLUSE = Options.genOptionId();
     private final static char F_REFEVAL = Options.genOptionId();
+    private final static char F_REFLINk = Options.genOptionId();
+    private final static char F_CANBUILD = Options.genOptionId();
+    private final File _autoErrorXMLFile = new File(".");
+    public boolean parse = true,
+            typecheck = false,
+            ifdeftoif = false,
+            ifdeftoifstatistics = false,
+            decluse = false,
+            refEval = false,
+            refLink = false,
+            canBuild = false,
+            writeInterface = false,
+            dumpcfg = false,
+            doublefree = false,
+            uninitializedmemory = false,
+            xfree = false,
+            danglingswitchcode = false,
+            serializeAST = false,
+            reuseAST = false,
+            writeDebugInterface = false,
+            recordTiming = false,
+            parserStatistics = false,
+            parserResults = true,
+            writePI = false;
+    protected File errorXMLFile = null;
+    String outputStem = "";
+    private String filePresenceConditionFile = "";
+    private RefactorType refEvalType = RefactorType.NONE;
     private Function3<FeatureExpr, String, Position, Object> _renderParserError;
-
+    private FeatureExpr filePC = null;
+    private FeatureExpr localFM = null;
+    private String linkingInterfaceFile = "";
 
     @Override
     public List<Options.OptionGroup> getOptionGroups() {
@@ -93,6 +97,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                 new Option("ifdeftoifstatistics", LongOpt.NO_ARGUMENT, F_IFDEFTOIFSTATISTICS, null,
                         "Make #ifdef to if transformation."),
                 new Option("refEval", LongOpt.REQUIRED_ARGUMENT, F_REFEVAL, null, "Apply and verfiy random refactoring"),
+                new Option("refLink", LongOpt.REQUIRED_ARGUMENT, F_REFLINk, null, "Apply refactorings also on all linked files."),
+                new Option("canBuild", LongOpt.NO_ARGUMENT, F_CANBUILD, null, "Tests the possibility of building the pretty printed File"),
                 new Option("decluse", LongOpt.NO_ARGUMENT, F_DECLUSE, null,
                         "Test the declaration use map."),
 
@@ -156,7 +162,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             parse = typecheck = decluse = true;
         } else if (c == F_REFEVAL) {
             parse = typecheck = refEval = true;
-            String refEvalArg = g.getOptarg().trim();
+            final String refEvalArg = g.getOptarg().trim();
             if (refEvalArg.equalsIgnoreCase(RefactorType.RENAME.toString())) {
                 refEvalType = RefactorType.RENAME;
             } else if (refEvalArg.equalsIgnoreCase(RefactorType.EXTRACT.toString())) {
@@ -166,6 +172,12 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             } else {
                 refEvalType = RefactorType.NONE;
             }
+        } else if (c == F_REFLINk) {
+            refLink = true;
+            checkFileExists(g.getOptarg());
+            linkingInterfaceFile = g.getOptarg();
+        } else if (c == F_CANBUILD) {
+            parse = canBuild = true;
         } else if (c == F_DOUBLEFREE) {
             parse = doublefree = true;
         } else if (c == F_UNINITIALIZEDMEMORY) {
@@ -241,8 +253,6 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             return outputStem + ".pc";
     }
 
-    private FeatureExpr filePC = null;
-
     public FeatureExpr getFilePresenceCondition() {
         if (filePC == null) {
             File pcFile = new File(getFilePresenceConditionFilename());
@@ -257,8 +267,6 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     String getLocalFeatureModelFilename() {
         return outputStem + ".fm";
     }
-
-    private FeatureExpr localFM = null;
 
     public FeatureExpr getLocalFeatureModel() {
         if (localFM == null) {
@@ -299,7 +307,6 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
         _renderParserError = r;
     }
 
-
     public boolean printParserResult() {
         return parserResults;
     }
@@ -315,5 +322,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             return errorXMLFile;
     }
 
+    public String getLinkingInterfaceFile() {
+        return linkingInterfaceFile;
+    }
 }
-
