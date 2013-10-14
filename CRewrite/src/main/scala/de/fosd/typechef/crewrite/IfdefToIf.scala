@@ -1533,6 +1533,20 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      * @return
      */
     def getNextVariableFeaturesCondition(a: Any, currentContext: FeatureExpr = trueF): List[FeatureExpr] = {
+        def debugGetNextFeatureHelp(ast : Any, foundFeatures : List[FeatureExpr]) {
+                         val astElem: String = ast.toString
+                         for (i <-  (1 to astElem.length - 1)) {
+                                 if (astElem.substring(i).startsWith("def(")) {
+                                         val end = astElem.substring(i).indexOf(")")
+                                         val featureEx = astElem.substring(i , i+end+1)
+                                         if (! foundFeatures.toString.contains(featureEx)) {
+                                                 println(ast.toString)
+                                                 println("\t > " + foundFeatures)
+                                                 println("\t\t" + featureEx + " missing")
+                                             }
+                                     }
+                             }
+                     }
         def getNextFeatureHelp(a: Any, currentContext: FeatureExpr = trueF): List[FeatureExpr] = {
             a match {
                 case d@Opt(ft, entry: NArySubExpr) =>
@@ -1544,7 +1558,22 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 case d@Opt(ft, entry: ParameterDeclarationD) =>
                     if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
                 case d@Opt(ft, entry: InitDeclaratorI) =>
-                    (if (!ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) List(getRealFeatureForContext(ft, currentContext)) else List()) ++ entry.declarator.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext))) ++ entry.attributes.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                    (if (!ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) List(getRealFeatureForContext(ft, currentContext)) else List()) ++ entry.declarator.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext))) ++ entry.attributes.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                case d@Opt(ft, entry: StructDeclarator) =>
+                    if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                case d@Opt(ft, entry: Statement) =>
+                    if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                case d@Opt(ft, entry: Pointer) =>
+                    // fixes a problem if attribute is directly after pointer e.g. "static inline char * __attribute__((deprecated)) _8914_pack_hex_byte(...) ..."
+                    if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                // Attribute Stuff
+                case d@Opt(ft, entry: GnuAttributeSpecifier) =>
+                    entry.attributeList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                case d@Opt(ft, entry: AttributeSequence) =>
+                    entry.attributes.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                case d@Opt(ft, entry: CompoundAttribute) =>
+                    entry.inner.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                //End - Attribute Stuff
                 case d@Opt(ft, entry) =>
                     if (!ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) List(getRealFeatureForContext(ft, currentContext)) else List()
                 case l: List[_] =>
@@ -1563,6 +1592,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         List()
       }*/
         val result = getNextFeatureHelp(a, currentContext).distinct
+        debugGetNextFeatureHelp(a, result)
         result
     }
 
