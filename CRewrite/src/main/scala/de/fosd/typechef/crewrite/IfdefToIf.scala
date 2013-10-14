@@ -862,8 +862,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      */
     def outputStemToifdeftoif(outputStem: String): String = {
         def outputStemToFileNameWithoutExtension(outputStem: String): String = {
-            val lastPathElement = outputStem.substring(outputStem.lastIndexOf(File.separatorChar));
-            val lastSepIndex = lastPathElement.lastIndexOf(".")
+            val indexOfLastFolderSep = outputStem.lastIndexOf(File.separatorChar)
+            val lastPathElement = outputStem.substring(indexOfLastFolderSep);
+            val lastSepIndex = indexOfLastFolderSep + lastPathElement.lastIndexOf(".")
             if (lastSepIndex == -1) {
                 outputStem
             } else {
