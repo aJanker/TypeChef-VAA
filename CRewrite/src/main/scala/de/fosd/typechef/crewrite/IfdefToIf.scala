@@ -1576,9 +1576,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 case d@Opt(ft, entry: GnuAttributeSpecifier) =>
                     if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
                 case d@Opt(ft, entry: AttributeSequence) =>
-                    if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False))  entry.attributes.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                    if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) entry.attributes.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext))) else List()
                 case d@Opt(ft, entry: CompoundAttribute) =>
-                    if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False))  entry.inner.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                    if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) entry.inner.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext))) else List()
                 //End - Attribute Stuff
                 case d@Opt(ft, entry) =>
                     //println("Stopping at: " + d)
