@@ -70,7 +70,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         strg.replaceFirst("[.][^.]+$", "")
     }
 
-    def testFile(file: File, writeAst: Boolean = false) {
+    def testFile(file: File, writeAst: Boolean = false): Int = {
         new File(singleFilePath).mkdirs()
         val fileNameWithoutExtension = getFileNameWithoutExtension(file)
         val analyseString = "++Analyse: " + file.getName + "++"
@@ -122,6 +122,9 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             } else if (!i.getTypeSystem(result_ast).checkAST()) {
                 println("\t--TypeCheck: " + false + "--\n")
             }
+            new_ast._2.split(",")(3).toInt
+        } else {
+            0
         }
     }
 
@@ -968,15 +971,41 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def test_pi() {
-        val file = new File(ifdeftoifTestPath + "forward_declaration_variable.c")
-        testFile(file)
+        val file = new File(ifdeftoifTestPath + "minimal_example.c")
+        println(testFile(file))
     }
 
-    @Test def test_struct_union_typedef() {
-        val file = new File(ifdeftoifTestPath + "struct_union_typedef.c")
+    @Test def test_alex_1() {
+        val file = new File(ifdeftoifTestPath + "1.c")
         println(i.getAstFromFile(file))
-        testFile(file)
+        assert(testFile(file).equals(237))
     }
+    @Test def test_alex_2() {
+        val file = new File(ifdeftoifTestPath + "2.c")
+        println(i.getAstFromFile(file))
+        assert(testFile(file).equals(199))
+    }
+    @Test def test_alex_3() {
+        val file = new File(ifdeftoifTestPath + "3.c")
+        println(i.getAstFromFile(file))
+        assert(testFile(file).equals(239))
+    }
+    @Test def test_alex_4() {
+        val file = new File(ifdeftoifTestPath + "4.c")
+        println(i.getAstFromFile(file))
+        assert(testFile(file).equals(230))
+    }
+    @Test def test_alex_5() {
+        val file = new File(ifdeftoifTestPath + "5.c")
+        println(i.getAstFromFile(file))
+        assert(testFile(file).equals(201))
+    }
+    @Test def test_alex_7() {
+        val file = new File(ifdeftoifTestPath + "7.c")
+        println(i.getAstFromFile(file))
+        assert(testFile(file).equals(197))
+    }
+
 
     @Test def test_typedef_function_usage() {
         val file = new File(ifdeftoifTestPath + "typedef_function_usage.c")
