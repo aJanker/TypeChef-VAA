@@ -34,9 +34,6 @@ trait CDeclUse extends CEnv with CEnvCache {
     private val newIdentifierName = "rnd_ident"
 
     private def putToDeclUseMap(decl: Id) = {
-        if (decl.name.equals("_IO_FILE")) {
-            print("")
-        }
         if (!declUseMap.contains(decl)) {
             declUseMap.put(decl, Collections.newSetFromMap[Id](new util.IdentityHashMap()))
         }

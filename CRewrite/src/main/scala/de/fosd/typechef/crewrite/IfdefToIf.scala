@@ -872,7 +872,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             }
         }
         if ((new File(outputStem)).getName.contains(".")) // if the filename has a extension, remove it
-            outputStemToFileNameWithoutExtension(outputStem) + "_ifdeftoif.c"
+        outputStemToFileNameWithoutExtension(outputStem) + "_ifdeftoif.c"
         else
             outputStem + "_ifdeftoif.c"
     }
@@ -880,7 +880,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     /**
      * Makes #ifdef to if transformation on given AST element. Returns new AST element and a statistics String.
      */
-    def transformAst(t: TranslationUnit, decluse: IdentityHashMap[Id, List[Id]], usedecl: IdentityHashMap[Id, List[Id]], featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty): (TranslationUnit, String) = {
+    def transformAst(t: TranslationUnit, decluse: IdentityHashMap[Id, List[Id]], usedecl: IdentityHashMap[Id, List[Id]], parseTime: Long, featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty): (TranslationUnit, String) = {
         if (featureModel.equals(FeatureExprLib.featureModelFactory.empty) && isBusyBox) {
             fm = FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile("C:/Users/Flo/Dropbox/HiWi/busybox/TypeChef-BusyboxAnalysis/busybox/featureModel"))
         } else {
@@ -900,7 +900,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         val features = getSingleFeatures(source_ast)
         noOfFeatures = features.size
 
-        val csvEntry = createCsvEntry(source_ast, result, "unnamed", 0, transformTime)
+        val csvEntry = createCsvEntry(source_ast, result, "unnamed", parseTime, transformTime)
         resetValues()
         if (writeOptionsIntoFile) {
             (TranslationUnit(getInitialTranslationUnit(features).defs ++ result.asInstanceOf[TranslationUnit].defs), csvEntry)
@@ -955,7 +955,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                             List(Opt(trueF, transformRecursive(convertEnumId(replaceOptAndId(e, o.feature), o.feature), o.feature)))
                                         }
                                     case sd@StructDeclaration(qual, decl) =>
-                                        val features = computeNextRelevantFeatures(sd, o.feature)
+                                        val features = computeNextRelevantFeatures(sd, currentContext.and(o.feature))
                                         if (!features.isEmpty) {
                                             features.map(x => replaceAndTransform(Opt(trueF, StructDeclaration(qual, convertStructId(decl, x))), x))
                                         } else {
@@ -1055,7 +1055,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                             List(transformRecursive(o, currentContext))
                                         }
                                     case sd@StructDeclaration(qual, decl) =>
-                                        val features = computeNextRelevantFeatures(sd, o.feature)
+                                        val features = computeNextRelevantFeatures(sd, currentContext.and(o.feature))
                                         if (!features.isEmpty) {
                                             features.map(x => replaceAndTransform(Opt(trueF, StructDeclaration(qual, convertStructId(decl, x))), x))
                                         } else {
@@ -1446,14 +1446,11 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     features3 = List(trueF)
                 }
                 val result = features1.flatMap(x => features2.map(y => y.and(x))).flatMap(x => features3.map(y => y.and(x)))
-                // last operation might have introduced "false" expressions
-                result.filterNot(x => x.equivalentTo(trueF) || x.equivalentTo(FeatureExprFactory.False))
+                result.filterNot(x => x.equivalentTo(trueF))
             case d@Declaration(declSpecs, init) =>
                 val features1 = computationHelper(declSpecs, currentContext, true)
                 val features2 = computationHelper(init, currentContext, true).diff(features1)
-                // last operation might have introduced "false" expressions
-                val result = computeCarthesianProduct(List(features1, features2)).
-                    filterNot(x => x.equals(trueF) || x.equivalentTo(FeatureExprFactory.False))
+                val result = computeCarthesianProduct(List(features1, features2)).filterNot(x => x.equivalentTo(trueF))
                 result
             case nfd: NestedFunctionDef =>
                 val features1 = computationHelper(nfd.specifiers, currentContext, true)
@@ -1466,8 +1463,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     features3 = List(trueF)
                 }
                 val result = features1.flatMap(x => features2.map(y => y.and(x))).flatMap(x => features3.map(y => y.and(x)))
-                // last operation might have introduced "false" expressions
-                result.filterNot(x => x.equivalentTo(trueF) || x.equivalentTo(FeatureExprFactory.False))
+                result.filterNot(x => x.equivalentTo(trueF))
             case k =>
                 computationHelper(k, currentContext)
         }
@@ -1557,34 +1553,42 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
                 case d@Opt(ft, entry: Expr) =>
                     if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                case d@Opt(ft, entry: DeclArrayAccess) =>
+                    if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                case d@Opt(ft, entry: StructDeclarator) =>
+                    if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                case d@Opt(ft, entry: CompoundAttribute) =>
+                    if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
                 case d@Opt(ft, entry: DeclParameterDeclList) =>
                     if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
                 case d@Opt(ft, entry: ParameterDeclarationD) =>
                     if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
                 case d@Opt(ft, entry: InitDeclaratorI) =>
-                    (if (!ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) List(getRealFeatureForContext(ft, currentContext)) else List()) ++ entry.declarator.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext))) ++ entry.attributes.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                    (if (!ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) List(getRealFeatureForContext(ft, currentContext)) else List()) ++ entry.declarator.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext))) ++ entry.attributes.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
                 case d@Opt(ft, entry: StructDeclarator) =>
-                    if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
-                case d@Opt(ft, entry: Statement) =>
-                    if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                    if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                case d@Opt(ft, entry: AttributeSequence) =>
+                    if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
                 case d@Opt(ft, entry: Pointer) =>
                     // fixes a problem if attribute is directly after pointer e.g. "static inline char * __attribute__((deprecated)) _8914_pack_hex_byte(...) ..."
-                    if (ft.equals(trueF) || ft.equals(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                    if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
                 // Attribute Stuff
                 case d@Opt(ft, entry: GnuAttributeSpecifier) =>
-                    entry.attributeList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                    if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext)) else List(getRealFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
                 case d@Opt(ft, entry: AttributeSequence) =>
-                    entry.attributes.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                    if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False))  entry.attributes.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
                 case d@Opt(ft, entry: CompoundAttribute) =>
-                    entry.inner.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
+                    if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False))  entry.inner.flatMap(getNextFeatureHelp(_, getRealFeatureForContext(ft, currentContext)))
                 //End - Attribute Stuff
                 case d@Opt(ft, entry) =>
+                    //println("Stopping at: " + d)
                     if (!ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) List(getRealFeatureForContext(ft, currentContext)) else List()
                 case l: List[_] =>
                     l.flatMap(getNextFeatureHelp(_, currentContext))
                 case p: Product =>
                     p.productIterator.toList.flatMap(getNextFeatureHelp(_, currentContext))
-                case _ =>
+                case k =>
+                    //println("Stopping at: " + k)
                     List()
             }
         }
@@ -1625,6 +1629,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     } else {
                         List()
                     }
+                case d@Opt(ft, entry: TypeDefTypeSpecifier) =>
+                    entry.productIterator.toList.flatMap(getNextFeatureHelp(_))
+                case d@Opt(ft, entry: TypeOfSpecifierU) =>
+                    entry.productIterator.toList.flatMap(getNextFeatureHelp(_))
+                case d@Opt(ft, entry: PlainParameterDeclaration) =>
+                    entry.productIterator.toList.flatMap(getNextFeatureHelp(_))
+                case d@Opt(ft, entry: ParameterDeclarationAD) =>
+                    entry.productIterator.toList.flatMap(getNextFeatureHelp(_))
                 case d@Opt(ft, entry: StructOrUnionSpecifier) =>
                     entry.productIterator.toList.flatMap(getNextFeatureHelp(_))
                 case d@Opt(ft, entry: NArySubExpr) =>
@@ -1646,10 +1658,12 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 case d@Opt(ft, entry: DeclArrayAccess) =>
                     entry.productIterator.toList.flatMap(getNextFeatureHelp(_))
                 case d@Opt(ft, entry) =>
+                    //println("Stopping at " + d)
                     List()
                 case p: Product =>
                     p.productIterator.toList.flatMap(getNextFeatureHelp(_))
-                case _ =>
+                case k =>
+                    //println("Stopping at " + k)
                     List()
             }
         }
@@ -1937,8 +1951,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         if (optDeclaration.feature.equivalentTo(trueF)) {
             optDeclaration.entry match {
                 case d@Declaration(declSpecs, init) =>
-                    // filter for false features, because the and-operation might introduce FeatureExprFactory.False
-                    val features = computeNextRelevantFeatures(d).map(x => x.and(currentContext)).filterNot(_.equivalentTo(FeatureExprFactory.False))
+                    val features = computeNextRelevantFeatures(d).map(x => x.and(currentContext))
                     if (!features.isEmpty) {
                         val result = features.map(x => Opt(trueF, transformRecursive(replaceOptAndId(Declaration(declSpecs, convertIds(init, x)), x), x)))
                         result
@@ -2049,15 +2062,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             // 2. Step
             optFunction.entry match {
                 case fd@FunctionDef(spec, decl, par, stmt) =>
-                    val features = computeNextRelevantFeatures(fd, currentContext).filterNot(FeatureExprFactory.False.equals(_))
+                    val features = computeNextRelevantFeatures(fd, currentContext)
                     if (features.isEmpty) {
                         List(Opt(trueF, FunctionDef(replaceOptAndId(spec, currentContext), replaceOptAndId(convertStructId(decl, currentContext), currentContext), replaceOptAndId(par, currentContext), transformRecursive(replaceOptAndId(stmt, currentContext), currentContext))))
                     } else {
                         features.map(x => Opt(trueF, FunctionDef(replaceOptAndId(spec, x), replaceOptAndId(convertStructId(decl, x), x), replaceOptAndId(par, x), transformRecursive(replaceOptAndId(stmt, x), x))))
                     }
                 case nfd@NestedFunctionDef(isAuto, spec, decl, par, stmt) =>
-                    // filtering the "false" feature
-                    val features = computeNextRelevantFeatures(nfd, currentContext).filterNot(FeatureExprFactory.False.equals(_))
+                    val features = computeNextRelevantFeatures(nfd, currentContext)
                     if (features.isEmpty) {
                         List(Opt(trueF, NestedFunctionDef(isAuto, replaceOptAndId(spec, currentContext), replaceOptAndId(convertStructId(decl, currentContext), currentContext), replaceOptAndId(par, currentContext), transformRecursive(replaceOptAndId(stmt, currentContext), currentContext))))
                     } else {
@@ -2336,8 +2348,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         if (!replaceId.isEmpty) {
             writeToFile("renamings_Functions.txt", (replaceId.keySet().toArray().toList.map(x => {
                 val id = x.asInstanceOf[Id]
-                id.name + " -> " + getPrefixFromIdMap(replaceId.get(x)) + id.name +
-                " if " + replaceId.get(x).toString
+                id.name + "@" + id.getPositionFrom.getLine + " -> " + getPrefixFromIdMap(replaceId.get(x)) + id.name
             }).sorted) mkString ("\n"))
         } else {
             ""

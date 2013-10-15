@@ -70,7 +70,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         strg.replaceFirst("[.][^.]+$", "")
     }
 
-    def testFile(file: File, writeAst: Boolean = false) {
+    def testFile(file: File, writeAst: Boolean = false): Int = {
         new File(singleFilePath).mkdirs()
         val fileNameWithoutExtension = getFileNameWithoutExtension(file)
         val analyseString = "++Analyse: " + file.getName + "++"
@@ -88,7 +88,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         print("--Parsed--")
 
         val startTransformation = System.currentTimeMillis()
-        val new_ast = i.transformAst(source_ast, defUseMap, useDefMap)
+        val new_ast = i.transformAst(source_ast, defUseMap, useDefMap, timeToParseAndTypeCheck)
         val timeToTransform = System.currentTimeMillis() - startTransformation
         print("\t--Transformed--")
 
@@ -122,6 +122,9 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             } else if (!i.getTypeSystem(result_ast).checkAST()) {
                 println("\t--TypeCheck: " + false + "--\n")
             }
+            new_ast._2.split(",")(3).toInt
+        } else {
+            0
         }
     }
 
@@ -131,7 +134,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val useDefMap = getUseDeclMap
 
         val optionsAst = i.getOptionFile(source_ast)
-        val newAst = i.transformAst(source_ast, defUseMap, useDefMap)._1
+        val newAst = i.transformAst(source_ast, defUseMap, useDefMap, 0)._1
         ("+++New Code+++\n" + PrettyPrinter.print(newAst))
     }
 
@@ -141,7 +144,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
 
         asts.foreach(x => {
             val defuses = getDefUse(x._1)
-            writeToTextFile(x._2 ++ "_tmp", PrettyPrinter.print(i.transformAst(x._1, defuses._1, defuses._2)._1))
+            writeToTextFile(x._2 ++ "_tmp", PrettyPrinter.print(i.transformAst(x._1, defuses._1, defuses._2, 0)._1))
         })
 
         /*val quad = asts.map(x => (x._1, createASTEnv(x._1), getDefUse(x._1), x._2))
@@ -152,7 +155,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     private def compareTypeChecking(file: File): Tuple2[Long, Long] = {
         val source_ast = i.getAstFromFile(file)
         val defuses = getDefUse(source_ast)
-        val result_ast = i.transformAst(source_ast, defuses._1, defuses._2)._1
+        val result_ast = i.transformAst(source_ast, defuses._1, defuses._2, 0)._1
         val ts_source = getTypeSystem(source_ast)
         val ts_result = getTypeSystem(result_ast)
 
@@ -968,15 +971,41 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def test_pi() {
-        val file = new File(ifdeftoifTestPath + "forward_declaration_variable.c")
-        testFile(file)
+        val file = new File(ifdeftoifTestPath + "minimal_example.c")
+        println(testFile(file))
     }
 
-    @Test def test_struct_union_typedef() {
-        val file = new File(ifdeftoifTestPath + "struct_union_typedef.c")
+    @Test def test_alex_1() {
+        val file = new File(ifdeftoifTestPath + "1.c")
         println(i.getAstFromFile(file))
-        testFile(file)
+        assert(testFile(file).equals(237))
     }
+    @Test def test_alex_2() {
+        val file = new File(ifdeftoifTestPath + "2.c")
+        println(i.getAstFromFile(file))
+        assert(testFile(file).equals(199))
+    }
+    @Test def test_alex_3() {
+        val file = new File(ifdeftoifTestPath + "3.c")
+        println(i.getAstFromFile(file))
+        assert(testFile(file).equals(239))
+    }
+    @Test def test_alex_4() {
+        val file = new File(ifdeftoifTestPath + "4.c")
+        println(i.getAstFromFile(file))
+        assert(testFile(file).equals(230))
+    }
+    @Test def test_alex_5() {
+        val file = new File(ifdeftoifTestPath + "5.c")
+        println(i.getAstFromFile(file))
+        assert(testFile(file).equals(201))
+    }
+    @Test def test_alex_7() {
+        val file = new File(ifdeftoifTestPath + "7.c")
+        println(i.getAstFromFile(file))
+        assert(testFile(file).equals(197))
+    }
+
 
     @Test def test_typedef_function_usage() {
         val file = new File(ifdeftoifTestPath + "typedef_function_usage.c")
@@ -1105,7 +1134,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         })
     }
 
-    @Ignore def test_bbunzip_pi() {
+    @Test def test_bbunzip_pi() {
         val file = new File(busyBoxPath + "archival/bbunzip.pi")
         testFile(file)
     }
@@ -1544,7 +1573,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
                 }
 
                 val startTransformation = System.currentTimeMillis()
-                val new_ast = i.transformAst(source_ast, defUseMap, useDefMap)
+                val new_ast = i.transformAst(source_ast, defUseMap, useDefMap, 0)
                 val timeToTransform = System.currentTimeMillis() - startTransformation
                 //print("\t--Transformed--")
 

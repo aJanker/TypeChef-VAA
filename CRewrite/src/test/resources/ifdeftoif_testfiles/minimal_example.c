@@ -7,7 +7,7 @@ void foo() {
 #if !defined(C)
 	0
 #endif
-()) {
+) {
 	// do something
 	}
 }

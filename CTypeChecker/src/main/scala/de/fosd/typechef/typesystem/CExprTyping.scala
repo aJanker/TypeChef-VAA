@@ -299,7 +299,21 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
 
                     case LcurlyInitializer(inits) => One(CCompound().toCType.toObj) //TODO more specific checks, currently just use CCompound which can be cast into any structure or array
                     case GnuAsmExpr(_, _, _, _) => One(CIgnore()) //don't care about asm now
-                    case BuiltinOffsetof(_, _) => One(CSigned(CInt()))
+                    case BuiltinOffsetof(typename, offsetDesignators) =>
+                        typename.specifiers.foreach(x => {
+                            x match {
+                                case Opt(ft, TypeDefTypeSpecifier(name)) =>
+                                    addTypeUse(name, env, ft)
+                                case Opt(ft, StructOrUnionSpecifier(isUnion, Some(i: Id), _, _, _)) =>
+                                    offsetDesignators.foreach(x => x match {
+                                        case Opt(ft, OffsetofMemberDesignatorID(offsetId: Id)) =>
+                                            addStructUse(offsetId, ft, env, i.name, isUnion)
+                                    })
+                                    addStructDeclUse(i, env, isUnion, ft)
+                                case _ =>
+                            }
+                        })
+                        One(CSigned(CInt()))
                     case c: BuiltinTypesCompatible => One(CSigned(CInt())) //http://www.delorie.com/gnu/docs/gcc/gcc_81.html
                     case b@BuiltinVaArgs(expr, typename) =>
                         //check expr is of type va_list
@@ -505,7 +519,8 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                 addUse(i, featureExpr, env)
             case pd@PointerDerefExpr(i: Id) =>
                 // TODO: isUnion is set to true
-                addStructDeclUse(i, env, false, featureExpr, true)
+                //addStructDeclUse(i, env, false, featureExpr, true)
+                addUse(i, featureExpr, env)
             case pd@PointerDerefExpr(NAryExpr(p, expr)) => addStructUsageFromSizeOfExprU(p, featureExpr, env)
             case pd@PointerDerefExpr(c: CastExpr) =>
                 getExprType(c, featureExpr, env)
