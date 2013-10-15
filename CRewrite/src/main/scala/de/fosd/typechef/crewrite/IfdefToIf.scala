@@ -2348,7 +2348,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         if (!replaceId.isEmpty) {
             writeToFile("renamings_Functions.txt", (replaceId.keySet().toArray().toList.map(x => {
                 val id = x.asInstanceOf[Id]
-                id.name + "@" + id.getPositionFrom.getLine + " -> " + getPrefixFromIdMap(replaceId.get(x)) + id.name
+                id.name + "@" + id.getPositionFrom.getLine + " -> " + getPrefixFromIdMap(replaceId.get(x)) + id.name +  " if " + replaceId.get(x).toString
             }).sorted) mkString ("\n"))
         } else {
             ""
