@@ -12,6 +12,7 @@ import scala.Tuple2
 import de.fosd.typechef.conditional.{Choice, One, Opt}
 import de.fosd.typechef.featureexpr.{FeatureModel, FeatureExprParser, FeatureExprFactory}
 import de.fosd.typechef.lexer.FeatureExprLib
+import io.Source
 
 class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclUse with CTypeSystem with TestHelper {
     val makeAnalysis = true
@@ -111,13 +112,19 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
 
             //val csvEntry = i.createCsvEntry(source_ast, new_ast._1, fileNameWithoutExtension, timeToParseAndTypeCheck, timeToTransform)
             writeToTextFile(singleFilePath ++ fileNameWithoutExtension ++ ".csv", i.getCSVHeader + new_ast._2)
-            val result_ast = i.getAstFromFile(new File(singleFilePath ++ fileNameWithoutExtension ++ "_ifdeftoif.c"))
+            val resultFile = new File(singleFilePath ++ fileNameWithoutExtension ++ "_ifdeftoif.c")
+            val result_ast = i.getAstFromFile(resultFile)
             if (result_ast == null) {
-                if (i.getTypeSystem(new_ast._1).checkAST()) {
+                val wellTyped = i.getTypeSystem(new_ast._1).checkAST()
+                if (wellTyped) {
                     println("\t--Parsing unsuccessful--")
                 } else {
                     println("\t--TypeCheck: " + false + "--\n")
                 }
+                // we require that the generated files do not have type errors
+                assert(wellTyped)
+                // the file should also not have any remaining #ifdefs
+                assert(! Source.fromFile(resultFile).mkString("\n").contains("#if"))
             } else if (!i.getTypeSystem(result_ast).checkAST()) {
                 println("\t--TypeCheck: " + false + "--\n")
             }
