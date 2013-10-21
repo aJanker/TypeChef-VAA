@@ -10,7 +10,7 @@ import util.IdentityHashMap
 import scala.Some
 import scala.Tuple2
 import de.fosd.typechef.conditional.{Choice, One, Opt}
-import de.fosd.typechef.featureexpr.{FeatureExprParser, FeatureExprFactory}
+import de.fosd.typechef.featureexpr.{FeatureModel, FeatureExprParser, FeatureExprFactory}
 import de.fosd.typechef.lexer.FeatureExprLib
 
 class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclUse with CTypeSystem with TestHelper {
@@ -28,7 +28,6 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     val busyBoxPath = "../TypeChef-BusyboxAnalysis/busybox-1.18.5/"
     val linuxPath = "../TypeChef-LinuxAnalysis"
     val ifdeftoifTestPath = new File(".").getCanonicalPath() ++ "/CRewrite/src/test/resources/ifdeftoif_testfiles/"
-    val busyboxFM = FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile("../TypeChef-BusyboxAnalysis/busybox/featureModel"))
 
     /* val tb = java.lang.management.ManagementFactory.getThreadMXBean
   val time = tb.getCurrentThreadCpuTime // Type long; beware in nanoseconds */
@@ -70,7 +69,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         strg.replaceFirst("[.][^.]+$", "")
     }
 
-    def testFile(file: File, writeAst: Boolean = false): Int = {
+    def testFile(file: File, writeAst: Boolean = false, featureModel:FeatureModel = FeatureExprFactory.empty): Int = {
         new File(singleFilePath).mkdirs()
         val fileNameWithoutExtension = getFileNameWithoutExtension(file)
         val analyseString = "++Analyse: " + file.getName + "++"
@@ -1102,41 +1101,47 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def busybox_file_tests() {
-        val files = List(new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\archival\\libarchive\\header_verbose_list.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\libbb\\correct_password.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\libbb\\lineedit.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\libbb\\procps.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\loginutils\\getty.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\loginutils\\passwd.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\loginutils\\sulogin.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\brctl.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\httpd.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\ifconfig.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\inetd.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\ip.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\nc.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\procps\\ps.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\procps\\top.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\sysklogd\\logread.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\sysklogd\\syslogd_and_logger.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\util-linux\\fbset.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\util-linux\\fdisk.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\util-linux\\fsck_minix.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\util-linux\\mkfs_vfat.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\util-linux\\mount.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\telnetd.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\tftp.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\udhcp\\common.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\udhcp\\dhcpc.pi"))
+        val fs = File.separator
+        val files = List(new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "archival" + fs + "libarchive" + fs + "header_verbose_list.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "libbb" + fs + "correct_password.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "libbb" + fs + "lineedit.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "libbb" + fs + "procps.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "loginutils" + fs + "getty.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "loginutils" + fs + "passwd.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "loginutils" + fs + "sulogin.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "brctl.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "httpd.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "ifconfig.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "inetd.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "ip.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "nc.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "procps" + fs + "ps.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "procps" + fs + "top.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "sysklogd" + fs + "logread.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "sysklogd" + fs + "syslogd_and_logger.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "util-linux" + fs + "fbset.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "util-linux" + fs + "fdisk.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "util-linux" + fs + "fsck_minix.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "util-linux" + fs + "mkfs_vfat.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "util-linux" + fs + "mount.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "telnetd.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "tftp.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "udhcp" + fs + "common.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "udhcp" + fs + "dhcpc.pi"))
+        val busyboxFM : FeatureModel = FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile(
+            busyBoxPath + fs + "busybox" + fs + "featureModel"))
         files.foreach(x => {
-            testFile(x)
+            testFile(x, featureModel=busyboxFM)
             println("\n")
         })
     }
 
     @Test def test_bbunzip_pi() {
-        val file = new File(busyBoxPath + "archival/bbunzip.pi")
-        testFile(file)
+        val fs = File.separator
+        val busyboxFM : FeatureModel = FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile(
+            busyBoxPath + fs + "busybox" + fs + "featureModel"))
+        val file = new File(busyBoxPath + "archival" + fs + "bbunzip.pi")
+        testFile(file, featureModel=busyboxFM)
     }
 
     @Ignore def test_chpst_pi() {
@@ -1541,7 +1546,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         }
     }
 
-    private def runIfdefToIfOnPi(file: File) {
+    private def runIfdefToIfOnPi(file: File, featureModel:FeatureModel = FeatureExprFactory.empty) {
         if (filesTransformed < filesToAnalysePerRun) {
             val filePathWithoutExtension = getFileNameWithoutExtension(file.getPath())
             val fileNameWithoutExtension = getFileNameWithoutExtension(file)
@@ -1563,7 +1568,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
                 val timeToParseAndTypeCheck = System.currentTimeMillis() - startParsingAndTypeChecking
                 //print("--Parsed--")
 
-                val tuple = i.ifdeftoif(source_ast, defUseMap, useDefMap, busyboxFM, fileNameWithoutExtension, timeToParseAndTypeCheck, makeAnalysis, path ++ fileNameWithoutExtension ++ "_ifdeftoif.c")
+                val tuple = i.ifdeftoif(source_ast, defUseMap, useDefMap, featureModel, fileNameWithoutExtension, timeToParseAndTypeCheck, makeAnalysis, path ++ fileNameWithoutExtension ++ "_ifdeftoif.c")
                 tuple._1 match {
                     case None =>
                         println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")
