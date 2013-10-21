@@ -8,7 +8,7 @@ import de.fosd.typechef.crefactor.backend.refactor.CRenameIdentifier
 import de.fosd.typechef.parser.c.Id
 import de.fosd.typechef.parser.c.FunctionDef
 import de.fosd.typechef.parser.c.Declaration
-import de.fosd.typechef.crefactor.evaluation.busybox_1_18_5.BusyBoxRefactor
+import de.fosd.typechef.crefactor.evaluation.busybox_1_18_5.{PrepareASTforVerification, BusyBoxRefactor}
 import de.fosd.typechef.crefactor.evaluation.util.TimeMeasurement
 import de.fosd.typechef.crefactor.evaluation.busybox_1_18_5.linking.CLinking
 import de.fosd.typechef.crefactor.evaluation.StatsJar
@@ -91,7 +91,7 @@ object Rename extends BusyBoxRefactor {
 
     }
 
-    def refactor(morpheus: Morpheus, linkInterface: CLinking): Boolean = {
+    def refactor(morpheus: Morpheus, linkInterface: CLinking): List[FeatureExpr] = {
         def findIdInAST(position: Position, id: Id, ast: AST) = filterASTElems[Id](ast).par.find(aId => (position.equals(aId.getPositionFrom) || position.equals(aId.getPositionTo)) && aId.name.equalsIgnoreCase(id.name))
 
         def getVariableIdToRename: (Id, Int, List[FeatureExpr]) = {
@@ -123,29 +123,38 @@ object Rename extends BusyBoxRefactor {
         val linked = linkInterface.getPositions(id.name)
         val affectedFiles = linked.foldLeft(new mutable.HashMap[String, Position])((map, pos) => map += (pos.getFile -> pos))
         val refactorChain = affectedFiles.foldLeft(List[(Morpheus, Position)]())((list, entry) => {
-            // TODO Better solution than manipulating args
-            val args: Array[String] = CRefactorFrontend.command.foldLeft(Array[String]())((args, arg) => {
-                if (arg.equalsIgnoreCase(morpheus.getFile)) args :+ entry._1
-                else if (arg.equalsIgnoreCase("--refEval") || arg.equalsIgnoreCase("rename") || arg.equalsIgnoreCase("extract") || arg.equalsIgnoreCase("inline")) args
-                else args :+ arg
-            })
-            val ast = CRefactorFrontend.parse(args)
+            val ast = CRefactorFrontend.parse(entry._1)
             list :+(new Morpheus(ast._1, ast._2, entry._1), entry._2)
         })
 
         val features = toRename._3
+        StatsJar.addStat(morpheus.getFile, AffectedFeatures, features)
 
         val startRenaming = new TimeMeasurement
         val refactored = CRenameIdentifier.rename(id, REFACTOR_NAME, morpheus)
+
         StatsJar.addStat(morpheus.getFile, RefactorTime, startRenaming.getTime)
-        val linkedRefactored = refactorChain.map(x => {
+
+        refactored match {
+            case Right(a) => {
+                write(a, morpheus.getFile)
+                PrepareASTforVerification.makeConfigs(a, morpheus.getFeatureModel, morpheus.getFile, features)
+            }
+            case Left(s) => // TODO Write error
+        }
+
+        val linkedRefactored = refactorChain.par.map(x => {
             val linkedId = findIdInAST(x._2, id, x._1.getAST)
             val time = new TimeMeasurement
-            // TODO log error case
             val ref = CRenameIdentifier.rename(linkedId.get, REFACTOR_NAME, x._1)
             StatsJar.addStat(x._1.getFile, RefactorTime, time.getTime)
+            ref match {
+                case Right(a) => write(a, x._1.getFile, morpheus.getFile) // TODO generate Configs?
+                case Left(s) => // TODO Write error
+            }
             ref
         })
-        false
+
+        features
     }
 }

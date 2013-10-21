@@ -269,7 +269,10 @@ trait Evaluation extends Logging {
         builder.toString()
     }
 
-    def runScript(script: String, dir: String): (InputStream, InputStream) = {
+    /**
+     * Runs a shell script with either default timeout or a custom timeout in ms
+     */
+    def runScript(script: String, dir: String, timeout: Int = runTimeout): (InputStream, InputStream) = {
         val pb = new ProcessBuilder(script)
         pb.directory(new File(dir))
         val p = pb.start()
@@ -278,11 +281,20 @@ trait Evaluation extends Logging {
             def run() {
                 p.destroy();
             }
-        }, runTimeout)
+        }, timeout)
         p.waitFor()
         (p.getInputStream, p.getErrorStream)
     }
 
+
+    def write(ast: AST, filePath: String, orgFile: String = null) = {
+        val refFile = if (orgFile != null) orgFile else filePath
+        writeAST(ast, filePath)
+        val resultDir = getResultDir(refFile)
+        val path = resultDir.getCanonicalPath + File.separatorChar + getFileName(filePath)
+        writeAST(ast, path)
+        writePlainAST(ast, path + ".ast")
+    }
 
     def writeResult(result: String, file: String) = {
         var out: FileWriter = null
@@ -295,8 +307,10 @@ trait Evaluation extends Logging {
     }
 
     def writeAST(ast: AST, filePath: String) {
-        val writer = new FileWriter(filePath)
+        val file = new File(filePath)
+        if (file.exists) file.delete
         val prettyPrinted = PrettyPrinter.print(ast)
+        val writer = new FileWriter(file)
         writer.write(prettyPrinted.replaceAll("definedEx", "defined"))
         writer.flush()
         writer.close()
@@ -309,7 +323,7 @@ trait Evaluation extends Logging {
         writer.close()
     }
 
-    def writeError(error: String, originalFilePath: String, run: Int) = {
+    def writeError(error: String, originalFilePath: String) = {
         val out = new java.io.FileWriter(originalFilePath + ".error")
         out.write(error)
         out.write("\n")
@@ -317,7 +331,17 @@ trait Evaluation extends Logging {
         out.close()
     }
 
-    def writeExeception(exception: String, originalFilePath: String, run: Int) = {
+    def writeException(exception: String, originalFilePath: String) = {
+        val dir = getResultDir(originalFilePath)
+        val out = new java.io.FileWriter(dir.getCanonicalPath + File.separatorChar + getFileName(originalFilePath) + ".exception")
+        out.write(exception)
+        out.write("\n")
+
+        out.flush()
+        out.close()
+    }
+
+    def writeException(exception: String, originalFilePath: String, run: Int) = {
         val dir = getResultDir(originalFilePath, run)
         val out = new java.io.FileWriter(dir.getCanonicalPath + File.separatorChar + getFileName(originalFilePath) + ".exception")
         out.write(exception)
@@ -363,6 +387,13 @@ trait Evaluation extends Logging {
     def getResultDir(originalFilePath: String, run: Int): File = {
         val outputFilePath = originalFilePath.replace("busybox-1.18.5", "result")
         val result = new File(outputFilePath + File.separatorChar + run + File.separatorChar)
+        if (!result.exists()) result.mkdirs()
+        result
+    }
+
+    def getResultDir(originalFilePath: String): File = {
+        val outputFilePath = originalFilePath.replace("busybox-1.18.5", "result")
+        val result = new File(outputFilePath + File.separatorChar)
         if (!result.exists()) result.mkdirs()
         result
     }
