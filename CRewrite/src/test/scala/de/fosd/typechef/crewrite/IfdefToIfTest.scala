@@ -10,8 +10,9 @@ import util.IdentityHashMap
 import scala.Some
 import scala.Tuple2
 import de.fosd.typechef.conditional.{Choice, One, Opt}
-import de.fosd.typechef.featureexpr.{FeatureExprParser, FeatureExprFactory}
+import de.fosd.typechef.featureexpr.{FeatureModel, FeatureExprParser, FeatureExprFactory}
 import de.fosd.typechef.lexer.FeatureExprLib
+import io.Source
 
 class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclUse with CTypeSystem with TestHelper {
     val makeAnalysis = true
@@ -28,7 +29,6 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     val busyBoxPath = "../TypeChef-BusyboxAnalysis/busybox-1.18.5/"
     val linuxPath = "../TypeChef-LinuxAnalysis"
     val ifdeftoifTestPath = new File(".").getCanonicalPath() ++ "/CRewrite/src/test/resources/ifdeftoif_testfiles/"
-    val busyboxFM = FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile("../TypeChef-BusyboxAnalysis/busybox/featureModel"))
 
     /* val tb = java.lang.management.ManagementFactory.getThreadMXBean
   val time = tb.getCurrentThreadCpuTime // Type long; beware in nanoseconds */
@@ -70,7 +70,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         strg.replaceFirst("[.][^.]+$", "")
     }
 
-    def testFile(file: File, writeAst: Boolean = false): Int = {
+    def testFile(file: File, writeAst: Boolean = false, featureModel: FeatureModel = FeatureExprFactory.empty): Int = {
         new File(singleFilePath).mkdirs()
         val fileNameWithoutExtension = getFileNameWithoutExtension(file)
         val analyseString = "++Analyse: " + file.getName + "++"
@@ -112,16 +112,31 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
 
             //val csvEntry = i.createCsvEntry(source_ast, new_ast._1, fileNameWithoutExtension, timeToParseAndTypeCheck, timeToTransform)
             writeToTextFile(singleFilePath ++ fileNameWithoutExtension ++ ".csv", i.getCSVHeader + new_ast._2)
-            val result_ast = i.getAstFromFile(new File(singleFilePath ++ fileNameWithoutExtension ++ "_ifdeftoif.c"))
-            if (result_ast == null) {
-                if (i.getTypeSystem(new_ast._1).checkAST()) {
-                    println("\t--Parsing unsuccessful--")
-                } else {
-                    println("\t--TypeCheck: " + false + "--\n")
-                }
-            } else if (!i.getTypeSystem(result_ast).checkAST()) {
+            val resultFile = new File(singleFilePath ++ fileNameWithoutExtension ++ "_ifdeftoif.c")
+            val result_ast = i.getAstFromFile(resultFile)
+
+            // new_ast._1 is the generated ast
+            // result_ast is the ast parsed from the generated file
+            // 1. is the generated ast ok?
+            val wellTypedAST = i.getTypeSystem(new_ast._1).checkAST()
+            if (wellTypedAST) {
+                println("\t--TypeCheck: " + true + "--\n")
+            } else {
                 println("\t--TypeCheck: " + false + "--\n")
             }
+            assert(wellTypedAST, "generated AST is not well typed")
+
+            // 2. is the generated file well typed?
+            val wellTypedFile = i.getTypeSystem(result_ast).checkAST()
+            assert(wellTypedFile, "generated file is not well typed or could not be parsed")
+            // 3. does it still contain #if statements?
+            val fileContent = Source.fromFile(resultFile).getLines().mkString("\n")
+            assert(!fileContent.contains("#if"),
+                "generated file contains #if statements")
+            // return number of nodes in generated AST
+
+            // everything should be ok
+            println(fileContent)
             new_ast._2.split(",")(3).toInt
         } else {
             0
@@ -1005,6 +1020,31 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println(i.getAstFromFile(file))
         assert(testFile(file).equals(197))
     }
+    @Test def test_alex_8() {
+        val file = new File(ifdeftoifTestPath + "8.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+    @Test def test_alex_9() {
+        val file = new File(ifdeftoifTestPath + "9.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+    @Test def test_alex_10() {
+        val file = new File(ifdeftoifTestPath + "10.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+    @Test def test_alex_11() {
+        val file = new File(ifdeftoifTestPath + "11.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+    @Test def test_alex_12() {
+        val file = new File(ifdeftoifTestPath + "12.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
 
 
     @Test def test_typedef_function_usage() {
@@ -1102,41 +1142,47 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def busybox_file_tests() {
-        val files = List(new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\archival\\libarchive\\header_verbose_list.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\libbb\\correct_password.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\libbb\\lineedit.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\libbb\\procps.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\loginutils\\getty.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\loginutils\\passwd.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\loginutils\\sulogin.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\brctl.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\httpd.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\ifconfig.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\inetd.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\ip.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\nc.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\procps\\ps.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\procps\\top.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\sysklogd\\logread.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\sysklogd\\syslogd_and_logger.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\util-linux\\fbset.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\util-linux\\fdisk.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\util-linux\\fsck_minix.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\util-linux\\mkfs_vfat.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\util-linux\\mount.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\telnetd.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\tftp.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\udhcp\\common.pi")
-            , new File("C:\\Users\\Flo\\TypeChef\\TypeChef-BusyboxAnalysis\\busybox-1.18.5\\networking\\udhcp\\dhcpc.pi"))
+        val fs = File.separator
+        val files = List(new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "archival" + fs + "libarchive" + fs + "header_verbose_list.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "libbb" + fs + "correct_password.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "libbb" + fs + "lineedit.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "libbb" + fs + "procps.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "loginutils" + fs + "getty.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "loginutils" + fs + "passwd.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "loginutils" + fs + "sulogin.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "brctl.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "httpd.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "ifconfig.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "inetd.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "ip.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "nc.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "procps" + fs + "ps.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "procps" + fs + "top.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "sysklogd" + fs + "logread.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "sysklogd" + fs + "syslogd_and_logger.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "util-linux" + fs + "fbset.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "util-linux" + fs + "fdisk.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "util-linux" + fs + "fsck_minix.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "util-linux" + fs + "mkfs_vfat.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "util-linux" + fs + "mount.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "telnetd.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "tftp.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "udhcp" + fs + "common.pi")
+            , new File(busyBoxPath + fs + "busybox-1.18.5" + fs + "networking" + fs + "udhcp" + fs + "dhcpc.pi"))
+        val busyboxFM: FeatureModel = FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile(
+            busyBoxPath + fs + "busybox" + fs + "featureModel"))
         files.foreach(x => {
-            testFile(x)
+            testFile(x, featureModel = busyboxFM)
             println("\n")
         })
     }
 
     @Test def test_bbunzip_pi() {
-        val file = new File(busyBoxPath + "archival/bbunzip.pi")
-        testFile(file)
+        val fs = File.separator
+        val busyboxFM: FeatureModel = FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile(
+            busyBoxPath + fs + "busybox" + fs + "featureModel"))
+        val file = new File(busyBoxPath + "archival" + fs + "bbunzip.pi")
+        testFile(file, featureModel = busyboxFM)
     }
 
     @Ignore def test_chpst_pi() {
@@ -1541,7 +1587,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         }
     }
 
-    private def runIfdefToIfOnPi(file: File) {
+    private def runIfdefToIfOnPi(file: File, featureModel: FeatureModel = FeatureExprFactory.empty) {
         if (filesTransformed < filesToAnalysePerRun) {
             val filePathWithoutExtension = getFileNameWithoutExtension(file.getPath())
             val fileNameWithoutExtension = getFileNameWithoutExtension(file)
@@ -1563,7 +1609,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
                 val timeToParseAndTypeCheck = System.currentTimeMillis() - startParsingAndTypeChecking
                 //print("--Parsed--")
 
-                val tuple = i.ifdeftoif(source_ast, defUseMap, useDefMap, busyboxFM, fileNameWithoutExtension, timeToParseAndTypeCheck, makeAnalysis, path ++ fileNameWithoutExtension ++ "_ifdeftoif.c")
+                val tuple = i.ifdeftoif(source_ast, defUseMap, useDefMap, featureModel, fileNameWithoutExtension, timeToParseAndTypeCheck, makeAnalysis, path ++ fileNameWithoutExtension ++ "_ifdeftoif.c")
                 tuple._1 match {
                     case None =>
                         println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")
