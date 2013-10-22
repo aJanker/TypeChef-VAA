@@ -114,20 +114,29 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             writeToTextFile(singleFilePath ++ fileNameWithoutExtension ++ ".csv", i.getCSVHeader + new_ast._2)
             val resultFile = new File(singleFilePath ++ fileNameWithoutExtension ++ "_ifdeftoif.c")
             val result_ast = i.getAstFromFile(resultFile)
-            if (result_ast == null) {
-                val wellTyped = i.getTypeSystem(new_ast._1).checkAST()
-                if (wellTyped) {
-                    println("\t--Parsing unsuccessful--")
-                } else {
-                    println("\t--TypeCheck: " + false + "--\n")
-                }
-                // we require that the generated files do not have type errors
-                assert(wellTyped)
-                // the file should also not have any remaining #ifdefs
-                assert(! Source.fromFile(resultFile).mkString("\n").contains("#if"))
-            } else if (!i.getTypeSystem(result_ast).checkAST()) {
+
+            // new_ast._1 is the generated ast
+            // result_ast is the ast parsed from the generated file
+            // 1. is the generated ast ok?
+            val wellTypedAST = i.getTypeSystem(new_ast._1).checkAST()
+            if (wellTypedAST) {
+                println("\t--TypeCheck: " + true + "--\n")
+            } else {
                 println("\t--TypeCheck: " + false + "--\n")
             }
+            assert (wellTypedAST, "generated AST is not well typed")
+
+            // 2. is the generated file well typed?
+            val wellTypedFile = i.getTypeSystem(result_ast).checkAST()
+            assert(wellTypedFile, "generated file is not well typed or could not be parsed")
+            // 3. does it still contain #if statements?
+            val fileContent = Source.fromFile(resultFile).getLines().mkString("\n")
+            assert(! fileContent.contains("#if"),
+                "generated file contains #if statements")
+            // return number of nodes in generated AST
+
+            // everything should be ok
+            println(fileContent)
             new_ast._2.split(",")(3).toInt
         } else {
             0
@@ -1010,6 +1019,31 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val file = new File(ifdeftoifTestPath + "7.c")
         println(i.getAstFromFile(file))
         assert(testFile(file).equals(197))
+    }
+    @Test def test_alex_8() {
+        val file = new File(ifdeftoifTestPath + "8.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+    @Test def test_alex_9() {
+        val file = new File(ifdeftoifTestPath + "9.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+    @Test def test_alex_10() {
+        val file = new File(ifdeftoifTestPath + "10.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+    @Test def test_alex_11() {
+        val file = new File(ifdeftoifTestPath + "11.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+    @Test def test_alex_12() {
+        val file = new File(ifdeftoifTestPath + "12.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
     }
 
 
