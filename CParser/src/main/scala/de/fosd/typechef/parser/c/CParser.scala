@@ -512,7 +512,8 @@ class CParser(featureModel: FeatureModel = null, debugOutput: Boolean = false) e
                 AlignOfExprU(_)
             }
         ))
-        | gnuAsmExpr
+        | gnuAsmExprWithGoto
+        | gnuAsmExprWithoutGoto
         | fail("expected unaryExpr"))
 
     def unaryOperator = (PLUS | MINUS | BNOT | LNOT
@@ -694,17 +695,34 @@ class CParser(featureModel: FeatureModel = null, debugOutput: Boolean = false) e
             AttributeSequence(_)
         }
 
-
-    def gnuAsmExpr: MultiParser[GnuAsmExpr] =
-        asm ~ opt(volatile) ~ opt(textToken("goto")) ~
+    /* alexvr: had to duplicate the gnuAsmExpr rule, because the old rule parsed Strings such as "__asm__ __volatile__("": : :"memory");" wrong.
+     * The second colon was interpreted as the "special goto colon". Therefore the "memory" was interpreted as part of a strOptExprPair
+     * and not as stringConst in the third part as it should. The only visible effect was an incorrect pretty print.
+     */
+    def gnuAsmExprWithGoto: MultiParser[GnuAsmExpr] =
+        asm ~ opt(volatile) ~ textToken("goto") ~
             LPAREN ~ stringConst ~
             opt(
-                COLON ~ opt(COLON /*only used with goto*/) ~> opt(strOptExprPair ~ repOpt(COMMA ~> strOptExprPair))
+                COLON ~
+                    COLON /*this colon only used with goto*/ ~> opt(strOptExprPair ~ repOpt(COMMA ~> strOptExprPair))
                     ~ opt(
                     COLON ~> opt(strOptExprPair ~ repOpt(COMMA ~> strOptExprPair)) ~
                         opt(COLON ~> rep1Sep(stringConst | ID, COMMA)))) ~
             RPAREN ^^ {
-            case _ ~ v ~ gt ~ _ ~ e ~ stuff ~ _ => GnuAsmExpr(v.isDefined, gt.isDefined, e, stuff)
+            case _ ~ v ~ gt ~ _ ~ e ~ stuff ~ _ => GnuAsmExpr(v.isDefined, true, e, stuff)
+        }
+    def gnuAsmExprWithoutGoto: MultiParser[GnuAsmExpr] =
+        asm ~ opt(volatile) ~
+            LPAREN ~ stringConst ~
+            opt(
+                COLON ~> opt(strOptExprPair ~ repOpt(COMMA ~> strOptExprPair))
+                    ~ opt(
+                    COLON ~> opt(strOptExprPair ~ repOpt(COMMA ~> strOptExprPair)) ~
+                        opt(COLON ~> rep1Sep(stringConst | ID, COMMA))
+                )
+            ) ~
+            RPAREN ^^ {
+            case _ ~ v ~ _ ~ e ~ stuff ~ _ => GnuAsmExpr(v.isDefined, false, e, stuff)
         }
 
     //GCC requires the PARENs
