@@ -27,6 +27,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     val path = new File("..").getCanonicalPath() ++ "/ifdeftoif/"
     val singleFilePath = new File("..").getCanonicalPath() ++ "/single_files/"
     val busyBoxPath = "../TypeChef-BusyboxAnalysis/busybox-1.18.5/"
+    val busyBoxFmPath = "../Typechef-BusyboxAnalysis/"
     val linuxPath = "../TypeChef-LinuxAnalysis"
     val ifdeftoifTestPath = new File(".").getCanonicalPath() ++ "/CRewrite/src/test/resources/ifdeftoif_testfiles/"
 
@@ -118,6 +119,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             // new_ast._1 is the generated ast
             // result_ast is the ast parsed from the generated file
             // 1. is the generated ast ok?
+            println(PrettyPrinter.print(result_ast))
             val wellTypedAST = i.getTypeSystem(new_ast._1).checkAST()
             if (wellTypedAST) {
                 println("\t--TypeCheck: " + true + "--\n")
@@ -136,7 +138,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             // return number of nodes in generated AST
 
             // everything should be ok
-            println(fileContent)
+            //println(fileContent)
             new_ast._2.split(",")(3).toInt
         } else {
             0
@@ -1015,6 +1017,11 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println(i.getAstFromFile(file))
         assert(testFile(file).equals(201))
     }
+    @Test def test_alex_6() {
+        val file = new File(ifdeftoifTestPath + "6.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
     @Test def test_alex_7() {
         val file = new File(ifdeftoifTestPath + "7.c")
         println(i.getAstFromFile(file))
@@ -1180,7 +1187,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     @Test def test_bbunzip_pi() {
         val fs = File.separator
         val busyboxFM: FeatureModel = FeatureExprLib.featureModelFactory.create(new FeatureExprParser(FeatureExprLib.l).parseFile(
-            busyBoxPath + fs + "busybox" + fs + "featureModel"))
+            busyBoxFmPath + fs + "busybox" + fs + "featureModel"))
         val file = new File(busyBoxPath + "archival" + fs + "bbunzip.pi")
         testFile(file, featureModel = busyboxFM)
     }

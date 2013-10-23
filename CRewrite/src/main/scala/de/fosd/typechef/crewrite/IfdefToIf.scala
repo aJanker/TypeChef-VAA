@@ -1942,6 +1942,17 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 case d@Declaration(declSpecs, init) =>
                     val feat = optDeclaration.feature
                     val newDeclSpecs = declSpecs.map(x => x match {
+                        case o@Opt(ft, EnumSpecifier(Some(i: Id), Some(enums))) =>
+                            val newEnums = Some(enums.map(x => convertAllIds(x, ft)))
+                            if (defuse.containsKey(i)) {
+                                addIdUsages(i, feat)
+                                Opt(ft, EnumSpecifier(Some(Id(getPrefixFromIdMap(feat) + i.name)), newEnums))
+                            } else {
+                                Opt(ft, EnumSpecifier(Some(i), newEnums))
+                            }
+                        case o@Opt(ft, EnumSpecifier(None, Some(enums))) =>
+                            val newEnums = Some(enums.map(x => convertAllIds(x, ft)))
+                            Opt(ft, EnumSpecifier(None, newEnums))
                         case o@Opt(ft, EnumSpecifier(Some(i: Id), k)) =>
                             if (defuse.containsKey(i)) {
                                 addIdUsages(i, feat)
