@@ -12,7 +12,7 @@
 };
 #endif
 
- unsigned long regs_get_register(struct penis *regs,
+ unsigned long regs_get_register(struct pt_regs *regs,
 					      unsigned int offset)
 {
 	__builtin_offsetof(struct pt_regs,ss);
