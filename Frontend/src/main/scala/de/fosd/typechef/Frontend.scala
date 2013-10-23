@@ -101,8 +101,12 @@ object Frontend extends EnforceTreeHelper {
         var ast: TranslationUnit = null
         if (opt.reuseAST && opt.parse && new File(opt.getSerializedASTFilename).exists()) {
             println("loading AST.")
-            ast = loadSerializedAST(opt.getSerializedASTFilename)
-            ast = prepareAST[TranslationUnit](ast)
+            try {
+                ast = loadSerializedAST(opt.getSerializedASTFilename)
+                ast = prepareAST[TranslationUnit](ast)
+            } catch {
+                case e: Throwable => println(e.getMessage); ast = null
+            }
             if (ast == null)
                 println("... failed reading AST\n")
         }
@@ -132,17 +136,13 @@ object Frontend extends EnforceTreeHelper {
                 val fm_ts = opt.getTypeSystemFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
 
                 // some dataflow analyses require typing information
-                val ts = if (opt.typechecksa)
-                    new CTypeSystemFrontend(ast, fm_ts, opt) with CTypeCache with CDeclUse
-                else
-                    new CTypeSystemFrontend(ast, fm_ts, opt)
-
+                val ts = new CTypeSystemFrontend(ast, fm_ts, opt) with CTypeCache with CDeclUse
 
                 /** I did some experiments with the TypeChef FeatureModel of Linux, in case I need the routines again, they are saved here. */
                 //Debug_FeatureModelExperiments.experiment(fm_ts)
 
                 if (opt.typecheck || opt.writeInterface) {
-                    //ProductGeneration.typecheckProducts(fm,fm_ts,ast,opt,
+                    //PrCDeclUseoductGeneration.typecheckProducts(fm,fm_ts,ast,opt,
                     //logMessage=("Time for lexing(ms): " + (t2-t1) + "\nTime for parsing(ms): " + (t3-t2) + "\n"))
                     //ProductGeneration.estimateNumberOfVariants(ast, fm_ts)
 
