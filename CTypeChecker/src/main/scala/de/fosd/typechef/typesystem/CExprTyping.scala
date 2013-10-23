@@ -214,7 +214,7 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                                 val isPointerArith = (pointerArthOp(subExpr.op) || pointerArthAssignOp(subExpr.op)) && isPointer(ctype)
                                 val subExprType = etF(subExpr.e, fexpr, if (isPointerArith) env.markSecurityRelevant("array access/pointer arithmetic") else env)
 
-                                subExprType mapf(fexpr, (fexpr, subExprType) => operationType(subExpr.op, ctype, subExprType, ne, fexpr, env))
+                                subExprType mapf (fexpr, (fexpr, subExprType) => operationType(subExpr.op, ctype, subExprType, ne, fexpr, env))
                             }
                         )
                     //a[e]

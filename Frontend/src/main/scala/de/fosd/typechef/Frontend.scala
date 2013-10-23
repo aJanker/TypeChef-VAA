@@ -102,10 +102,10 @@ object Frontend extends EnforceTreeHelper {
         if (opt.reuseAST && opt.parse && new File(opt.getSerializedASTFilename).exists()) {
             println("loading AST.")
             try {
-                ast = loadSerializedAST(opt.getSerializedASTFilename)
-                ast = prepareAST[TranslationUnit](ast)
+            ast = loadSerializedAST(opt.getSerializedASTFilename)
+            ast = prepareAST[TranslationUnit](ast)
             } catch {
-                case e: Throwable => println(e.getMessage); ast = null
+                case e: Throwable => println(e.getMessage); ast=null
             }
             if (ast == null)
                 println("... failed reading AST\n")
@@ -272,6 +272,6 @@ object Frontend extends EnforceTreeHelper {
         fr.close()
         ast
     } catch {
-        case e: ObjectStreamException => System.err.println("failed loading serialized AST: " + e.getMessage); null
+        case e:ObjectStreamException => System.err.println("failed loading serialized AST: "+e.getMessage); null
     }
 }
