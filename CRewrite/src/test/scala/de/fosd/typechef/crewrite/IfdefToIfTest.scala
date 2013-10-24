@@ -132,8 +132,9 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             val wellTypedFile = i.getTypeSystem(result_ast).checkAST()
             assert(wellTypedFile, "generated file is not well typed or could not be parsed")
             // 3. does it still contain #if statements?
+            val containsIfdef = i.containsIfdef(result_ast)
             val fileContent = Source.fromFile(resultFile).getLines().mkString("\n")
-            assert(!fileContent.contains("#if"),
+            assert(!containsIfdef,
                 "generated file contains #if statements")
             // return number of nodes in generated AST
 
