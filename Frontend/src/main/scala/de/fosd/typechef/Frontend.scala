@@ -1,9 +1,5 @@
 package de.fosd.typechef
 
-/*
-* temporarily copied from PreprocessorFrontend due to technical problems
-*/
-
 
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem._
@@ -13,7 +9,6 @@ import parser.TokenReader
 import de.fosd.typechef.options.{FrontendOptionsWithConfigFiles, FrontendOptions, OptionException}
 import de.fosd.typechef.parser.c.CTypeContext
 import de.fosd.typechef.parser.c.TranslationUnit
-import scala.Some
 
 object Frontend extends EnforceTreeHelper {
 
@@ -106,8 +101,12 @@ object Frontend extends EnforceTreeHelper {
         var ast: TranslationUnit = null
         if (opt.reuseAST && opt.parse && new File(opt.getSerializedASTFilename).exists()) {
             println("loading AST.")
-            ast = loadSerializedAST(opt.getSerializedASTFilename)
-            ast = prepareAST[TranslationUnit](ast)
+            try {
+                ast = loadSerializedAST(opt.getSerializedASTFilename)
+                ast = prepareAST[TranslationUnit](ast)
+            } catch {
+                case e: Throwable => println(e.getMessage); ast=null
+            }
             if (ast == null)
                 println("... failed reading AST\n")
         }
@@ -127,7 +126,7 @@ object Frontend extends EnforceTreeHelper {
                 ast = prepareAST[TranslationUnit](ast)
 
                 if (ast != null && opt.serializeAST) {
-	                stopWatch.start("serialize")
+                    stopWatch.start("serialize")
                     serializeAST(ast, opt.getSerializedASTFilename)
                 }
             }
@@ -136,17 +135,13 @@ object Frontend extends EnforceTreeHelper {
                 val fm_ts = opt.getTypeSystemFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
 
                 // some dataflow analyses require typing information
-                val ts = if (opt.typechecksa)
-                    new CTypeSystemFrontend(ast, fm_ts, opt) with CTypeCache with CDeclUse
-                else
-                    new CTypeSystemFrontend(ast, fm_ts, opt)
-
+                val ts = new CTypeSystemFrontend(ast, fm_ts, opt) with CTypeCache with CDeclUse
 
                 /** I did some experiments with the TypeChef FeatureModel of Linux, in case I need the routines again, they are saved here. */
                 //Debug_FeatureModelExperiments.experiment(fm_ts)
 
                 if (opt.typecheck || opt.writeInterface) {
-                    //ProductGeneration.typecheckProducts(fm,fm_ts,ast,opt,
+                    //PrCDeclUseoductGeneration.typecheckProducts(fm,fm_ts,ast,opt,
                     //logMessage=("Time for lexing(ms): " + (t2-t1) + "\nTime for parsing(ms): " + (t3-t2) + "\n"))
                     //ProductGeneration.estimateNumberOfVariants(ast, fm_ts)
 
@@ -216,19 +211,19 @@ object Frontend extends EnforceTreeHelper {
                 if (opt.staticanalyses) {
                     val sa = new CIntraAnalysisFrontend(ast, ts.asInstanceOf[CTypeSystemFrontend with CTypeCache with CDeclUse], fm_ts)
                     if (opt.warning_double_free) {
-                    stopWatch.start("doublefree")
+                        stopWatch.start("doublefree")
                         sa.doubleFree()
-                }
+                    }
                     if (opt.warning_uninitialized_memory) {
-                    stopWatch.start("uninitializedmemory")
+                        stopWatch.start("uninitializedmemory")
                         sa.uninitializedMemory()
-                }
+                    }
                     if (opt.warning_xfree) {
-                    stopWatch.start("xfree")
+                        stopWatch.start("xfree")
                         sa.xfree()
-                }
+                    }
                     if (opt.warning_dangling_switch_code) {
-                    stopWatch.start("danglingswitchcode")
+                        stopWatch.start("danglingswitchcode")
                         sa.danglingSwitchCode()
                     }
                     if (opt.warning_cfg_in_non_void_func) {
@@ -276,6 +271,6 @@ object Frontend extends EnforceTreeHelper {
         fr.close()
         ast
     } catch {
-        case e: ObjectStreamException => System.err.println("failed loading serialized AST: " + e.getMessage); null
+        case e:ObjectStreamException => System.err.println("failed loading serialized AST: "+e.getMessage); null
     }
 }

@@ -707,9 +707,7 @@ class CParser(featureModel: FeatureModel = null, debugOutput: Boolean = false) e
                     COLON /*this colon only used with goto*/ ~> opt(strOptExprPair ~ repOpt(COMMA ~> strOptExprPair))
                     ~ opt(
                     COLON ~> opt(strOptExprPair ~ repOpt(COMMA ~> strOptExprPair)) ~
-                        opt(COLON ~> rep1Sep(stringConst | ID, COMMA))
-                )
-            ) ~
+                        opt(COLON ~> rep1Sep(stringConst | ID, COMMA)))) ~
             RPAREN ^^ {
             case _ ~ v ~ gt ~ _ ~ e ~ stuff ~ _ => GnuAsmExpr(v.isDefined, true, e, stuff)
         }

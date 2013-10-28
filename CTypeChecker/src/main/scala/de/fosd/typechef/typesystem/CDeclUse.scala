@@ -19,7 +19,46 @@ import de.fosd.typechef.lexer.FeatureExprLib
 // for all identifiers that occur in a translation unit
 // to do so typed elements are passed during typechecking to CDeclUse which
 // stores the required information
-trait CDeclUse extends CEnv with CEnvCache {
+trait CDeclUseInterface extends CEnv {
+
+    def clearDeclUseMap() {
+    }
+
+
+    def addDefinition(definition: AST, env: Env, feature: FeatureExpr = FeatureExprFactory.True, isFunctionDeclarator: Boolean = false) {
+
+    }
+
+    def addEnumUse(entry: AST, env: Env, feature: FeatureExpr) {}
+
+    def addTypeUse(entry: AST, env: Env, feature: FeatureExpr) {
+    }
+
+
+    def addUse(entry: AST, feature: FeatureExpr, env: Env) {
+    }
+
+
+    def addOldStyleParameters(oldStyleParameters: List[Opt[OldParameterDeclaration]], declarator: Declarator, expr: FeatureExpr, env: Env) = {}
+
+
+    def addStructUse(entry: AST, featureExpr: FeatureExpr, env: Env, structName: String, isUnion: Boolean) {}
+
+    def addAnonStructUse(id: Id, fields: ConditionalTypeMap) {}
+
+
+    def addStructDeclUse(entry: Id, env: Env, isUnion: Boolean, feature: FeatureExpr) {}
+
+    def addDecl(current: Any, featureExpr: FeatureExpr, env: Env, isDefinition: Boolean = true) {}
+
+
+    def addJumpStatements(compoundStatement: CompoundStatement) {
+    }
+
+
+}
+
+trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
 
     // TODO FeatureModel instead of FeatureExprFactory
     // TODO ASTEnv Caching
@@ -58,7 +97,7 @@ trait CDeclUse extends CEnv with CEnvCache {
         }
     }
 
-    def clearDeclUseMap() {
+    override def clearDeclUseMap() {
         declUseMap.clear()
         useDeclMap.clear()
     }
@@ -77,18 +116,16 @@ trait CDeclUse extends CEnv with CEnvCache {
     //   - function: function declarations (forward declarations) and function definitions are handled
     //               if a function declaration exists, we add it as def and the function definition as its use
     //               if no function declaration exists, we add the function definition as def
-    def addDefinition(definition: AST, env: Env, feature: FeatureExpr = FeatureExprFactory.True, isFunctionDeclarator: Boolean = false) {
+    override def addDefinition(definition: AST, env: Env, feature: FeatureExpr = FeatureExprFactory.True, isFunctionDeclarator: Boolean = false) {
         definition match {
             case id: Id =>
                 if (isFunctionDeclarator) addFunctionDeclaration(env, id, feature)
-                else {
-                    putToDeclUseMap(id)
-                }
+                else putToDeclUseMap(id)
             case StructDeclaration(quals, decls) => decls.foreach(x => {
                 addDecl(x.entry, x.feature, env)
                 //quals.foreach(x => addDecl(x.entry, x.feature, env))
             })
-            case _ => logger.error("Missed ForwardDeclaration of: " + definition)
+            case _ =>
         }
     }
 
@@ -125,17 +162,15 @@ trait CDeclUse extends CEnv with CEnvCache {
                     x._2 match {
                         case i: InitDeclarator => addForwardDeclartion(i.getId, x)
                         case f: FunctionDef => addForwardDeclartion(f.declarator.getId, x)
-                        case k => logger.error("ForwardDeclaration of function missed " + k)
+                        case k =>
                     }
                 })
             case One(f: FunctionDef) => swapDeclaration(f.declarator.getId, declaration)
             case x =>
-                logger.error("ForwardDeclaration of function failed with " + x)
-                assert(false, "ForwardDeclaration of function failed.")
         }
     }
 
-    def addEnumUse(entry: AST, env: Env, feature: FeatureExpr) {
+    override def addEnumUse(entry: AST, env: Env, feature: FeatureExpr) {
         entry match {
             case i@Id(name) =>
                 if (env.enumEnv.containsKey(name)) {
@@ -146,11 +181,10 @@ trait CDeclUse extends CEnv with CEnvCache {
                     }
                 }
             case x =>
-                logger.error("Missing Enumeration: " + x)
         }
     }
 
-    def addTypeUse(entry: AST, env: Env, feature: FeatureExpr) {
+    override def addTypeUse(entry: AST, env: Env, feature: FeatureExpr) {
         def addOne(one: One[AST], use: Id, env: Env) {
             one match {
                 case One(InitDeclaratorI(declarator, _, _)) => addToDeclUseMap(declarator.getId, use)
@@ -205,7 +239,7 @@ trait CDeclUse extends CEnv with CEnvCache {
             case Choice(_, c@Choice(_, _, _), o@One(_)) =>
                 oneFunc(o, use, env)
                 addChoice(c, featureExpr, use, env, oneFunc)
-            case _ => assert(false, logger.error("Match Error"))
+            case _ =>
         }
     }
 
@@ -217,7 +251,7 @@ trait CDeclUse extends CEnv with CEnvCache {
                 case One(Enumerator(key, _)) => putToDeclUseMap(key)
                 case One(FunctionDef(_, AtomicNamedDeclarator(_, key, _), _, _)) => putToDeclUseMap(key)
                 case One(null) =>
-                case k => logger.error("DefChoice: Missed add One " + k)
+                case k =>
             }
         }
 
@@ -226,12 +260,12 @@ trait CDeclUse extends CEnv with CEnvCache {
             case Choice(feature, c1, c2) =>
                 addDefChoice(c1)
                 addDefChoice(c2)
-            case k => logger.error("Missed Def Choice " + k)
+            case k =>
         }
     }
 
 
-    def addUse(entry: AST, feature: FeatureExpr, env: Env) {
+    override def addUse(entry: AST, feature: FeatureExpr, env: Env) {
         def addUseOne(one: One[AST], use: Id, env: Env) {
             one match {
                 case One(InitDeclaratorI(declarator, _, _)) => addToDeclUseMap(declarator.getId, use)
@@ -252,10 +286,7 @@ trait CDeclUse extends CEnv with CEnvCache {
                         addStructDeclUse(use, env, false, feature)
                     }
                 // TODO Enums, TypeDefs and Structs
-                // logger.error(use + " - " + env.varEnv.getAstOrElse(use.name, null) + "\n" + entry + "\n" + entry.getPositionFrom + " " + entry.getPositionTo)
                 case _ =>
-                    logger.error("Match Error" + one)
-                    assert(false, "Match Error" + one)
             }
         }
 
@@ -279,14 +310,13 @@ trait CDeclUse extends CEnv with CEnvCache {
                 env.varEnv.getAstOrElse(id.name, null) match {
                     case o@One(_) => addUseOne(o, id, env)
                     case c@Choice(_, _, _) => addChoice(c, feature, id, env, addUseOne)
-                    case x => logger.error(x + "\n" + env.varEnv.getAstOrElse(id.name, null))
+                    case x =>
                 }
             })
         }
 
         // TODO andreas: refactor code looks a little messy
         def addUseCastExpr(typ: TypeName, addUse: (AST, FeatureExpr, CDeclUse.this.type#Env) => Unit, feature: FeatureExpr, env: CDeclUse.this.type#Env, lst: List[Opt[Initializer]]) {
-            logger.error("Type" + typ)
             var typedefspecifier: Id = null
             typ match {
                 case TypeName(ls, _) =>
@@ -349,7 +379,7 @@ trait CDeclUse extends CEnv with CEnvCache {
                                             case _ =>
                                         }
                                     }
-                                case k => // logger.error("AddUse Id not exhaustive: " + i + "\nElement " + k)
+                                case k =>
                             }
                     })
                 case k =>
@@ -360,7 +390,7 @@ trait CDeclUse extends CEnv with CEnvCache {
     }
 
 
-    def addOldStyleParameters(oldStyleParameters: List[Opt[OldParameterDeclaration]], declarator: Declarator, expr: FeatureExpr, env: Env) = {
+    override def addOldStyleParameters(oldStyleParameters: List[Opt[OldParameterDeclaration]], declarator: Declarator, expr: FeatureExpr, env: Env) = {
 
         def addDeclIdList(d: DeclIdentifierList, oldStyleId: Id, expr: FeatureExpr) {
             for (Opt(idFeature, id) <- d.idList)
@@ -371,7 +401,7 @@ trait CDeclUse extends CEnv with CEnvCache {
         def addOldStyleParameterDeclarator(oldStyleId: Id, expr: FeatureExpr, env: Env) {
             declarator.extensions.foreach(x => x.entry match {
                 case d: DeclIdentifierList => addDeclIdList(d, oldStyleId, expr)
-                case x => logger.error("Missing pattern in old style parameters: " + x)
+                case x =>
             })
         }
 
@@ -379,7 +409,7 @@ trait CDeclUse extends CEnv with CEnvCache {
             osp match {
                 case d: Declaration => d.init.foreach(decl => addOldStyleParameterDeclarator(decl.entry.getId, decl.feature, env))
                 case VarArgs() =>
-                case x => logger.error("Missing pattern in old style parameters: " + x)
+                case x =>
             }
         }
     }
@@ -393,7 +423,7 @@ trait CDeclUse extends CEnv with CEnvCache {
         }
     }
 
-    def getFieldsForFeature(structEnv: StructEnv, structName: String, isUnion: Boolean, context: FeatureExpr): List[ConditionalTypeMap] = {
+    private def getFieldsForFeature(structEnv: StructEnv, structName: String, isUnion: Boolean, context: FeatureExpr): List[ConditionalTypeMap] = {
         structEnv.getFields(structName, isUnion) match {
             case One(x) =>
                 List(x)
@@ -406,7 +436,7 @@ trait CDeclUse extends CEnv with CEnvCache {
         }
     }
 
-    def addStructUse(entry: AST, featureExpr: FeatureExpr, env: Env, structName: String, isUnion: Boolean) {
+    override def addStructUse(entry: AST, featureExpr: FeatureExpr, env: Env, structName: String, isUnion: Boolean) {
         entry match {
             case i@Id(name) => {
                 if (env.structEnv.someDefinition(structName, isUnion)) {
@@ -422,7 +452,7 @@ trait CDeclUse extends CEnv with CEnvCache {
                             addStructUseChoice(c, i)
                         case One(NestedNamedDeclarator(_, AtomicNamedDeclarator(_, i2: Id, _), _, _)) =>
                             addToDeclUseMap(i2, i)
-                        case k => logger.error("Missed addStructUse " + env.varEnv.getAstOrElse(i.name, null))
+                        case k =>
                     })
                     /*env.structEnv.getFieldsMerged(structName, isUnion).getAstOrElse(i.name, null) match {
                         case One(null) =>
@@ -444,27 +474,25 @@ trait CDeclUse extends CEnv with CEnvCache {
                         case One(null) =>
                             addDefinition(i, env)
                         case c@Choice(_, _, _) =>
-                            logger.error("missed choice typedef " + c)
                         case One(Declaration(List(Opt(_, _), Opt(_, s@StructOrUnionSpecifier(_, Some(id), _, _, _))), _)) =>
                             // TODO andreas: typedef name name // comment not specific
                             putToDeclUseMap(i)
                         case k =>
-                            logger.error("Missed addStructUse " + k)
                     }
                 }
             }
             case OffsetofMemberDesignatorID(id) =>
                 addStructUse(id, featureExpr, env, structName, isUnion)
-            case k => logger.error("Missed addStructUse " + k)
+            case k =>
         }
     }
 
-    def addAnonStructUse(id: Id, fields: ConditionalTypeMap) {
+    override def addAnonStructUse(id: Id, fields: ConditionalTypeMap) {
         fields.getAstOrElse(id.name, null) match {
             case c@Choice(_, _, _) => addStructUseChoice(c, id)
             case One(AtomicNamedDeclarator(_, key, _)) => addToDeclUseMap(key, id)
             case One(NestedNamedDeclarator(_, declarator, _, _)) => addToDeclUseMap(declarator.getId, id)
-            case k => logger.error("Should not have entered here: " + id + "\n" + k)
+            case k =>
         }
     }
 
@@ -475,7 +503,6 @@ trait CDeclUse extends CEnv with CEnvCache {
                 case One(NestedNamedDeclarator(_, declarator, _, _)) => addToDeclUseMap(declarator.getId, use)
                 case One(i@Id(_)) => addToDeclUseMap(i, use)
                 case _ =>
-                //logger.error("AddAnonStructChoice " + use + " missed " + one)
             }
         }
 
@@ -484,7 +511,7 @@ trait CDeclUse extends CEnv with CEnvCache {
             case Choice(_, c1, c2) =>
                 addStructUseChoice(c1, use)
                 addStructUseChoice(c2, use)
-            case _ => logger.error("AddAnonStructChoice: This should not have happend " + cond)
+            case _ =>
         }
     }
 
@@ -524,7 +551,6 @@ trait CDeclUse extends CEnv with CEnvCache {
                     }
                 }
                 else {
-                    //print("")
                     addDefinition(use, env)
                 }
             }
@@ -532,7 +558,7 @@ trait CDeclUse extends CEnv with CEnvCache {
         }
     }
 
-    def addDecl(current: Any, featureExpr: FeatureExpr, env: Env, isDefinition: Boolean = true) {
+    override def addDecl(current: Any, featureExpr: FeatureExpr, env: Env, isDefinition: Boolean = true) {
         current match {
             // TODO andreas: the following three lines are obsolete; see case _ => at the end
             case StructDeclaration(specifiers, structDecls) =>
@@ -753,9 +779,7 @@ trait CDeclUse extends CEnv with CEnvCache {
                 addDecl(thenExpr, featureExpr, env)
                 addDecl(els, featureExpr, env)
             case DeclIdentifierList(decls) => decls.foreach(decl => putToDeclUseMap(decl.entry))
-            case x =>
-            // Specifiers like StaticSpecifier() can be ignored
-            // logger.error("Match Error" + x)
+            case _ => // Specifiers like StaticSpecifier() can be ignored
         }
     }
 
@@ -767,15 +791,15 @@ trait CDeclUse extends CEnv with CEnvCache {
                         lst2.foreach(y => y.entry match {
                             case idd@InitializerDesignatorD(i) =>
                                 addStructUse(i, feature, env, id.name, isUnion = false)
-                            case _ => // assert(false, logger.error("Match Error"))
+                            case _ =>
                         })
-                    case _ => // assert(false, logger.error("Match Error"))
+                    case _ =>
                 })
-            case _ => // assert(false, logger.error("Match Error"))
+            case _ =>
         }
     }
 
-    def addJumpStatements(compoundStatement: CompoundStatement) {
+    override def addJumpStatements(compoundStatement: CompoundStatement) {
         addGotoStatements(compoundStatement)
     }
 
@@ -870,6 +894,6 @@ trait CDeclUse extends CEnv with CEnvCache {
                 // TODO
             }
         }*/
-        return (resultString.toString(), declUseMap.keySet.size, (numberOfIdsInDefuse - declUseMap.keySet.size), duplicateLB.size)
+        (resultString.toString(), declUseMap.keySet.size, (numberOfIdsInDefuse - declUseMap.keySet.size), duplicateLB.size)
     }
 }

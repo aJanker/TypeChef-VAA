@@ -29,18 +29,19 @@ object PrettyPrinter {
 
     implicit def string(s: String): Doc = Text(s)
     /** Determines whether the doc has some content other than spaces
-     */
-    def hasContent(doc:Doc) : Boolean = {
+      */
+    def hasContent(doc: Doc): Boolean = {
         doc match {
             case Empty => false
-            case Text(s:String) =>
-                var i = 0; var foundNonWsChar=false;
+            case Text(s: String) =>
+                var i = 0;
+                var foundNonWsChar = false;
                 while (!foundNonWsChar && i < s.size) {
                     foundNonWsChar = !s.charAt(i).isWhitespace
-                    i=i+1
+                    i = i + 1
                 }
                 foundNonWsChar
-            case Cons(a,b) => hasContent(a) || hasContent(b)
+            case Cons(a, b) => hasContent(a) || hasContent(b)
             case _ => true
         }
     }
@@ -223,7 +224,7 @@ object PrettyPrinter {
                 else {
                     if (hasContent(selem))
                         res = res * "#if" ~~ selemfexp.toTextExpr * selem * "#endif" * prettyOptStr(celem)
-                	else
+                    else
                         res = res * prettyOptStr(celem)
                 }
 
@@ -252,16 +253,16 @@ object PrettyPrinter {
          * in the parser. E.g. de.fosd.typechef.parser.c.CParser#gnuAsmExprWithGoto() (and withoutGoto)
          */
         def handleOptExprPairGroup(value: Any): Doc = {
-            def handleOptExprPair(optExprPair:de.fosd.typechef.parser.~[Any,Any]) : Doc = {
+            def handleOptExprPair(optExprPair: de.fosd.typechef.parser.~[Any, Any]): Doc = {
                 optExprPair match {
                     case de.fosd.typechef.parser.~(de.fosd.typechef.parser.~(opt1, man2), opt2) =>
-                        (if (opt1 != None) "["~prettyPrint(opt1.asInstanceOf[Some[AST]].get)~"]" else Empty) ~
-                        prettyPrint(man2.asInstanceOf[AST]) ~
-                        (if (opt2 != None) "("~prettyPrint(opt2.asInstanceOf[Some[AST]].get)~")" else Empty)
+                        (if (opt1 != None) "[" ~ prettyPrint(opt1.asInstanceOf[Some[AST]].get) ~ "]" else Empty) ~
+                            prettyPrint(man2.asInstanceOf[AST]) ~
+                            (if (opt2 != None) "(" ~ prettyPrint(opt2.asInstanceOf[Some[AST]].get) ~ ")" else Empty)
                     case _ => sys.error("did not find a match for optional expression in GnuAsmExpr")
                 }
             }
-            def addOptionalOptExprPairToDoc(doc:Doc, optExprPair: Opt[de.fosd.typechef.parser.~[Any,Any]]) : Doc = {
+            def addOptionalOptExprPairToDoc(doc: Doc, optExprPair: Opt[de.fosd.typechef.parser.~[Any, Any]]): Doc = {
                 val docForExprPair = handleOptExprPair(optExprPair.entry)
                 if (!hasContent(docForExprPair))
                     doc
@@ -278,8 +279,8 @@ object PrettyPrinter {
                                     line
                         } else {
 
-                                doc ~ "#if" ~~ optExprPair.feature.toTextExpr *
-                                    ", " ~ docForExprPair *
+                            doc ~ "#if" ~~ optExprPair.feature.toTextExpr *
+                                ", " ~ docForExprPair *
                                 "#endif"
                         }
                     }
@@ -288,11 +289,11 @@ object PrettyPrinter {
             value match {
                 case None => Empty
                 case Some(de.fosd.typechef.parser.~(mandatoryElement, optionalList)) =>
-                    (optionalList.asInstanceOf[List[Opt[de.fosd.typechef.parser.~[Any,Any]]]].
+                    (optionalList.asInstanceOf[List[Opt[de.fosd.typechef.parser.~[Any, Any]]]].
                         foldLeft[Doc]
-                        (handleOptExprPair(mandatoryElement.asInstanceOf[de.fosd.typechef.parser.~[Any,Any]])) // initial element (the mandatory)
+                        (handleOptExprPair(mandatoryElement.asInstanceOf[de.fosd.typechef.parser.~[Any, Any]])) // initial element (the mandatory)
                         (addOptionalOptExprPairToDoc)
-                    )
+                        )
                 case _ => sys.error("did not find a match for optional expression in GnuAsmExpr")
             }
         }
@@ -303,17 +304,17 @@ object PrettyPrinter {
          * value : Option[List[Opt[AST]]]
          */
         def handleIdOrStringGroup(value: Any): Doc = {
-            def addOptionalIdOrStringToDoc (a:Doc, b:Opt[AST]) :Doc = {
+            def addOptionalIdOrStringToDoc(a: Doc, b: Opt[AST]): Doc = {
                 val docb = prettyOpt(b)
-                (if (docb==Empty) a else a~", "~b)
+                (if (docb == Empty) a else a ~ ", " ~ b)
             }
             value match {
                 case None => Empty
-                case Some(lst : List[Opt[AST]]) => (lst.drop(1).
+                case Some(lst: List[Opt[AST]]) => (lst.drop(1).
                     foldLeft[Doc]
                     (prettyOpt(lst.head))
                     (addOptionalIdOrStringToDoc)
-                )
+                    )
                 case _ => sys.error("did not find a match for optional expression in GnuAsmExpr")
             }
         }
@@ -458,28 +459,29 @@ object PrettyPrinter {
             case AlignOfExprU(expr: Expr) => "__alignof__" ~~ expr
             case GnuAsmExpr(isVolatile: Boolean, isGoto: Boolean, expr: StringLit, stuff) =>
                 val ret =
-                stuff match { // c.f de.fosd.typechef.parser.c.CParser.gnuAsmExpr
-                    case Some(de.fosd.typechef.parser.~(
-                            part1,
-                            Some(de.fosd.typechef.parser.~(part21, part22)))) =>
-                        val docPart1:Doc = handleOptExprPairGroup(part1)
-                        val docPart21:Doc = handleOptExprPairGroup(part21)
-                        val docPart22:Doc = handleIdOrStringGroup(part22)
-                        val stuffDoc : Doc =
-                            (if (!isGoto) ":" else "::") ~
-                            docPart1 ~
-                            ":" ~ docPart21 ~ // it seems we can always add this colons (even if the following asm-element docPart21 is Empty)
-                            (if (hasContent(docPart22)) ":" ~ docPart22 else Empty) // TypeChef parser complains if we add this colon when docPart22 is empty
-                        "asm " ~
-                        (if (isVolatile) "volatile " else "") ~
-                        (if (isGoto) "goto " else "") ~
-                        "(" ~ expr ~ stuffDoc ~ ")"
-                    case _ =>
-                        "asm " ~
-                        (if (isVolatile) "volatile " else "") ~
-                        (if (isGoto) "goto " else "") ~
-                        "(" ~ expr ~ ")"
-                }
+                    stuff match {
+                        // c.f de.fosd.typechef.parser.c.CParser.gnuAsmExpr
+                        case Some(de.fosd.typechef.parser.~(
+                        part1,
+                        Some(de.fosd.typechef.parser.~(part21, part22)))) =>
+                            val docPart1: Doc = handleOptExprPairGroup(part1)
+                            val docPart21: Doc = handleOptExprPairGroup(part21)
+                            val docPart22: Doc = handleIdOrStringGroup(part22)
+                            val stuffDoc: Doc =
+                                (if (!isGoto) ":" else "::") ~
+                                    docPart1 ~
+                                    ":" ~ docPart21 ~ // it seems we can always add this colons (even if the following asm-element docPart21 is Empty)
+                                    (if (hasContent(docPart22)) ":" ~ docPart22 else Empty) // TypeChef parser complains if we add this colon when docPart22 is empty
+                            "asm " ~
+                                (if (isVolatile) "volatile " else "") ~
+                                (if (isGoto) "goto " else "") ~
+                                "(" ~ expr ~ stuffDoc ~ ")"
+                        case _ =>
+                            "asm " ~
+                                (if (isVolatile) "volatile " else "") ~
+                                (if (isGoto) "goto " else "") ~
+                                "(" ~ expr ~ ")"
+                    }
                 ret
             case RangeExpr(from: Expr, to: Expr) => from ~~ "..." ~~ to
             case TypeOfSpecifierT(typeName: TypeName) => "typeof(" ~ typeName ~ ")"

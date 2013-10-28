@@ -17,6 +17,7 @@ trait Evaluation extends Logging {
     val caseStudyPath: String
     val completeBusyBoxPath: String
     val busyBoxFiles: String
+    val blackListFiles: List[String]
     val busyBoxPath: String
     val busyBoxPathUntouched: String
     val result: String
@@ -275,15 +276,15 @@ trait Evaluation extends Logging {
     def runScript(script: String, dir: String, timeout: Int = runTimeout): (InputStream, InputStream) = {
         val pb = new ProcessBuilder(script)
         pb.directory(new File(dir))
-        val p = pb.start()
-        val t = new Timer(true)
-        t.schedule(new TimerTask() {
+        val process = pb.start()
+        val timer = new Timer(true)
+        timer.schedule(new TimerTask() {
             def run() {
-                p.destroy();
+                process.destroy();
             }
         }, timeout)
-        p.waitFor()
-        (p.getInputStream, p.getErrorStream)
+        process.waitFor()
+        (process.getInputStream, process.getErrorStream)
     }
 
 
@@ -308,10 +309,9 @@ trait Evaluation extends Logging {
 
     def writeAST(ast: AST, filePath: String) {
         val file = new File(filePath)
-        if (file.exists) file.delete
         val prettyPrinted = PrettyPrinter.print(ast)
-        val writer = new FileWriter(file)
-        writer.write(prettyPrinted.replaceAll("definedEx", "defined"))
+        val writer = new FileWriter(file, false)
+        writer.write(prettyPrinted.replace("definedEx", "defined"))
         writer.flush()
         writer.close()
     }
@@ -382,7 +382,7 @@ trait Evaluation extends Logging {
         out.close()
     }
 
-    def getFileName(originalFilePath: String) = originalFilePath.substring(originalFilePath.lastIndexOf(File.separatorChar), originalFilePath.length)
+    def getFileName(originalFilePath: String) = originalFilePath.substring(originalFilePath.lastIndexOf(File.separatorChar), originalFilePath.length).replace("/", "")
 
     def getResultDir(originalFilePath: String, run: Int): File = {
         val outputFilePath = originalFilePath.replace("busybox-1.18.5", "result")

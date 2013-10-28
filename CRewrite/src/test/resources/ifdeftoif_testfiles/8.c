@@ -8,6 +8,7 @@ int x=0;
 #endif
 
 static int foo () {
+ // ternary operator
 	return ({x++; x;});
 }
 

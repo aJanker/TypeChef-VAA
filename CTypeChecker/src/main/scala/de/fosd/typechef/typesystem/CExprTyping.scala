@@ -9,7 +9,7 @@ import de.fosd.typechef.error._
 /**
  * typing C expressions
  */
-trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInterface with CDeclUse {
+trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInterface with CDeclUseInterface {
 
 
     /**
@@ -183,7 +183,7 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                                         if (opts.warning_implicit_coercion && isForcedCoercion(ltype.atype, rtype.atype))
                                             reportTypeError(fexpr, "Implicit coercion of integer types (%s <- %s), consider a cast".format(ltype.toText, rtype.toText), ae, Severity.SecurityWarning, "implicit_coercion")
                                         if (opts.warning_character_signed && isCharSignCoercion(ltype.atype, rtype.atype))
-                                            reportTypeError(featureExpr, "Incompatible character types '%s <- %s'; consider a cast".format(ltype.toText, rtype.toText), expr, Severity.SecurityWarning, "char_signness")
+                                            reportTypeError(fexpr, "Incompatible character types '%s <- %s'; consider a cast".format(ltype.toText, rtype.toText), expr, Severity.SecurityWarning, "char_signness")
 
                                         prepareArray(ltype).toValue
                                     }
@@ -214,7 +214,7 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                                 val isPointerArith = (pointerArthOp(subExpr.op) || pointerArthAssignOp(subExpr.op)) && isPointer(ctype)
                                 val subExprType = etF(subExpr.e, fexpr, if (isPointerArith) env.markSecurityRelevant("array access/pointer arithmetic") else env)
 
-                                subExprType map (subExprType => operationType(subExpr.op, ctype, subExprType, ne, fexpr, env))
+                                subExprType mapf(fexpr, (fexpr, subExprType) => operationType(subExpr.op, ctype, subExprType, ne, fexpr, env))
                             }
                         )
                     //a[e]
@@ -298,7 +298,8 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                         t
 
                     case LcurlyInitializer(inits) => One(CCompound().toCType.toObj) //TODO more specific checks, currently just use CCompound which can be cast into any structure or array
-                    case GnuAsmExpr(_, _, _, _) => One(CIgnore()) //don't care about asm now
+                    case GnuAsmExpr(_, _, _, _) =>
+                        One(CIgnore()) //don't care about asm now
                     case BuiltinOffsetof(typename, offsetDesignators) =>
                         typename.specifiers.foreach(x => {
                             x match {
