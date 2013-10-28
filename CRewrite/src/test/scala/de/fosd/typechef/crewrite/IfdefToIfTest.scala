@@ -13,6 +13,35 @@ import de.fosd.typechef.conditional.{Choice, One, Opt}
 import de.fosd.typechef.featureexpr.{FeatureModel, FeatureExprParser, FeatureExprFactory}
 import de.fosd.typechef.lexer.FeatureExprLib
 import io.Source
+import sys.process.{ProcessIO, Process}
+import scala.Some
+import de.fosd.typechef.parser.c.PointerPostfixSuffix
+import de.fosd.typechef.parser.c.VoidSpecifier
+import de.fosd.typechef.parser.c.AssignExpr
+import de.fosd.typechef.parser.c.DoubleSpecifier
+import de.fosd.typechef.conditional.One
+import de.fosd.typechef.parser.c.Id
+import de.fosd.typechef.parser.c.Constant
+import de.fosd.typechef.parser.c.ExprList
+import de.fosd.typechef.parser.c.CompoundStatement
+import de.fosd.typechef.conditional.Opt
+import de.fosd.typechef.parser.c.LongSpecifier
+import de.fosd.typechef.parser.c.PostfixExpr
+import de.fosd.typechef.parser.c.ReturnStatement
+import de.fosd.typechef.parser.c.AtomicNamedDeclarator
+import de.fosd.typechef.conditional.Choice
+import de.fosd.typechef.parser.c.TranslationUnit
+import de.fosd.typechef.parser.c.FunctionCall
+import de.fosd.typechef.parser.c.IfStatement
+import de.fosd.typechef.parser.c.InitDeclaratorI
+import de.fosd.typechef.parser.c.Declaration
+import de.fosd.typechef.parser.c.ExprStatement
+import de.fosd.typechef.parser.c.DeclIdentifierList
+import de.fosd.typechef.parser.c.SignedSpecifier
+import de.fosd.typechef.parser.c.IntSpecifier
+import de.fosd.typechef.parser.c.FunctionDef
+import scala.Tuple2
+import de.fosd.typechef.parser.c.StaticSpecifier
 
 class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclUse with CTypeSystem with TestHelper {
     val makeAnalysis = true
@@ -131,7 +160,25 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             // 2. is the generated file well typed?
             val wellTypedFile = i.getTypeSystem(result_ast).checkAST()
             assert(wellTypedFile, "generated file is not well typed or could not be parsed")
-            // 3. does it still contain #if statements?
+
+            // 3. Does gcc also say it's well typed?
+            // is gcc available?
+            var gccAvailable = false
+            try {
+                val noIO = new ProcessIO(_ => (), _ => (), _ => ())
+                Process("gcc").run(noIO).exitValue()
+                gccAvailable = true
+            } catch {
+                case e : IOException => ;
+                case e : Throwable => throw e;
+            }
+            if (gccAvailable) {
+                val pb = Process("gcc -w -S -o tmp.o -pipe " + resultFile.getAbsolutePath)
+                val p = pb.run
+                val exitCode = p.exitValue
+                assert(exitCode!=1, "gcc finds errors in generated file; exit code: " + exitCode)
+            }
+            // 4. does it still contain #if statements?
             val containsIfdef = i.containsIfdef(result_ast)
             val fileContent = Source.fromFile(resultFile).getLines().mkString("\n")
             assert(!containsIfdef,
