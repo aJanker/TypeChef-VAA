@@ -21,6 +21,9 @@ import de.fosd.typechef.lexer.FeatureExprLib
 // stores the required information
 trait CDeclUseInterface extends CEnv {
 
+    init()
+    def init() {}
+
     def clearDeclUseMap() {
     }
 
@@ -64,13 +67,19 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     // TODO ASTEnv Caching
     private lazy val logger = LogManager.getLogger(this.getClass.getName)
 
-    private val declUseMap: util.IdentityHashMap[Id, util.Set[Id]] = new util.IdentityHashMap()
-    private val useDeclMap: util.IdentityHashMap[Id, List[Id]] = new util.IdentityHashMap()
+    private var declUseMap: util.IdentityHashMap[Id, util.Set[Id]] = null
+    private var useDeclMap: util.IdentityHashMap[Id, List[Id]] = null
+
     private var stringToIdMap: Map[String, Id] = Map()
 
     private[typesystem] def clear() = clearDeclUseMap()
 
     private val newIdentifierName = "rnd_ident"
+
+    override def init() {
+        declUseMap = new util.IdentityHashMap()
+        useDeclMap = new util.IdentityHashMap()
+    }
 
     private def putToDeclUseMap(decl: Id) = {
         if (!declUseMap.contains(decl)) {
