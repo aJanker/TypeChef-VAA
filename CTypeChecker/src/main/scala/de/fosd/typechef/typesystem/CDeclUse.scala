@@ -68,7 +68,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     private lazy val logger = LogManager.getLogger(this.getClass.getName)
 
     private var declUseMap: util.IdentityHashMap[Id, util.Set[Id]] = null
-    private var useDeclMap: util.IdentityHashMap[Id, List[Id]] = null
+    private var useDeclMap: util.IdentityHashMap[Id, List[Id]] = new util.IdentityHashMap()
 
     private var stringToIdMap: Map[String, Id] = Map()
 
@@ -77,8 +77,10 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     private val newIdentifierName = "rnd_ident"
 
     override def init() {
-        declUseMap = new util.IdentityHashMap()
-        useDeclMap = new util.IdentityHashMap()
+        if (declUseMap==null)
+            declUseMap = new util.IdentityHashMap()
+        if (useDeclMap==null)
+            useDeclMap = new util.IdentityHashMap()
     }
 
     private def putToDeclUseMap(decl: Id) = {
