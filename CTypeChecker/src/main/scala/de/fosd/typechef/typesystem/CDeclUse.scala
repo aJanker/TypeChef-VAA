@@ -67,7 +67,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     // TODO ASTEnv Caching
     private lazy val logger = LogManager.getLogger(this.getClass.getName)
 
-    private var declUseMap: util.IdentityHashMap[Id, util.Set[Id]] = null
+    private var declUseMap: util.IdentityHashMap[Id, util.Set[Id]] = new util.IdentityHashMap()
     private var useDeclMap: util.IdentityHashMap[Id, List[Id]] = new util.IdentityHashMap()
 
     private var stringToIdMap: Map[String, Id] = Map()
