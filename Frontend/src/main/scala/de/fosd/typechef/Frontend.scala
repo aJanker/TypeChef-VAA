@@ -102,10 +102,10 @@ object Frontend extends EnforceTreeHelper {
         if (opt.reuseAST && opt.parse && new File(opt.getSerializedASTFilename).exists()) {
             println("loading AST.")
             try {
-            ast = loadSerializedAST(opt.getSerializedASTFilename)
-            ast = prepareAST[TranslationUnit](ast)
+                ast = loadSerializedAST(opt.getSerializedASTFilename)
+                ast = prepareAST[TranslationUnit](ast)
             } catch {
-                case e: Throwable => println(e.getMessage); ast=null
+                case e: Throwable => println(e.getMessage); ast = null
             }
             if (ast == null)
                 println("... failed reading AST\n")
@@ -148,17 +148,16 @@ object Frontend extends EnforceTreeHelper {
 
                     stopWatch.start("typechecking")
                     println("type checking.")
-                    ts.checkAST()
-                    ts.errors.map(errorXML.renderTypeError)
                     val typeCheckStatus = ts.checkAST()
+                    ts.errors.map(errorXML.renderTypeError)
                     if (opt.decluse) {
                         if (typeCheckStatus) {
                             val i = new IfdefToIf
                             val fw = new FileWriter(i.outputStemToFileName(opt.getOutputStem()) + ".decluse")
-                            fw.write(ts.checkDefuse(ast, ts.getDeclUseMap, fm_ts)._1)
+                            fw.write(ts.checkDefuse(ast, ts.getDeclUseMap, ts.getUseDeclMap, fm_ts)._1)
                             fw.close()
                             println(ast)
-                            println(ts.checkDefuse(ast, ts.getDeclUseMap, fm_ts)._1)
+                            println(ts.checkDefuse(ast, ts.getDeclUseMap, ts.getUseDeclMap, fm_ts)._1)
                             println(ts.getDeclUseMap)
                         } else {
                             println("generating the declaration-usage map unsuccessful because of type errors in source file")
@@ -272,6 +271,6 @@ object Frontend extends EnforceTreeHelper {
         fr.close()
         ast
     } catch {
-        case e:ObjectStreamException => System.err.println("failed loading serialized AST: "+e.getMessage); null
+        case e: ObjectStreamException => System.err.println("failed loading serialized AST: " + e.getMessage); null
     }
 }

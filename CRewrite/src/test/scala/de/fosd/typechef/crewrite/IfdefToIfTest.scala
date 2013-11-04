@@ -46,8 +46,8 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             param.close()
         }
 
-    def getTypeSystem(ast: AST): CTypeSystemFrontend = {
-        new CTypeSystemFrontend(ast.asInstanceOf[TranslationUnit])
+    def getTypeSystem(ast: AST): CTypeSystemFrontend with CTypeCache with CDeclUse = {
+        new CTypeSystemFrontend(ast.asInstanceOf[TranslationUnit]) with CTypeCache with CDeclUse
     }
 
     def writeToFile(fileName: String, data: String) =
@@ -81,10 +81,11 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         }
         val startParsingAndTypeChecking = System.currentTimeMillis()
         val source_ast = i.prepareAST(i.getAstFromFile(file))
+        val ts = getTypeSystem(source_ast)
         //val env = createASTEnv(source_ast)
-        typecheckTranslationUnit(source_ast)
-        val defUseMap = getDeclUseMap
-        val useDefMap = getUseDeclMap
+        ts.typecheckTranslationUnit(source_ast)
+        val defUseMap = ts.getDeclUseMap
+        val useDefMap = ts.getUseDeclMap
         val timeToParseAndTypeCheck = System.currentTimeMillis() - startParsingAndTypeChecking
         print("--Parsed--")
 
