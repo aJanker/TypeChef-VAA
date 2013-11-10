@@ -443,8 +443,8 @@ object PrettyPrinter {
             case StructOrUnionSpecifier(isUnion, id, enumerators, attr1, attr2) =>
                 (if (isUnion) "union" else "struct") ~~ sep(attr1, _ ~~ _) ~~ opt(id) ~~ (if (enumerators.isDefined) block(sep(enumerators.get, _ * _)) else Empty) ~~ sep(attr2, _ ~~ _)
             case StructDeclaration(qualifierList, declaratorList) => spaceSep(qualifierList) ~~ commaSep(declaratorList) ~ ";"
-            case StructDeclarator(decl, initializer, _) => decl ~ optExt(initializer, ":" ~~ _)
-            case StructInitializer(expr, _) => ":" ~~ expr
+            case StructDeclarator(decl, initializer, attr) => decl ~ optExt(initializer, ":" ~~ _) ~~ spaceSep(attr)
+            case StructInitializer(expr, attr) => ":" ~~ expr ~~ spaceSep(attr)
             case AsmExpr(isVolatile, expr) => "asm" ~~ (if (isVolatile) "volatile " else "") ~ "{" ~ expr ~ "}" ~ ";"
             case FunctionDef(specifiers, declarator, oldStyleParameters, stmt) =>
                 spaceSep(specifiers) ~~ declarator ~~ spaceSep(oldStyleParameters) ~~ stmt
