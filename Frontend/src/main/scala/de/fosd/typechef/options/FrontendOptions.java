@@ -37,6 +37,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_REFEVAL = Options.genOptionId();
     private final static char F_REFLINk = Options.genOptionId();
     private final static char F_CANBUILD = Options.genOptionId();
+    private final static char F_WRITEBUILDCONDITION = Options.genOptionId();
     private final File _autoErrorXMLFile = new File(".");
     public boolean parse = true,
             typecheck = false,
@@ -46,6 +47,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             refEval = false,
             refLink = false,
             canBuild = false,
+            writeBuildCondtion = false,
             writeInterface = false,
             dumpcfg = false,
             doublefree = false,
@@ -99,6 +101,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                 new Option("refEval", LongOpt.REQUIRED_ARGUMENT, F_REFEVAL, null, "Apply and verfiy random refactoring"),
                 new Option("refLink", LongOpt.REQUIRED_ARGUMENT, F_REFLINk, null, "Apply refactorings also on all linked files."),
                 new Option("canBuild", LongOpt.NO_ARGUMENT, F_CANBUILD, null, "Tests the possibility of building the pretty printed File"),
+                new Option("writeBuildCondition", LongOpt.NO_ARGUMENT, F_WRITEBUILDCONDITION, null, "Writes out a .bc file containing the analysed file custom build properties."),
                 new Option("decluse", LongOpt.NO_ARGUMENT, F_DECLUSE, null,
                         "Test the declaration use map."),
 
