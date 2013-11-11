@@ -47,7 +47,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             refEval = false,
             refLink = false,
             canBuild = false,
-            writeBuildCondtion = false,
+            writeBuildCondition = false,
             writeInterface = false,
             dumpcfg = false,
             doublefree = false,
@@ -197,6 +197,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             recordTiming = true;
         } else if (c == F_DEBUGINTERFACE) {
             writeDebugInterface = true;
+        } else if (c == F_WRITEBUILDCONDITION) {
+            writeBuildCondition = true;
         } else if (c == 'o') {
             outputStem = g.getOptarg();
         } else if (c == F_FILEPC) {//--filePC
