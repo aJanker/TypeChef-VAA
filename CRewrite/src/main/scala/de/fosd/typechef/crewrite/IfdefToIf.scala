@@ -516,7 +516,13 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 }
             })
         } else if (usedef.containsKey(i)) {
-            val idUsages = usedef.get(i).flatMap(x => defuse.get(x))
+            val idUsages = usedef.get(i).flatMap(x => {
+                //TODO: Alex: this fix avoid a bug where a use of a struct still maps (usedecl) to a forward declaration. The forward declaration is also a key in usedecl and maps to the real declaration. Needs to be fixed in CDeclUse, but I did not find it.
+                if (defuse.containsKey(x))
+                    defuse.get(x)
+                else {
+                usedef.get(x).flatMap(y => defuse.get(y))
+            }})
             idUsages.foreach(x => {
                 if (idsToBeReplaced.containsKey(x)) {
                     idsToBeReplaced.put(x, idsToBeReplaced.get(x) + ft)
