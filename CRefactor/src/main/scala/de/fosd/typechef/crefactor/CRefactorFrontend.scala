@@ -12,11 +12,11 @@ import de.fosd.typechef.parser.TokenReader
 import de.fosd.typechef.parser.c.CTypeContext
 import de.fosd.typechef.crefactor.evaluation.util.TimeMeasurement
 import de.fosd.typechef.typesystem.linker.InterfaceWriter
-import de.fosd.typechef.crefactor.evaluation.busybox_1_18_5.setup.building.Builder
+import de.fosd.typechef.crefactor.evaluation.busybox_1_18_5.setup.building.{BuildCondition, Builder}
 import de.fosd.typechef.crefactor.evaluation.busybox_1_18_5.linking.CLinking
 import de.fosd.typechef.crefactor.evaluation.StatsJar
 
-object CRefactorFrontend extends App with InterfaceWriter {
+object CRefactorFrontend extends App with InterfaceWriter with BuildCondition {
 
     var command: Array[String] = Array()
 
@@ -59,14 +59,16 @@ object CRefactorFrontend extends App with InterfaceWriter {
             return (null, null)
         }
 
+
         var ast: AST = null
-        var featureModel: FeatureModel = null
         var linkInf: CLinking = null
 
         if (opt.reuseAST && opt.parse && new File(opt.getSerializedASTFilename).exists()) {
             ast = loadSerializedAST(opt.getSerializedASTFilename)
             if (ast == null) println("... failed reading AST\n")
         }
+
+        if (opt.writeBuildCondition) writeBuildCondition(opt.getFile)
 
         if (opt.refLink) {
             linkInf = new CLinking(opt.getLinkingInterfaceFile)
@@ -82,14 +84,13 @@ object CRefactorFrontend extends App with InterfaceWriter {
                 StatsJar.addStat(opt.getFile, Parsing, parsingTime.getTime)
             }
 
-            if (ast != null) featureModel = opt.getTypeSystemFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
-            errorXML.write()
+            if (ast == null) errorXML.write()
 
             if (opt.refEval) {
                 opt.getRefactorType match {
-                    case RefactorType.RENAME => Rename.evaluate(ast, featureModel, opt.getFile, linkInf)
-                    case RefactorType.EXTRACT => Extract.evaluate(ast, featureModel, opt.getFile, linkInf)
-                    case RefactorType.INLINE => Inline.evaluate(ast, featureModel, opt.getFile, linkInf)
+                    case RefactorType.RENAME => Rename.evaluate(ast, fm, opt.getFile, linkInf)
+                    case RefactorType.EXTRACT => Extract.evaluate(ast, fm, opt.getFile, linkInf)
+                    case RefactorType.INLINE => Inline.evaluate(ast, fm, opt.getFile, linkInf)
                     case RefactorType.NONE => println("No refactor type defined")
                 }
             }
@@ -100,7 +101,7 @@ object CRefactorFrontend extends App with InterfaceWriter {
             println("+++ Can build " + new File(opt.getFile).getName + " : " + canBuild + " +++")
         }
 
-        (ast, featureModel)
+        (ast, fm)
     }
 
 

@@ -188,8 +188,8 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val source_ast = getAstFromPi(new File(decluseTestPath + "malloc_sizeof.c"))
         println(source_ast)
         val result = runDefUseOnAst(source_ast)
-        val numberOfDefinitions = 7
-        val numberOfEntries = 3
+        val numberOfDefinitions = 6
+        val numberOfEntries = 4
         val numberOfVariableIds = 0
         assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
     }
@@ -218,9 +218,9 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val source_ast = getAstFromPi(new File(decluseTestPath + "struct_sigevent.c"))
         println(source_ast)
         val result = runDefUseOnAst(source_ast)
-        val numberOfDefinitions = 8
-        val numberOfEntries = 13
-        val numberOfVariableIds = 2
+        val numberOfDefinitions = 13
+        val numberOfEntries = 8
+        val numberOfVariableIds = 0
         println(result)
         assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
     }
@@ -233,9 +233,9 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
     @Test def test_decompress_unxz_pi {
         val source_ast = getAstFromPi(new File("../TypeChef-BusyboxAnalysis/busybox-1.18.5/archival/libarchive/decompress_unxz.pi"))
         val result = runDefUseOnAst(source_ast)
-        val numberOfDefinitions = 6817
-        val numberOfEntries = 4533
-        val numberOfVariableIds = 5
+        val numberOfDefinitions = 6815
+        val numberOfEntries = 4535
+        val numberOfVariableIds = 2
         assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
     }
 
@@ -285,7 +285,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         println("Ids:\n" + filterASTElems[Id](source_ast))
         println("\nDef Use Map:\n" + getDeclUseMap)
         val useDeclMap = getUseDeclMap
-        println(checkDefuse(source_ast, getDeclUseMap)._1)
+        println(checkDefuse(source_ast, getDeclUseMap, getUseDeclMap)._1)
     }
 
     @Test def test_int {
@@ -353,7 +353,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         println("\nPrettyPrinted:\n" + PrettyPrinter.print(ast))
         typecheckTranslationUnit(ast)
         val useDeclMap = getUseDeclMap
-        val success = checkDefuse(ast, getDeclUseMap)._1
+        val success = checkDefuse(ast, getDeclUseMap, getUseDeclMap)._1
         println("DefUse" + getDeclUseMap)
         println(success)
     }
@@ -420,7 +420,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         println("\nDef Use Map:\n" + defUseMap)
     }
 
-    @Test def test_busybox_verification_of_defUse {
+    @Ignore def test_busybox_verification_of_defUse {
         // path to busybox dir with pi files to analyse
         val folderPath = "../TypeChef-BusyboxAnalysis/busybox-1.18.5/"
         val folder = new File(folderPath)
@@ -435,14 +435,15 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
            fos.flush()
            fos.close()  */
 
+        val ts = new CTypeSystemFrontend(tu) with CTypeCache with CDeclUse
         println(parsingRunTimeString)
         val starttime = System.currentTimeMillis()
-        typecheckTranslationUnit(tu)
+        ts.typecheckTranslationUnit(tu)
         val endtime = System.currentTimeMillis()
 
-        val declUse = getDeclUseMap
-        val useDeclMap = getUseDeclMap
-        val quad = checkDefuse(tu, declUse)
+        val declUse = ts.getDeclUseMap
+        val useDeclMap = ts.getUseDeclMap
+        val quad = checkDefuse(tu, declUse, useDeclMap)
         val success = quad._1
 
         /*val sb = new StringBuilder

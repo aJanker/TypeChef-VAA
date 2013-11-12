@@ -139,7 +139,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
         var types = List[Conditional[CType]]()
         for (specifier <- specifiers) specifier match {
             case StructOrUnionSpecifier(isUnion, Some(id), _, _, _) =>
-                addStructDeclUse(id, env, isUnion, featureExpr)
+                //addStructDeclUse(id, env, isUnion, featureExpr)
                 if (hasTransparentUnionAttribute(specifiers)) {
                     types = types :+ One(CIgnore().toCType) //ignore transparent union for now
                 }
@@ -493,6 +493,9 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
         var env = initialEnv
         var result = new ConditionalTypeMap()
         for (Opt(f, structDeclaration) <- members) {
+            for (Opt(g, EnumSpecifier(Some(i: Id), _)) <- structDeclaration.qualifierList) {
+                addEnumUse(i, env, g)
+            }
             for (Opt(g, structDeclarator) <- structDeclaration.declaratorList)
                 structDeclarator match {
                     case StructDeclarator(decl, _, attr) =>

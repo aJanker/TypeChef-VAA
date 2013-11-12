@@ -26,6 +26,14 @@ trait InterfaceWriter {
         interfaceFromXML(loadnode)
     }
 
+    def loadInterfaceFromXML(node: scala.xml.Node) = new CInterface(
+        null,
+        (node \ "feature").map(_.text.trim).toSet,
+        (node \ "newfeature").map(_.text.trim).toSet,
+        (node \ "import").map(signatureFromXML(_)),
+        (node \ "export").map(signatureFromXML(_))
+    )
+
 
     def interfaceFromXML(node: scala.xml.Node): CInterface = new CInterface(
         getFM(node),

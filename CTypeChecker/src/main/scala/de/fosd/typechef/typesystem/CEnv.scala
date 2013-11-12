@@ -145,6 +145,10 @@ trait CEnv {
         def getFields(name: String, isUnion: Boolean): Conditional[ConditionalTypeMap] = env.getOrElse((name, isUnion), One(incompleteTag)).map(_.fields)
         def someDefinition(name: String, isUnion: Boolean): Boolean = env contains(name, isUnion)
 
+        def someDefinition(name: String, isUnion: Boolean, feature: FeatureExpr): Boolean = {
+            (env contains(name, isUnion)) && env.get(name, isUnion).get.toList.exists(x => x._1.implies(feature).isTautology() && (x._2.id != None))
+        }
+
         def getId(name: String, isUnion: Boolean): Conditional[Id] = {
             def extractId(entry: Conditional[StructTag]): Conditional[Id] = {
                 entry match {

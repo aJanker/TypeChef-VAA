@@ -51,7 +51,7 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                         var ctype = env.varEnv(name)
 
                         ctype = markSecurityRelevantFunctions(name, ctype)
-
+                        // addUse(id, featureExpr, env)
                         ctype.mapf(featureExpr, {
                             (f, t) =>
                                 if (t.isUnknown && f.isSatisfiable()) {
