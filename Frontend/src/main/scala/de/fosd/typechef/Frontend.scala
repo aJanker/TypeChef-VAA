@@ -156,9 +156,9 @@ object Frontend extends EnforceTreeHelper {
                             val fw = new FileWriter(i.outputStemToFileName(opt.getOutputStem()) + ".decluse")
                             fw.write(ts.checkDefuse(ast, ts.getDeclUseMap, ts.getUseDeclMap, fm_ts)._1)
                             fw.close()
-                            println(ast)
-                            println(ts.checkDefuse(ast, ts.getDeclUseMap, ts.getUseDeclMap, fm_ts)._1)
-                            println(ts.getDeclUseMap)
+                            //println(ast)
+                            //println(ts.checkDefuse(ast, ts.getDeclUseMap, ts.getUseDeclMap, fm_ts)._1)
+                            //println(ts.getDeclUseMap)
                         } else {
                             println("generating the declaration-usage map unsuccessful because of type errors in source file")
                         }
