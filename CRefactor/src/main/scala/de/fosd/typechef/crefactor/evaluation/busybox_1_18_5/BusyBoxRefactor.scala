@@ -22,22 +22,22 @@ trait BusyBoxRefactor extends BusyBoxEvaluation with Refactor {
             try {
                 val morpheus = new Morpheus(ast, fm, file)
                 // reset test environment
-                runScript("./cleanAndReset.sh", busyBoxPath)
+                runScript("./cleanAndReset.sh", sourcePath)
                 val features = refactor(morpheus, linkInterface)
                 if (features._1) {
                     val time = new TimeMeasurement
                     StatsJar.addStat(file, AffectedFeatures, features._2)
                     // run refactored first
                     BusyBoxVerification.verify(file, fm, "_ref")
-                    runScript("./cleanAndReset.sh", busyBoxPath)
+                    runScript("./cleanAndReset.sh", sourcePath)
                     BusyBoxVerification.verify(file, fm, "_org")
-                    runScript("./cleanAndReset.sh", busyBoxPath)
+                    runScript("./cleanAndReset.sh", sourcePath)
                     StatsJar.addStat(file, TestingTime, time.getTime)
                 } else writeError("Could not refactor, cause possible bad linking.", path)
                 StatsJar.write(path + ".stats")
             } catch {
                 case e: Exception => {
-                    println(e.getStackTrace.mkString("\n"))
+                    e.printStackTrace
                     writeException(e.getCause.toString + "\n" + e.getMessage + "\n" + e.getStackTrace.mkString("\n"), new File(path).getCanonicalPath)
                 }
             }

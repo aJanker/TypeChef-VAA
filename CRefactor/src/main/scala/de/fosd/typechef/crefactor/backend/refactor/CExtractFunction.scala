@@ -120,9 +120,7 @@ object CExtractFunction extends ASTSelection with CRefactor {
         def exploitStatements(statement: Statement): Statement = {
             try {
                 parentAST(statement, morpheus.getASTEnv) match {
-                    case null =>
-                        assert(false, "An error during determine the preconditions occured.")
-                        statement
+                    case null => throw new RefactorException("An error during determine the preconditions occured.")
                     case f: FunctionDef => statement
                     case nf: NestedFunctionDef => statement
                     case p =>
@@ -167,12 +165,10 @@ object CExtractFunction extends ASTSelection with CRefactor {
             val parent = findParent(id)
             parent match {
                 case null =>
-                case _ =>
-                    if (parent.get.isInstanceOf[Statement]) {
-                        uniqueSelectedStatements.add(parent.get.asInstanceOf[Statement])
-                        uniqueSelectedStatements.add(lookupControlStatements(parent.get.asInstanceOf[Statement]))
-
-                    } else if (parent.get.isInstanceOf[Expr]) uniqueSelectedExpressions.add(parent.get.asInstanceOf[Expr])
+                case s: Some[Statement] =>
+                    uniqueSelectedStatements.add(s.get)
+                    uniqueSelectedStatements.add(lookupControlStatements(s.get))
+                case e: Some[Expr] => uniqueSelectedExpressions.add(e.get)
             }
         })
 
@@ -210,78 +206,75 @@ object CExtractFunction extends ASTSelection with CRefactor {
 
     def isAvailable(morpheus: Morpheus, selection: Selection): Boolean = isAvailable(morpheus, getSelectedElements(morpheus, selection))
 
-    def extract(morpheus: Morpheus, selection: List[AST], funcName: String): AST = {
+    def extract(morpheus: Morpheus, selection: List[AST], funcName: String): Either[String, AST] = {
         verifyFunctionName(funcName, selection, morpheus)
 
         // Analyze selection first -> either expression or statements
         // Workaraound for type erasure of Scala
         selection.head match {
-            case e: Expr =>
-                assert(false, "This refactoring is not yet supported!")
-                morpheus.getAST
+            case e: Expr => Left("This refactoring is not yet supported!")
             case s: Statement => extractStatements(morpheus, selection, funcName)
-            case _ =>
-                assert(false, "Fatal error in selected elements!")
-                morpheus.getAST
+            case _ => Left("Fatal error in selected elements!")
         }
     }
 
-    private def extractStatements(morpheus: Morpheus, selection: List[AST], funcName: String): AST = {
-        val parentFunction = getParentFunction(selection, morpheus)
-        val parentFunctionOpt: Opt[FunctionDef] = parentOpt(parentFunction, morpheus.getASTEnv).asInstanceOf[Opt[FunctionDef]]
-        val selectedOptStatements: List[Opt[Statement]] = selection.map(selected => parentOpt(selected, morpheus.getASTEnv)).asInstanceOf[List[Opt[Statement]]]
-        val selectedIds = filterAllASTElems[Id](selection)
-        val compStmt = getCompoundStatement(selectedOptStatements.head.entry, morpheus)
+    private def extractStatements(morpheus: Morpheus, selection: List[AST], funcName: String): Either[String, AST] = {
+        try {
+            val parentFunction = getParentFunction(selection, morpheus)
+            val parentFunctionOpt: Opt[FunctionDef] = parentOpt(parentFunction, morpheus.getASTEnv).asInstanceOf[Opt[FunctionDef]]
+            val selectedOptStatements: List[Opt[Statement]] = selection.map(selected => parentOpt(selected, morpheus.getASTEnv)).asInstanceOf[List[Opt[Statement]]]
+            val selectedIds = filterAllASTElems[Id](selection)
+            val compStmt = getCompoundStatement(selectedOptStatements.head.entry, morpheus)
 
-        logger.debug(selectedOptStatements)
+            logger.debug(selectedOptStatements)
 
-        /**
-         * Liveness analysis
-         */
-        val startTime = new TimeMeasurement
+            /**
+             * Liveness analysis
+             */
+            val startTime = new TimeMeasurement
 
-        val externalUses = externalOccurrences(selectedIds, morpheus.getDeclUseMap)
-        val externalDefs = externalOccurrences(selectedIds, morpheus.getUseDeclMap)
-        val allExtRefIds = externalDefs.flatMap(x => Some(x._1))
-        val extRefIds = uniqueExtRefIds(externalDefs, externalUses)
-        val toDeclare = getIdsToDeclare(externalUses)
+            val externalUses = externalOccurrences(selectedIds, morpheus.getDeclUseMap)
+            val externalDefs = externalOccurrences(selectedIds, morpheus.getUseDeclMap)
+            val allExtRefIds = externalDefs.flatMap(x => Some(x._1))
+            val extRefIds = uniqueExtRefIds(externalDefs, externalUses)
+            val toDeclare = getIdsToDeclare(externalUses)
 
-        // externalUses of selected Decls are currently refused
-        if (!toDeclare.isEmpty) assert(false, "Invalid selection, a declared variable in the selection gets used outside.")
-        val paramIds = getParamterIds(extRefIds, morpheus)
+            // externalUses of selected Decls are currently refused
+            if (!toDeclare.isEmpty) return Left("Invalid selection, a declared variable in the selection gets used outside.")
+            val paramIds = getParamterIds(extRefIds, morpheus)
 
-        StatsJar.addStat(morpheus.getFile, Liveness, startTime.getTime)
-        StatsJar.addStat(morpheus.getFile, ExternalUses, startTime.getTime)
-        StatsJar.addStat(morpheus.getFile, ExternalDecls, startTime.getTime)
-        StatsJar.addStat(morpheus.getFile, Parameters, startTime.getTime)
+            StatsJar.addStat(morpheus.getFile, Liveness, startTime.getTime)
+            StatsJar.addStat(morpheus.getFile, ExternalUses, startTime.getTime)
+            StatsJar.addStat(morpheus.getFile, ExternalDecls, startTime.getTime)
+            StatsJar.addStat(morpheus.getFile, Parameters, startTime.getTime)
 
-        val specifiers = generateSpecifiers(parentFunction, morpheus)
-        val parameters = getParameterDecls(extRefIds, parentFunction, morpheus)
-        // For not expected behaviour of pretty printer...
-        /** val funcOpts = parameters.foldLeft(List[Opt[FunctionDef]]())((fDefs, funcParams) => {
-      val declarator = generateDeclarator(funcName, List(funcParams))
-      val compundStatement = generateCompoundStatement(selectedOptStatements, allExtRefIds, paramIds, morpheus)
-      val newFunc = generateFuncDef(specifiers, declarator, compundStatement)
-      val funcOpt = generateFuncOpt(parentFunction, newFunc, morpheus, funcParams.feature)
-      fDefs ::: List(funcOpt)
-    }) */
-        val declarator = generateDeclarator(funcName, parameters)
-        val compundStatement = generateCompoundStatement(selectedOptStatements, allExtRefIds, paramIds, morpheus)
-        val newFunc = generateFuncDef(specifiers, declarator, compundStatement)
-        val funcOpt = generateFuncOpt(parentFunction, newFunc, morpheus)
+            val specifiers = generateSpecifiers(parentFunction, morpheus)
+            val parameters = getParameterDecls(extRefIds, parentFunction, morpheus)
+            val declarator = generateDeclarator(funcName, parameters)
+            val compundStatement = generateCompoundStatement(selectedOptStatements, allExtRefIds, paramIds, morpheus)
+            val newFunc = generateFuncDef(specifiers, declarator, compundStatement)
+            val funcOpt = generateFuncOpt(parentFunction, newFunc, morpheus)
 
-        val callParameters = generateFuncCallParameter(extRefIds, morpheus)
-        val functionCall = Opt[ExprStatement](funcOpt.feature, ExprStatement(PostfixExpr(Id(funcOpt.entry.getName), FunctionCall(ExprList(callParameters)))))
+            val callParameters = generateFuncCallParameter(extRefIds, morpheus)
+            val functionCall = Opt[ExprStatement](funcOpt.feature, ExprStatement(PostfixExpr(Id(funcOpt.entry.getName), FunctionCall(ExprList(callParameters)))))
 
-        // Keep changes at the AST as local as possible
-        //val insertCall2 = funcOpts.foldLeft()
-        val insertedCall = insertBefore(compStmt.innerStatements, selectedOptStatements.head, functionCall)
-        val ccStmtWithRemovedStmts = eqRemove(insertedCall, selectedOptStatements)
-        // val astWFunc = funcOpts.foldLeft(morpheus.getAST)((ast, func) => insertInAstBefore(ast, parentFunctionOpt, func))
-        val astWFunc = insertInAstBefore(morpheus.getAST, parentFunctionOpt, funcOpt)
+            // Keep changes at the AST as local as possible
+            //val insertCall2 = funcOpts.foldLeft()
+            val insertedCall = insertBefore(compStmt.innerStatements, selectedOptStatements.head, functionCall)
+            val ccStmtWithRemovedStmts = eqRemove(insertedCall, selectedOptStatements)
+            // val astWFunc = funcOpts.foldLeft(morpheus.getAST)((ast, func) => insertInAstBefore(ast, parentFunctionOpt, func))
+            val astWFunc = insertInAstBefore(morpheus.getAST, parentFunctionOpt, funcOpt)
 
-        val refAST = replaceInAST(astWFunc, compStmt, compStmt.copy(innerStatements = ccStmtWithRemovedStmts))
-        refAST
+            //val refAST = replaceInAST(astWFunc, compStmt, compStmt.copy(innerStatements = ccStmtWithRemovedStmts))
+            val refAST = replaceCompoundStmtInAST(astWFunc, compStmt, ccStmtWithRemovedStmts)
+            Right(refAST)
+        } catch {
+            case r: RefactorException => Left(r.error)
+            case x: Exception => {
+                x.printStackTrace
+                Left(x.getMessage)
+            }
+        }
     }
 
     private def getParamterIds(liveParamIds: List[Id], morpheus: Morpheus) = retrieveParameters(liveParamIds, morpheus).flatMap(entry => Some(entry._3))
@@ -361,7 +354,7 @@ object CExtractFunction extends ASTSelection with CRefactor {
                     if (morpheus.getUseDeclMap.get(id).exists(t => findPriorASTElem[CompoundStatement](t, morpheus.getASTEnv) match {
                         case None => false
                         case _ => true
-                    })) assert(false, "Type Declaration for " + id.name + " would be invisible after extraction!")
+                    })) throw new RefactorException("Type Declaration for " + id.name + " would be invisible after extraction!")
                 case o =>
                     val decl = findPriorASTElem[Declaration](id, morpheus.getASTEnv)
                     decl match {
@@ -406,12 +399,12 @@ object CExtractFunction extends ASTSelection with CRefactor {
                         if (morpheus.getUseDeclMap.get(i).exists(t => findPriorASTElem[CompoundStatement](t, morpheus.getASTEnv) match {
                             case None => false
                             case _ => true
-                        })) assert(false, "Type Declaration for " + i + " would be invisible after extraction!")
+                        })) throw new RefactorException("Type Declaration for " + i + " would be invisible after extraction!")
                     case s@StructOrUnionSpecifier(_, Some(i@Id(_)), _, _, _) =>
                         if (morpheus.getUseDeclMap.get(i).exists(t => findPriorASTElem[CompoundStatement](t, morpheus.getASTEnv) match {
                             case None => false
                             case _ => true
-                        })) assert(false, "Type Declaration for " + i + " would be invisible after extraction!")
+                        })) throw new RefactorException("Type Declaration for " + i + " would be invisible after extraction!")
                     case _ => logger.debug("Specs " + spec)
                 }
             })
@@ -491,6 +484,7 @@ object CExtractFunction extends ASTSelection with CRefactor {
         }
 
     private def verifyFunctionName(funcName: String, selection: List[AST], morpheus: Morpheus) {
+        // TODO Change to bool function
         assert(isValidName(funcName), Configuration.getInstance().getConfig("refactor.extractFunction.failed.shadowing"))
         // Check for shadowing with last statement of the extraction compound statement
         assert(!isShadowed(funcName, getCompoundStatement(selection.head, morpheus).innerStatements.last.entry, morpheus), Configuration.getInstance().getConfig("default.error.invalidName"))
@@ -571,22 +565,13 @@ object CExtractFunction extends ASTSelection with CRefactor {
         val gotoS = filterAllASTElems[GotoStatement](element)
         gotoS.isEmpty match {
             case true =>
-            case _ => return !gotoS.exists(goto => morpheus.getUseDeclMap.get(goto).exists(labels => filter[Id](gotoS)))
+            case _ => return !gotoS.exists(goto => morpheus.getUseDeclMap.get(goto.target).exists(labels => filter[Id](gotoS)))
         }
         val labels = filterAllASTElems[LabelStatement](element)
         labels.isEmpty match {
-            case true =>
-            case _ => return !labels.exists(label => morpheus.getDeclUseMap.get(label).exists(goto => filter[Id](labels)))
+            case _ => return !labels.exists(label => morpheus.getDeclUseMap.get(label.id).exists(goto => filter[Id](labels)))
         }
         false
-
-        /** element match {
-    case c: ContinueStatement => true
-    case b: BreakStatement => true
-    case c: CaseStatement => true
-    case g: GotoStatement => true // TODO Target Find
-    case _ => false
-  } */
     }
 
     private def getParentFunction(selection: List[AST], morpheus: Morpheus): FunctionDef = {
