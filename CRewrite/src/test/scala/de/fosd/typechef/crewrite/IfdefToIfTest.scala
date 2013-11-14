@@ -1054,6 +1054,16 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println(i.getAstFromFile(file))
         testFile(file)
     }
+    @Test def test_alex_13() {
+        val file = new File(ifdeftoifTestPath + "13.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+    @Test def test_alex_14() {
+        val file = new File(ifdeftoifTestPath + "14.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
 
 
     @Test def test_typedef_function_usage() {

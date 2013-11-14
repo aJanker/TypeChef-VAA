@@ -124,7 +124,7 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                     case ce@CastExpr(targetTypeName, expr) =>
                         val targetTypes = getTypenameType(targetTypeName, featureExpr, env)
                         for ((Opt(feat, entry: TypeDefTypeSpecifier)) <- targetTypeName.specifiers) {
-                            addTypeUse(entry.name, env, feat)
+                            //addTypeUse(entry.name, env, feat)
                         }
                         val sourceTypes = et(expr).map(_.toValue)
                         ConditionalLib.mapCombinationF(sourceTypes, targetTypes, featureExpr,
@@ -304,7 +304,7 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                         typename.specifiers.foreach(x => {
                             x match {
                                 case Opt(ft, TypeDefTypeSpecifier(name)) =>
-                                    addTypeUse(name, env, ft)
+                                //addTypeUse(name, env, ft)
                                 case Opt(ft, StructOrUnionSpecifier(isUnion, Some(i: Id), _, _, _)) =>
                                     offsetDesignators.foreach(x => x match {
                                         case Opt(ft, OffsetofMemberDesignatorID(offsetId: Id)) =>

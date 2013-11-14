@@ -226,6 +226,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 6815
         val numberOfEntries = 4535
         val numberOfVariableIds = 2
+        println(result)
         assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
     }
 
@@ -442,7 +443,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         fw.write(sb.toString)
         fw.close()*/
         println("TypeChecking Runtime:\t" + (endtime - starttime) / 1000.0 + " seconds.\n")
-        println("DeclUseMap:\n" + (declUse.keySet().toArray.toList.map(x => x.asInstanceOf[Id].name + "@" + x.asInstanceOf[Id].range.get._1.getLine + " = (" + (declUse.get(x).map(y => y.name + "@" + y.range.get._1.getLine) mkString (",")) + ")") mkString ("; ")))
+        println("DeclUseMap:\n" + (declUse.keySet().toArray.toList.asInstanceOf[List[Id]].sortWith {(x: Id, y: Id) => if (x.name.equals(y.name)) x.getPositionFrom < y.getPositionFrom else x.name < y.name}.map(x => x.name + "@" + x.asInstanceOf[Id].range.get._1.getLine + " = (" + (declUse.get(x).sortBy(_.getPositionFrom.getLine).map(y => y.name + "@" + y.range.get._1.getLine) mkString (",")) + ")") mkString ("; ")))
         println(success + "\n\n")
         Thread.sleep(2000)
         (quad._2, quad._3, quad._4)
