@@ -77,7 +77,10 @@ trait CTypeEnv extends CTypes with CTypeSystemInterface with CEnv with CDeclTypi
             //for parsing the inner members, the struct itself is available incomplete
 
             if (!initEnv.structEnv.someDefinition(name, isUnion, featureExpr)) {
-                // Struct declaration
+                /**
+                 * CDeclUse:
+                 * Struct declaration
+                 */
                 addDefinition(i, initEnv)
             }
             var env = initEnv.updateStructEnv(initEnv.structEnv.addIncomplete(i, isUnion, featureExpr, initEnv.scope))
@@ -87,7 +90,10 @@ trait CTypeEnv extends CTypes with CTypeSystemInterface with CEnv with CDeclTypi
             //collect inner struct declarations recursively
             env = addInnerStructDeclarationsToEnv(attributes, featureExpr, env)
             if (initEnv.structEnv.someDefinition(name, isUnion, featureExpr)) {
-                // Struct redeclaration
+                /**
+                 * CDeclUse:
+                 * Struct redeclaration
+                 */
                 addStructRedeclaration(initEnv, i, featureExpr, isUnion)
             }
             checkStructRedeclaration(name, isUnion, featureExpr, env.scope, env, e)
@@ -102,16 +108,20 @@ trait CTypeEnv extends CTypes with CTypeSystemInterface with CEnv with CDeclTypi
 
             if (declareIncompleteTypes) {
                 if (initEnv.structEnv.someDefinition(name, isUnion, featureExpr)) {
-                    // Struct redeclaration
+                    /**
+                     * CDeclUse:
+                     * Struct usage
+                     */
                     addStructDeclUse(i, initEnv, isUnion, featureExpr)
-                    // addStructRedeclaration(initEnv, i, featureExpr, isUnion)
                 } else {
-                    // Struct declaration
+                    /**
+                     * CDeclUse:
+                     * Struct declaration
+                     */
                     addDefinition(i, initEnv)
                 }
                 env
             } else {
-                //addDefinition(i, initEnv, featureExpr)
                 addStructDeclUse(i, initEnv, isUnion, featureExpr)
                 initEnv
             }

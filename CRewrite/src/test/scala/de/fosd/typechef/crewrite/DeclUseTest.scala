@@ -83,7 +83,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 18
         val numberOfEntries = 33
         val numberOfVariableIds = 2
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     private def getAstFromPi(fileToAnalyse: File): TranslationUnit = {
@@ -101,7 +101,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 7
         val numberOfEntries = 3
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_typedef_in_sizeof {
@@ -111,7 +111,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 4
         val numberOfEntries = 2
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Ignore def test_forward_declared_struct {
@@ -121,7 +121,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 15
         val numberOfEntries = 4
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_struct_globals {
@@ -131,7 +131,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 9
         val numberOfEntries = 7
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Ignore def test_sizeof_tags {
@@ -141,7 +141,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 14
         val numberOfEntries = 10
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_linux_pte {
@@ -151,7 +151,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 9
         val numberOfEntries = 7
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_linux_typedef_struct {
@@ -161,7 +161,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 3
         val numberOfEntries = 1
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_builtin_offsetof_typedef_struct_union {
@@ -171,7 +171,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 10
         val numberOfEntries = 6
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_malloc_sizeof {
@@ -181,7 +181,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 6
         val numberOfEntries = 4
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_linked_struct {
@@ -191,7 +191,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 5
         val numberOfEntries = 2
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_similar_structs {
@@ -201,7 +201,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 8
         val numberOfEntries = 13
         val numberOfVariableIds = 2
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_struct_sigevent {
@@ -212,7 +212,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfEntries = 8
         val numberOfVariableIds = 0
         println(result)
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Ignore def test_gzip_pi {
@@ -227,7 +227,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfEntries = 4535
         val numberOfVariableIds = 2
         println(result)
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_struct_def_use {

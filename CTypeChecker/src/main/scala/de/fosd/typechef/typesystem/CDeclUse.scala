@@ -52,8 +52,6 @@ import de.fosd.typechef.parser.c.NestedNamedDeclarator
 // stores the required information
 trait CDeclUseInterface extends CEnv {
 
-    init()
-
     def clearDeclUseMap() {}
 
     def init() {}
@@ -87,6 +85,8 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     // TODO FeatureModel instead of FeatureExprFactory
     // TODO ASTEnv Caching
     private lazy val logger = LogManager.getLogger(this.getClass.getName)
+
+    val numberOfBuiltinFunctions = 65
 
     private var declUseMap: util.IdentityHashMap[Id, util.Set[Id]] = new util.IdentityHashMap()
     private var useDeclMap: util.IdentityHashMap[Id, List[Id]] = new util.IdentityHashMap()
@@ -744,7 +744,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
             }
         })
 
-        val numberOfIdsInAst = relevantIds.size
+        val numberOfIdsInAst = relevantIds.size + numberOfBuiltinFunctions
         val numberOfIdsInDefuse = allIds.keySet().size()
 
         relevantIds.foreach(x => {
