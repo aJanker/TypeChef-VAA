@@ -639,6 +639,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                                     addToDeclUseMap(x._2.asInstanceOf[Id], use)
                                 }
                             })
+                        case x => // match error, causes exception @ openssl - TODO analyse
                     }
                 } else {
                     addDefinition(use, env)
