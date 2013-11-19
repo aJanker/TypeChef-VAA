@@ -39,6 +39,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_CANBUILD = Options.genOptionId();
     private final static char F_REFSTUDY = Options.genOptionId();
     private final static char F_WRITEBUILDCONDITION = Options.genOptionId();
+    private final static char F_PRETTYPRINT = Options.genOptionId();
     private final File _autoErrorXMLFile = new File(".");
     public boolean parse = true,
             typecheck = false,
@@ -49,6 +50,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             refLink = false,
             canBuild = false,
             writeBuildCondition = false,
+            prettyPrint = false,
             writeInterface = false,
             dumpcfg = false,
             doublefree = false,
@@ -105,6 +107,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                 new Option("canBuild", LongOpt.NO_ARGUMENT, F_CANBUILD, null, "Tests the possibility of building the pretty printed File"),
                 new Option("study", LongOpt.REQUIRED_ARGUMENT, F_REFSTUDY, null, "Defines the used casestudy environment"),
                 new Option("writeBuildCondition", LongOpt.NO_ARGUMENT, F_WRITEBUILDCONDITION, null, "Writes out a .bc file containing the extracted custom build properties of the analyzed file."),
+                new Option("prettyPrint", LongOpt.NO_ARGUMENT, F_PRETTYPRINT, null, "Pretty prints the parsed ast as .pp file."),
                 new Option("decluse", LongOpt.NO_ARGUMENT, F_DECLUSE, null,
                         "Test the declaration use map."),
 
@@ -204,6 +207,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             writeDebugInterface = true;
         } else if (c == F_WRITEBUILDCONDITION) {
             writeBuildCondition = true;
+        } else if (c == F_PRETTYPRINT) {
+            parse = prettyPrint = true;
         } else if (c == 'o') {
             outputStem = g.getOptarg();
         } else if (c == F_FILEPC) {//--filePC
