@@ -139,11 +139,12 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
         var types = List[Conditional[CType]]()
         for (specifier <- specifiers) specifier match {
             case StructOrUnionSpecifier(isUnion, Some(id), a, b, c) =>
-                a match {
+                /*a match {
                     case None =>
                         addStructDeclUse(id, env, isUnion, featureExpr)
                     case _ =>
-                }
+                }*/
+                addStructDeclUse(id, env, isUnion, featureExpr)
                 if (hasTransparentUnionAttribute(specifiers)) {
                     types = types :+ One(CIgnore().toCType) //ignore transparent union for now
                 }

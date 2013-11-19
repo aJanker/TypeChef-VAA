@@ -11,6 +11,7 @@ import de.fosd.typechef.parser.c.TranslationUnit
 class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse with CTypeSystem with TestHelper {
 
     val decluseTestPath = new File(".").getCanonicalPath() ++ "/CRewrite/src/test/resources/decluse_testfiles/"
+    val ifdeftoifTestPath = new File(".").getCanonicalPath() ++ "/CRewrite/src/test/resources/ifdeftoif_testfiles/"
 
     @Test def test_cstruct_def_use {
         val source_ast = getAST( """
@@ -154,6 +155,17 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
+    @Test def test_alex_14 {
+        val source_ast = getAstFromPi(new File(ifdeftoifTestPath + "14.c"))
+        println(source_ast)
+        val result = runDefUseOnAst(source_ast)
+        val numberOfDefinitions = 9
+        val numberOfEntries = 7
+        val numberOfVariableIds = 0
+        println(result)
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
+    }
+
     @Test def test_linux_typedef_struct {
         val source_ast = getAstFromPi(new File(decluseTestPath + "linux_typedef_struct.c"))
         println(source_ast)
@@ -283,10 +295,10 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val source_ast = getAST( """
      int main(void) {
        #if definedEx(A)
-       int i = 8;
+       int a = 8;
        #endif
        #if definedEx(B)
-       int i = 16;
+       int b = 16;
        #endif
 
        #if definedEx(C)

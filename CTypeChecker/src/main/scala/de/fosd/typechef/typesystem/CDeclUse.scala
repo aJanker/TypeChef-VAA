@@ -622,10 +622,10 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
             }
         }
 
-        // println("AddStructDeclUse: " + entry + " from " + entry.getPositionFrom.getLine)
-        /*val tst = env.structEnv.getId(entry.name, isUnion)
+        /*println("AddStructDeclUse: " + entry + " from " + entry.getPositionFrom.getLine)
+        val tst = env.structEnv.getId(entry.name, isUnion)
         println("ARR: " + tst)
-        print("")*/
+        println("")*/
         entry match {
             case use@Id(name) => {
                 if (env.structEnv.someDefinition(name, isUnion)) {
@@ -635,7 +635,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                         case c@Choice(_, _, _) =>
                             val tuple = conditionalToTuple(c)
                             tuple.foreach(x => {
-                                if (feature.equivalentTo(FeatureExprFactory.True) || feature.implies(x._1).isTautology) {
+                                if (x._1.equivalentTo(FeatureExprFactory.True) || x._1.implies(feature).isTautology) {
                                     addToDeclUseMap(x._2.asInstanceOf[Id], use)
                                 }
                             })
@@ -730,7 +730,10 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
         }
 
         val resultString = new StringBuilder()
-        val relevantIds = getAllRelevantIds(ast)
+        val relevantIds: IdentityHashMap[Id, Id] = new IdentityHashMap()
+        getAllRelevantIds(ast).foreach(x => {
+            relevantIds.put(x, null)
+        })
 
         val missingLB: ListBuffer[Id] = ListBuffer()
         val duplicateLB: ListBuffer[Id] = ListBuffer()
@@ -749,8 +752,8 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
         val numberOfIdsInDefuse = allIds.keySet().size()
 
         relevantIds.foreach(x => {
-            if (!allIds.containsKey(x)) {
-                missingLB += x
+            if (!allIds.containsKey(x._1)) {
+                missingLB += x._1
             }
         })
         if (!missingLB.isEmpty) {

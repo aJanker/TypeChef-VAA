@@ -572,7 +572,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             t
         } else {
             val r = alltd(rule {
-                case structSpec@StructOrUnionSpecifier(isUnion, Some(i: Id), a, b, c) =>
+                case structSpec@StructOrUnionSpecifier(isUnion, Some(i: Id), a@Some(attributes), b, c) =>
                     addIdUsages(i, ft)
                     replaceId.put(i, ft)
                     if (!idMap.contains(ft)) {
@@ -1876,8 +1876,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      * 4. Transform ElifStatements
      */
     def handleIfStatement(optIf: Opt[_], currentContext: FeatureExpr = trueF): List[Opt[_]] = {
+
         // 1. Step
-        // @fgarbe: You frequently use equals trueF, but so feature expressions such as A v !A are missed.
         if (!optIf.feature.equivalentTo(trueF)) {
             optIf.entry match {
                 case IfStatement(cond, thenBranch, elifs, elseBranch) =>
@@ -1889,7 +1889,16 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             optIf.entry match {
 
                 // 3. Step
-                case i@IfStatement(One(expr), One(stmt), elif, els) =>
+                case i@IfStatement(One(expr), One(stmt), elif, els@None) =>
+                    val features = computeNextRelevantFeatures(expr, currentContext)
+                    if (features.isEmpty) {
+                        List(Opt(trueF, IfStatement(One(replaceOptAndId(expr, currentContext)), One(transformRecursive(stmt, currentContext)), elif.flatMap(x => handleIfStatement(replaceOptAndId(x, currentContext), currentContext)).asInstanceOf[List[Opt[ElifStatement]]], transformRecursive(replaceOptAndId(els, currentContext), currentContext))))
+                    } else {
+                        features.flatMap(x => List(Opt(trueF, (IfStatement(One(NAryExpr(featureToCExpr(x), List(Opt(trueF, NArySubExpr("&&", replaceOptAndId(expr, x)))))), transformRecursive(replaceOptAndId(One(convertStatementToCompound(stmt)), x), x), elif.flatMap(y => handleIfStatement(replaceOptAndId(y, x), x)).asInstanceOf[List[Opt[ElifStatement]]], transformRecursive(replaceOptAndId(els, x), x))))))
+                    }
+
+                // alternative 3. Step with elseBranch
+                case i@IfStatement(One(expr), One(stmt), elif, els@Some(One(elseStmt))) =>
                     val features = computeNextRelevantFeatures(expr, currentContext)
                     if (features.isEmpty) {
                         List(Opt(trueF, IfStatement(One(replaceOptAndId(expr, currentContext)), One(transformRecursive(stmt, currentContext)), elif.flatMap(x => handleIfStatement(replaceOptAndId(x, currentContext), currentContext)).asInstanceOf[List[Opt[ElifStatement]]], transformRecursive(replaceOptAndId(els, currentContext), currentContext))))
