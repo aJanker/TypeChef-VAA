@@ -1135,7 +1135,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         testFile(file)
     }
 
-    @Ignore def test_decompress_unzip_pi() {
+    @Test def test_decompress_unzip_pi() {
         val file = new File(busyBoxPath + "archival/libarchive/decompress_unzip.pi")
         testFile(file)
     }
