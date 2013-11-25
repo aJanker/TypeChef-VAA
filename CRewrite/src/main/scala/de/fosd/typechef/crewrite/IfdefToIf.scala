@@ -125,12 +125,28 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
     // Declarations
     var noOfStructUnionDuplications = 0
+    var noOfOptionalStructUnions = 0
+    var noOfStructUnionsToDuplicate = 0
+
     var noOfTypedefDuplications = 0
+    var noOfOptionalTypedefs = 0
+    var noOfTypedefsToDuplicate = 0
+
     var noOfEnumDuplications = 0
+    var noOfOptionalEnums = 0
+    var noOfEnumsToDuplicate = 0
+
     var noOfVariableDuplications = 0
+    var noOfOptionalVariables = 0
+    var noOfVariablesToDuplicate = 0
+
     var noOfFunctionDuplications = 0
+    var noOfOptionalFunctions = 0
+    var noOfFunctionsToDuplicate = 0
+
     var noOfEnumeratorDuplications = 0
-    var noOfStructDeclarationDuplications = 0
+    var noOfOptionalEnumerators = 0
+    var noOfEnumeratorsToDuplicate = 0
 
     // Statements
     var noOfIfStatementDuplications = 0
@@ -793,7 +809,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         transformRecursive(replaceOptAndId(t, feat), feat)
     }
 
-    def ifdeftoif(ast: AST, decluse: IdentityHashMap[Id, List[Id]], usedecl: IdentityHashMap[Id, List[Id]], featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty, outputStem: String = "unnamed", lexAndParseTime: Long = 0, writeStatistics: Boolean = true, newPath: String = ""): (Option[AST], Long, List[TypeChefError]) = {
+    def ifdeftoif(ast: TranslationUnit, decluse: IdentityHashMap[Id, List[Id]], usedecl: IdentityHashMap[Id, List[Id]], featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty, outputStem: String = "unnamed", lexAndParseTime: Long = 0, writeStatistics: Boolean = true, newPath: String = ""): (Option[AST], Long, List[TypeChefError]) = {
         new File(path).mkdirs()
         val tb = java.lang.management.ManagementFactory.getThreadMXBean
         fm = featureModel
@@ -812,7 +828,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
 
         val time = tb.getCurrentThreadCpuTime()
-        val new_ast = transformRecursive(source_ast)
+        val new_ast = transformRecursive(source_ast, trueF, true)
         val transformTime = (tb.getCurrentThreadCpuTime() - time) / nstoms
         val features = getSingleFeatures(source_ast)
         noOfFeatures = features.size
@@ -842,13 +858,11 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 val csvEntry = createCsvEntry(source_ast, new_ast, fileName, lexAndParseTime, transformTime)
                 appendToFile(path ++ "statistics.csv", csvEntry)
 
-                val csvDuplications = createCsvDuplicationString(fileName)
-                if (!(new File(path ++ "duplications.csv").exists)) {
-                    writeToFile(path ++ "duplications.csv", csvDuplications._1)
+                val csvDuplications = createCsvDuplicationString(source_ast, fileName)
+                if (!(new File(path ++ "top_level_statistics.csv").exists)) {
+                    writeToFile(path ++ "top_level_statistics.csv", csvDuplications._1)
                 }
-                appendToFile(path ++ "duplications.csv", csvDuplications._2)
-                println(getNumberOfDeclarationElements(source_ast))
-                println(getNumberOfDeclarationElements(new_ast))
+                appendToFile(path ++ "top_level_statistics.csv", csvDuplications._2)
             }
             (Some(result_ast), transformTime, List())
         } else {
@@ -923,44 +937,54 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     /**
      *
      */
-    def countDuplications[T <: Any](originalElement: T, newNumber: Int, isDeclarationStatement: Boolean = false) = {
-        val growth = newNumber - 1
-        if (growth > 0) {
-            originalElement match {
-                case d@Declaration(declSpecs, inits) =>
-                    if (declSpecs.exists(x => x.entry.isInstanceOf[TypedefSpecifier])) {
-                        noOfTypedefDuplications = noOfTypedefDuplications + growth
-                    } else if (declSpecs.exists(x => x.entry.isInstanceOf[StructOrUnionSpecifier])) {
-                        noOfStructUnionDuplications = noOfStructUnionDuplications + growth
-                    } else if (declSpecs.exists(x => x.entry.isInstanceOf[EnumSpecifier])) {
-                        noOfEnumDuplications = noOfEnumDuplications + growth
-                    } else if (isDeclarationStatement) {
-                        noOfVariableDuplications = noOfVariableDuplications + growth
-                    } else {
-                        // Function forward declarations
+    def countDuplications[T <: Any](originalElement: T, growth: Int, isTopLevel: Boolean) = {
+        if (isTopLevel) {
+            // val growth = newNumber - 1
+            if (growth > 1) {
+                originalElement match {
+                    case d@Declaration(declSpecs, inits) =>
+                        if (declSpecs.exists(x => x.entry.isInstanceOf[TypedefSpecifier])) {
+                            noOfTypedefDuplications = noOfTypedefDuplications + growth
+                            noOfTypedefsToDuplicate = noOfTypedefsToDuplicate + 1
+                        } else if (declSpecs.exists(x => x.entry.isInstanceOf[StructOrUnionSpecifier])) {
+                            noOfStructUnionDuplications = noOfStructUnionDuplications + growth
+                            noOfStructUnionsToDuplicate = noOfStructUnionsToDuplicate + 1
+                        } else if (declSpecs.exists(x => x.entry.isInstanceOf[EnumSpecifier])) {
+                            noOfEnumDuplications = noOfEnumDuplications + growth
+                            noOfEnumsToDuplicate = noOfEnumsToDuplicate + 1
+                        } else {
+                            // Function forward declarations
+                            if (inits.exists(x => x.entry.declarator.extensions.exists(y => y.entry.isInstanceOf[DeclIdentifierList] || y.entry.isInstanceOf[DeclParameterDeclList]))) {
+                                noOfFunctionDuplications = noOfFunctionDuplications + growth
+                                noOfFunctionsToDuplicate = noOfFunctionsToDuplicate + 1
+                            } else {
+                                noOfVariableDuplications = noOfVariableDuplications + growth
+                                noOfVariablesToDuplicate = noOfVariablesToDuplicate + 1
+                            }
+                        }
+                    case f@FunctionDef(_, _, _, _) =>
                         noOfFunctionDuplications = noOfFunctionDuplications + growth
-                    }
-                case f@FunctionDef(_, _, _, _) =>
-                    noOfFunctionDuplications = noOfFunctionDuplications + growth
-                case e@Enumerator(_, _) =>
-                    noOfEnumeratorDuplications = noOfEnumeratorDuplications + growth
-                case sd@StructDeclaration(_, _) =>
-                    noOfStructDeclarationDuplications = noOfStructDeclarationDuplications + growth
+                        noOfFunctionsToDuplicate = noOfFunctionsToDuplicate + 1
+                    /*case e@Enumerator(_, _) =>
+                        noOfEnumeratorDuplications = noOfEnumeratorDuplications + growth
+                        noOfEnumeratorsToDuplicate = noOfEnumeratorsToDuplicate + 1
+                    case ss@SwitchStatement(_, _) =>
+                        noOfSwitchStatementDuplications = noOfSwitchStatementDuplications + growth
+                    case is@IfStatement(_, _, _, _) =>
+                        noOfIfStatementDuplications = noOfIfStatementDuplications + growth
+                    case ws@WhileStatement(_, _) =>
+                        noOfWhileStatementDuplications = noOfWhileStatementDuplications + growth
+                    case rs@ReturnStatement(_) =>
+                        noOfReturnStatementDuplications = noOfReturnStatementDuplications + growth
+                    case ds@DoStatement(_, _) =>
+                        noOfDoStatementDuplications = noOfDoStatementDuplications + growth
+                    case fs@ForStatement(_, _, _, _) =>
+                        noOfForStatementDuplications = noOfForStatementDuplications + growth
+                    case es@ExprStatement(_) =>
+                        noOfExprStatementDuplications = noOfExprStatementDuplications + growth*/
 
-                case ss@SwitchStatement(_, _) =>
-                    noOfSwitchStatementDuplications = noOfSwitchStatementDuplications + growth
-                case is@IfStatement(_, _, _, _) =>
-                    noOfIfStatementDuplications = noOfIfStatementDuplications + growth
-                case ws@WhileStatement(_, _) =>
-                    noOfWhileStatementDuplications = noOfWhileStatementDuplications + growth
-                case rs@ReturnStatement(_) =>
-                    noOfReturnStatementDuplications = noOfReturnStatementDuplications + growth
-                case ds@DoStatement(_, _) =>
-                    noOfDoStatementDuplications = noOfDoStatementDuplications + growth
-                case fs@ForStatement(_, _, _, _) =>
-                    noOfForStatementDuplications = noOfForStatementDuplications + growth
-                case es@ExprStatement(_) =>
-                    noOfExprStatementDuplications = noOfExprStatementDuplications + growth
+                    case _ =>
+                }
             }
         }
     }
@@ -983,7 +1007,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         defuse = decluse
         usedef = usedecl
         val time = tb.getCurrentThreadCpuTime()
-        val result = transformRecursive(source_ast)
+        val result = transformRecursive(source_ast, trueF, true)
         val transformTime = (tb.getCurrentThreadCpuTime() - time) / nstoms
         val features = getSingleFeatures(source_ast)
         noOfFeatures = features.size
@@ -1003,7 +1027,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      * - statements which need to be duplicated or embedded inside if statements
      * - declarations which need to be duplicated/renamed
      */
-    def transformRecursive[T <: Product](t: T, currentContext: FeatureExpr = trueF): T = {
+    def transformRecursive[T <: Product](t: T, currentContext: FeatureExpr = trueF, isTopLevel: Boolean = false): T = {
         val r = alltd(rule {
             case l: List[Opt[_]] =>
                 l.flatMap(x => {
@@ -1024,17 +1048,17 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                             if (ft != trueF) {
                                 entry match {
                                     case declStmt@DeclarationStatement(decl: Declaration) =>
-                                        val result = handleDeclarations(Opt(ft, decl), currentContext).map(x => Opt(trueF, DeclarationStatement(x.entry)))
-                                        countDuplications(decl, result.size, true)
+                                        val result = handleDeclarations(Opt(ft, decl), currentContext, isTopLevel).map(x => Opt(trueF, DeclarationStatement(x.entry)))
+                                        countDuplications(decl, result.size, isTopLevel)
                                         result
                                     case decl: Declaration =>
-                                        val result = handleDeclarations(o.asInstanceOf[Opt[Declaration]], currentContext)
-                                        countDuplications(o.entry, result.size)
+                                        val result = handleDeclarations(o.asInstanceOf[Opt[Declaration]], currentContext, isTopLevel)
+                                        countDuplications(o.entry, result.size, isTopLevel)
                                         result
                                     case i@Initializer(elem, expr) =>
                                         val features = computeNextRelevantFeatures(i, o.feature)
                                         if (!features.isEmpty) {
-                                            countDuplications(o.entry, features.size)
+                                            countDuplications(o.entry, features.size, isTopLevel)
                                             features.map(x => replaceAndTransform(Opt(trueF, Initializer(elem, convertAllIds(expr, x))), x))
                                         } else {
                                             List(replaceOptAndId(Opt(trueF, Initializer(elem, convertAllIds(expr, o.feature))), o.feature))
@@ -1042,15 +1066,16 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                     case e: Enumerator =>
                                         val features = computeNextRelevantFeatures(e, o.feature)
                                         if (!features.isEmpty) {
-                                            countDuplications(o.entry, features.size)
+                                            countDuplications(o.entry, features.size, isTopLevel)
                                             features.map(x => Opt(trueF, transformRecursive(convertEnumId(replaceOptAndId(e, x), x), x)))
                                         } else {
+                                            noOfOptionalEnumerators = noOfOptionalEnumerators + 1
                                             List(Opt(trueF, transformRecursive(convertEnumId(replaceOptAndId(e, o.feature), o.feature), o.feature)))
                                         }
                                     case sd@StructDeclaration(qual, decl) =>
                                         val features = computeNextRelevantFeatures(sd, currentContext.and(o.feature))
                                         if (!features.isEmpty) {
-                                            countDuplications(o.entry, features.size)
+                                            countDuplications(o.entry, features.size, isTopLevel)
                                             features.map(x => replaceAndTransform(Opt(trueF, StructDeclaration(qual, convertStructId(decl, x))), x))
                                         } else {
                                             List(replaceOptAndId(Opt(trueF, StructDeclaration(qual, convertStructId(decl, o.feature))), o.feature))
@@ -1058,17 +1083,17 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
                                     case fd: FunctionDef =>
                                         val result = handleFunction(o)
-                                        countDuplications(o.entry, result.size)
+                                        countDuplications(o.entry, result.size, isTopLevel)
                                         result
                                     case nfd: NestedFunctionDef =>
                                         val result = handleFunction(o)
-                                        countDuplications(o.entry, result.size)
+                                        countDuplications(o.entry, result.size, isTopLevel)
                                         result
 
 
                                     case i@IfStatement(_, _, _, _) =>
                                         val result = handleIfStatement(o, ft)
-                                        countDuplications(o.entry, result.size)
+                                        countDuplications(o.entry, result.size, isTopLevel)
                                         result
                                     case r: ReturnStatement =>
                                         val features = computeNextRelevantFeatures(r, ft)
@@ -1080,15 +1105,15 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                         }
                                     case w: WhileStatement =>
                                         val result = handleStatement(o, currentContext)
-                                        countDuplications(o.entry, result.size)
+                                        countDuplications(o.entry, result.size, isTopLevel)
                                         result
                                     case s: SwitchStatement =>
                                         val result = handleStatement(o, currentContext)
-                                        countDuplications(o.entry, result.size)
+                                        countDuplications(o.entry, result.size, isTopLevel)
                                         result
                                     case d: DoStatement =>
                                         val result = handleStatement(o, currentContext)
-                                        countDuplications(o.entry, result.size)
+                                        countDuplications(o.entry, result.size, isTopLevel)
                                         result
                                     case g: GotoStatement =>
                                         val features = computeNextRelevantFeatures(g, ft)
@@ -1100,7 +1125,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                         }
                                     case f: ForStatement =>
                                         val result = handleStatement(o, currentContext)
-                                        countDuplications(o.entry, result.size)
+                                        countDuplications(o.entry, result.size, isTopLevel)
                                         result
                                     case elif@ElifStatement(One(expr: Expr), thenBranch) =>
                                         // TODO: should not happen because handleIfStatements should take care of this?
@@ -1111,7 +1136,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                         val realFeature = currentContext.and(o.feature)
                                         val features = computeNextRelevantFeatures(e, realFeature)
                                         if (!features.isEmpty) {
-                                            countDuplications(o.entry, features.size)
+                                            countDuplications(o.entry, features.size, isTopLevel)
                                             features.map(x => Opt(trueF, IfStatement(One(featureToCExpr(x.and(realFeature))), One(CompoundStatement(List(replaceAndTransform(Opt(trueF, e), x.and(realFeature))))), List(), None)))
                                         } else {
                                             List(Opt(trueF, IfStatement(One(featureToCExpr(realFeature)), One(CompoundStatement(List(replaceAndTransform(Opt(trueF, e), realFeature)))), List(), None)))
@@ -1152,18 +1177,18 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                 */
                                 entry match {
                                     case declStmt@DeclarationStatement(decl: Declaration) =>
-                                        val result = handleDeclarations(Opt(ft, decl), currentContext).map(x => Opt(trueF, DeclarationStatement(x.entry)))
-                                        countDuplications(decl, result.size, true)
+                                        val result = handleDeclarations(Opt(ft, decl), currentContext, isTopLevel).map(x => Opt(trueF, DeclarationStatement(x.entry)))
+                                        countDuplications(decl, result.size, isTopLevel)
                                         result
                                     case d@Declaration(declSpecs, init) =>
-                                        val result = handleDeclarations(o.asInstanceOf[Opt[Declaration]], currentContext)
-                                        countDuplications(o.entry, result.size)
+                                        val result = handleDeclarations(o.asInstanceOf[Opt[Declaration]], currentContext, isTopLevel)
+                                        countDuplications(o.entry, result.size, isTopLevel)
                                         result
 
                                     case e@Enumerator(id, any) =>
                                         val features = computeNextRelevantFeatures(e, currentContext)
                                         if (!features.isEmpty) {
-                                            countDuplications(o.entry, features.size)
+                                            countDuplications(o.entry, features.size, isTopLevel)
                                             features.map(x => Opt(trueF, transformRecursive(convertEnumId(replaceOptAndId(e, x), x), x)))
                                         } else {
                                             List(transformRecursive(o, currentContext))
@@ -1171,7 +1196,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                     case sd@StructDeclaration(qual, decl) =>
                                         val features = computeNextRelevantFeatures(sd, currentContext.and(o.feature))
                                         if (!features.isEmpty) {
-                                            countDuplications(o.entry, features.size)
+                                            countDuplications(o.entry, features.size, isTopLevel)
                                             features.map(x => replaceAndTransform(Opt(trueF, StructDeclaration(qual, convertStructId(decl, x))), x))
                                         } else {
                                             List(transformRecursive(o, currentContext))
@@ -1179,27 +1204,27 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
                                     case fd: FunctionDef =>
                                         val result = handleFunction(o)
-                                        countDuplications(o.entry, result.size)
+                                        countDuplications(o.entry, result.size, isTopLevel)
                                         result
                                     case nfd: NestedFunctionDef =>
                                         val result = handleFunction(o)
-                                        countDuplications(o.entry, result.size)
+                                        countDuplications(o.entry, result.size, isTopLevel)
                                         result
 
                                     case cmpStmt: CompoundStatement =>
                                         List(Opt(trueF, transformRecursive(cmpStmt, currentContext)))
                                     case f: ForStatement =>
                                         val result = handleStatement(o, currentContext)
-                                        countDuplications(o.entry, result.size)
+                                        countDuplications(o.entry, result.size, isTopLevel)
                                         result
                                     case d: DoStatement =>
                                         val result = handleStatement(o, currentContext)
-                                        countDuplications(o.entry, result.size)
+                                        countDuplications(o.entry, result.size, isTopLevel)
                                         result
                                     case r: ReturnStatement =>
                                         val features = computeNextRelevantFeatures(r, currentContext)
                                         if (!features.isEmpty) {
-                                            countDuplications(o.entry, features.size)
+                                            countDuplications(o.entry, features.size, isTopLevel)
                                             val result = features.map(x => Opt(trueF, statementToIf(replaceAndTransform(r, x), x)))
                                             result
                                         } else {
@@ -1239,7 +1264,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                     case e: ExprStatement =>
                                         val features = computeNextRelevantFeatures(e, currentContext)
                                         if (!features.isEmpty) {
-                                            countDuplications(o.entry, features.size)
+                                            countDuplications(o.entry, features.size, isTopLevel)
                                             features.map(x => Opt(trueF, IfStatement(One(featureToCExpr(x)), One(CompoundStatement(List(replaceAndTransform(Opt(trueF, e), x.and(o.feature))))), List(), None)))
                                         } else {
                                             if (currentContext.equivalentTo(trueF, fm)) {
@@ -1250,15 +1275,15 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                         }
                                     case w@WhileStatement(expr: Expr, s: Conditional[_]) =>
                                         val result = handleStatement(o, currentContext)
-                                        countDuplications(o.entry, result.size)
+                                        countDuplications(o.entry, result.size, isTopLevel)
                                         result
                                     case ss: SwitchStatement =>
                                         val result = handleStatement(o, currentContext)
-                                        countDuplications(o.entry, result.size)
+                                        countDuplications(o.entry, result.size, isTopLevel)
                                         result
                                     case i@IfStatement(_, _, _, _) =>
                                         val result = handleIfStatement(o, currentContext)
-                                        countDuplications(o.entry, result.size)
+                                        countDuplications(o.entry, result.size, isTopLevel)
                                         result
                                     case elif@ElifStatement(One(cond), thenBranch) =>
                                         val feat = computeNextRelevantFeatures(cond)
@@ -2153,7 +2178,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         }
     }
 
-    def handleDeclarations(optDeclaration: Opt[Declaration], currentContext: FeatureExpr = trueF): List[Opt[Declaration]] = {
+    def handleDeclarations(optDeclaration: Opt[Declaration], currentContext: FeatureExpr = trueF, isTopLevel: Boolean = false): List[Opt[Declaration]] = {
         // TODO convert multiple IDs from variable_typedef a, b, c, d;
         if (optDeclaration.feature.equivalentTo(trueF)) {
             optDeclaration.entry match {
@@ -2207,6 +2232,22 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                         val result = features.map(x => Opt(trueF, transformRecursive(convertId(replaceOptAndId(tmpDecl, x), x), x)))
                         result
                     } else {
+                        if (isTopLevel) {
+                            if (declSpecs.exists(x => x.entry.isInstanceOf[TypedefSpecifier])) {
+                                noOfOptionalTypedefs = noOfOptionalTypedefs + 1
+                            } else if (declSpecs.exists(x => x.entry.isInstanceOf[StructOrUnionSpecifier])) {
+                                noOfOptionalStructUnions = noOfOptionalStructUnions + 1
+                            } else if (declSpecs.exists(x => x.entry.isInstanceOf[EnumSpecifier])) {
+                                noOfOptionalEnums = noOfOptionalEnums + 1
+                            } else {
+                                // Function forward declarations
+                                if (init.exists(x => x.entry.declarator.extensions.exists(y => y.entry.isInstanceOf[DeclIdentifierList] || y.entry.isInstanceOf[DeclParameterDeclList]))) {
+                                    noOfOptionalFunctions = noOfOptionalFunctions + 1
+                                } else {
+                                    noOfOptionalVariables = noOfOptionalVariables + 1
+                                }
+                            }
+                        }
                         val result = List(Opt(trueF, transformRecursive(replaceOptAndId(convertId(tmpDecl, feat), feat), feat)))
                         result
                     }
@@ -2391,13 +2432,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         var functions: Long = 0
         var variables: Long = 0
 
-        var isDeclarationStatement: Boolean = false
         val variable = manytd(query {
             case l: List[_] =>
             case p: Product =>
                 p match {
-                    case d@DeclarationStatement(decl) =>
-                        isDeclarationStatement = true
                     case d@Declaration(declSpecs, inits) =>
                         if (declSpecs.exists(x => x.entry.isInstanceOf[TypedefSpecifier])) {
                             typedefs = typedefs + 1
@@ -2405,13 +2443,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                             structOrUnions = structOrUnions + 1
                         } else if (declSpecs.exists(x => x.entry.isInstanceOf[EnumSpecifier])) {
                             enums = enums + 1
-                        } else if (isDeclarationStatement) {
-                            variables = variables + 1
                         } else {
                             // Function forward declaration
-                            functions = functions + 1
+                            if (inits.exists(x => x.entry.declarator.extensions.exists(y => y.entry.isInstanceOf[DeclIdentifierList] || y.entry.isInstanceOf[DeclParameterDeclList]))) {
+                                functions = functions + 1
+                            } else {
+                                variables = variables + 1
+                            }
                         }
-                        isDeclarationStatement = false
                     case f@FunctionDef(_, _, _, _) =>
                         functions = functions + 1
                     case _ =>
@@ -2420,6 +2459,42 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         })
 
         variable(ast)
+
+        val result = (typedefs, structOrUnions, enums, functions, variables)
+        result
+    }
+
+    /**
+     * Counts the number of different declarations at the very top level in the AST: typefdef, structOrUnions, enums,
+     * functions, variables.
+     */
+    def getNumberOfTopLevelDeclarationElements(ast: TranslationUnit): (Long, Long, Long, Long, Long) = {
+        var typedefs: Long = 0
+        var structOrUnions: Long = 0
+        var enums: Long = 0
+        var functions: Long = 0
+        var variables: Long = 0
+
+        ast.defs.foreach(x => x.entry match {
+            case d@Declaration(declSpecs, inits) =>
+                if (declSpecs.exists(x => x.entry.isInstanceOf[TypedefSpecifier])) {
+                    typedefs = typedefs + 1
+                } else if (declSpecs.exists(x => x.entry.isInstanceOf[StructOrUnionSpecifier])) {
+                    structOrUnions = structOrUnions + 1
+                } else if (declSpecs.exists(x => x.entry.isInstanceOf[EnumSpecifier])) {
+                    enums = enums + 1
+                } else {
+                    // Function forward declaration
+                    if (inits.exists(x => x.entry.declarator.extensions.exists(y => y.entry.isInstanceOf[DeclIdentifierList] || y.entry.isInstanceOf[DeclParameterDeclList]))) {
+                        functions = functions + 1
+                    } else {
+                        variables = variables + 1
+                    }
+                }
+            case f@FunctionDef(_, _, _, _) =>
+                functions = functions + 1
+            case _ =>
+        })
 
         val result = (typedefs, structOrUnions, enums, functions, variables)
         result
@@ -2507,9 +2582,18 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     /**
      * Creates a string with all duplication data from the ifdef to if configuration.
      */
-    def createCsvDuplicationString(fileName: String): (String, String) = {
-        val headers = List("FileName", "StructUnions", "Typedefs", "Enums", "Functions", "Variables", "Enumerators", "IfStatements", "WhileStatements", "SwitchStatements", "ForStatements", "DoStatements", "ReturnStatements", "EprStatements")
-        val numbers = fileName :: List(noOfStructUnionDuplications, noOfTypedefDuplications, noOfEnumDuplications, noOfFunctionDuplications, noOfVariableDuplications, noOfEnumeratorDuplications, noOfIfStatementDuplications, noOfWhileStatementDuplications, noOfSwitchStatementDuplications, noOfForStatementDuplications, noOfDoStatementDuplications, noOfReturnStatementDuplications, noOfExprStatementDuplications).map(x => x.toString)
+    def createCsvDuplicationString(ast: TranslationUnit, fileName: String): (String, String) = {
+        val headers = List("FileName", "Typedefs", "Optional Typedefs", "Typedefs to duplicate", "Typedef duplications",
+            "StructUnions", "Optional StructUnions", "StructUnions to duplicate", "StructUnion duplications",
+            "Enums", "Optional Enums", "Enums to duplicate", "Enum duplications",
+            "Functions", "Optional Functions", "Functions to duplicate", "Function duplications",
+            "Variables", "Optional Variables", "Variables to duplicate", "Variable Duplications")
+        val elements = getNumberOfTopLevelDeclarationElements(ast)
+        val numbers = fileName :: List(elements._1, noOfOptionalTypedefs, noOfTypedefsToDuplicate, noOfTypedefDuplications,
+            elements._2, noOfOptionalStructUnions, noOfStructUnionsToDuplicate, noOfStructUnionDuplications,
+            elements._3, noOfOptionalEnums, noOfEnumsToDuplicate, noOfEnumDuplications,
+            elements._4, noOfOptionalFunctions, noOfFunctionsToDuplicate, noOfFunctionDuplications,
+            elements._5, noOfOptionalVariables, noOfVariablesToDuplicate, noOfVariableDuplications).map(x => x.toString)
         (createCommaSeparatedString(headers) ++ "\n", createCommaSeparatedString(numbers) ++ "\n")
     }
 

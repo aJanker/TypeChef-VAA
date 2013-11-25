@@ -157,6 +157,15 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         ("+++New Code+++\n" + PrettyPrinter.print(newAst))
     }
 
+    def getNewAst(source_ast: TranslationUnit): TranslationUnit = {
+        typecheckTranslationUnit(source_ast)
+        val defUseMap = getDeclUseMap
+        val useDefMap = getUseDeclMap
+
+        val optionsAst = i.getOptionFile(source_ast)
+        i.transformAst(source_ast, defUseMap, useDefMap, 0)._1
+    }
+
     def testFolder(path: String) {
         val folder = new File(path)
         val asts = analyseDir(folder)
@@ -940,8 +949,9 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     @Ignore def test_opt_def_use {
         val source_ast = getAST( """
       int o = 32;
+      int fooZ();
       int fooZ() {
-        #if definedEx(A)
+        #if definedEx(AA)
         const int konst = 55;
         int c = 32;
         #else
@@ -955,7 +965,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         return z;
       }
       int fooVariableArgument(
-      #if definedEx(A)
+      #if definedEx(AA)
       int
       #else
       float
@@ -963,7 +973,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
       a) {
         return 0;
       }
-      #if definedEx(A)
+      #if definedEx(AA)
       int fooA(int a) {
         return a;
       }
@@ -973,7 +983,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
       }
       #endif
       int main(void) {
-        #if definedEx(A)
+        #if definedEx(AA)
         int b = fooA(0);
         int argInt = 2;
         fooVariableArgument(argInt);
@@ -982,7 +992,9 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         fooVariableArgument(argFloat);
         fooA(0);
         #endif
-
+        #if definedEx(AA)
+        int bb = 0
+        #endif
         return 0;
       }
                                  """);
