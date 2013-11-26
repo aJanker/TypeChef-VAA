@@ -144,6 +144,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     var noOfOptionalFunctions = 0
     var noOfFunctionsToDuplicate = 0
 
+    var noOfForwardFunctionDuplications = 0
+    var noOfOptionalForwardFunctions = 0
+    var noOfForwardFunctionsToDuplicate = 0
+
     var noOfEnumeratorDuplications = 0
     var noOfOptionalEnumerators = 0
     var noOfEnumeratorsToDuplicate = 0
@@ -648,9 +652,13 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 }
 
         })
-        r(t) match {
-            case None => t
-            case k => k.get.asInstanceOf[T]
+        if (!ft.equivalentTo(trueF)) {
+            r(t) match {
+                case None => t
+                case k => k.get.asInstanceOf[T]
+            }
+        } else {
+            t
         }
     }
 
@@ -716,11 +724,15 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 }
 
         })
-        r(t) match {
-            case None =>
-                t
-            case _ =>
-                r(t).get.asInstanceOf[T]
+        if (!ft.equivalentTo(trueF, fm)) {
+            r(t) match {
+                case None =>
+                    t
+                case _ =>
+                    r(t).get.asInstanceOf[T]
+            }
+        } else {
+            t
         }
     }
 
@@ -955,8 +967,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                         } else {
                             // Function forward declarations
                             if (inits.exists(x => x.entry.declarator.extensions.exists(y => y.entry.isInstanceOf[DeclIdentifierList] || y.entry.isInstanceOf[DeclParameterDeclList]))) {
-                                noOfFunctionDuplications = noOfFunctionDuplications + growth
-                                noOfFunctionsToDuplicate = noOfFunctionsToDuplicate + 1
+                                noOfForwardFunctionDuplications = noOfForwardFunctionDuplications + growth
+                                noOfForwardFunctionsToDuplicate = noOfForwardFunctionsToDuplicate + 1
                             } else {
                                 noOfVariableDuplications = noOfVariableDuplications + growth
                                 noOfVariablesToDuplicate = noOfVariablesToDuplicate + 1
@@ -1039,7 +1051,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                 Exports the current code position in the source file. Can be used to find out
                                 where the #ifdef to if progress stopped.
                                  */
-                                writeToFile("ifdeftoif_progress.txt", x.entry.asInstanceOf[AST].range.get.toString())
+                                writeToFile("ifdeftoif_progress.txt", x.entry.asInstanceOf[AST].range.get.toString() + " from " + o)
                             }
 
                             /*
@@ -1059,9 +1071,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                         val features = computeNextRelevantFeatures(i, o.feature)
                                         if (!features.isEmpty) {
                                             countDuplications(o.entry, features.size, isTopLevel)
-                                            features.map(x => replaceAndTransform(Opt(trueF, Initializer(elem, convertAllIds(expr, x))), x))
+                                            features.map(x => replaceAndTransform(Opt(trueF, Initializer(elem, expr)), x))
                                         } else {
-                                            List(replaceOptAndId(Opt(trueF, Initializer(elem, convertAllIds(expr, o.feature))), o.feature))
+                                            List(replaceOptAndId(Opt(trueF, Initializer(elem, expr)), o.feature))
                                         }
                                     case e: Enumerator =>
                                         val features = computeNextRelevantFeatures(e, o.feature)
@@ -1167,8 +1179,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                     case cs: CompoundStatement =>
                                         List(Opt(trueF, IfStatement(One(featureToCExpr(o.feature)), One(replaceAndTransform(cs, o.feature)), List(), None)))
                                     case k =>
-                                        // println("Missing Opt: " + o + "\nFrom: " + k.asInstanceOf[AST].getPositionFrom + "\n")
-                                        List(o)
+                                        //println("Missing Opt: " + o + "\nFrom: " + k.asInstanceOf[AST].getPositionFrom + "\n")
+                                        List(transformRecursive(o, currentContext.and(o.feature)))
                                 }
                             } else {
 
@@ -1184,7 +1196,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                         val result = handleDeclarations(o.asInstanceOf[Opt[Declaration]], currentContext, isTopLevel)
                                         countDuplications(o.entry, result.size, isTopLevel)
                                         result
-
+                                    case i@Initializer(elem, expr) =>
+                                        val features = computeNextRelevantFeatures(i, o.feature)
+                                        if (!features.isEmpty) {
+                                            countDuplications(o.entry, features.size, isTopLevel)
+                                            features.map(x => replaceAndTransform(Opt(trueF, Initializer(elem, expr)), x))
+                                        } else {
+                                            List(replaceOptAndId(Opt(trueF, Initializer(elem, expr)), o.feature))
+                                        }
                                     case e@Enumerator(id, any) =>
                                         val features = computeNextRelevantFeatures(e, currentContext)
                                         if (!features.isEmpty) {
@@ -1302,10 +1321,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
                                     case td: TypelessDeclaration =>
                                         List(o)
-                                    case k: Product =>
+                                    case k =>
+                                        //println("Missing Opt: " + o + "\nFrom: " + k.asInstanceOf[AST].getPositionFrom + "\n")
                                         List(transformRecursive(o, currentContext))
-                                    case _ =>
-                                        List(o)
                                 }
                             }
                         case k => List(transformRecursive(k, currentContext))
@@ -1834,6 +1852,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 case d@Opt(ft, entry: Statement) =>
                     //println("Stopping at: " + d)
                     List()
+                case d@Opt(ft, entry: Initializer) =>
+                    //println("Stopping at: " + d)
+                    List()
                 case d@Opt(ft, entry: Declaration) =>
                     //println("Stopping at: " + d)
                     List()
@@ -1863,6 +1884,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     def getNextIdFeatures(a: Any, currentContext: FeatureExpr = trueF): List[FeatureExpr] = {
         def getVariableIds(a: Any, currentContext: FeatureExpr = trueF): List[Id] = {
             a match {
+                case d@Opt(ft, entry: Initializer) =>
+                    List()
+                case d@Opt(ft, entry: Enumerator) =>
+                    List()
                 case d@Opt(ft, entry: Statement) =>
                     List()
                 case d@Opt(ft, entry: Declaration) =>
@@ -2180,7 +2205,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
     def handleDeclarations(optDeclaration: Opt[Declaration], currentContext: FeatureExpr = trueF, isTopLevel: Boolean = false): List[Opt[Declaration]] = {
         // TODO convert multiple IDs from variable_typedef a, b, c, d;
-        if (optDeclaration.feature.equivalentTo(trueF)) {
+        /*if (optDeclaration.feature.equivalentTo(trueF)) {
             optDeclaration.entry match {
                 case d@Declaration(declSpecs, init) =>
                     // filter for false features, because the and-operation might introduce FeatureExprFactory.False
@@ -2196,7 +2221,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             optDeclaration.entry match {
                 case d@Declaration(declSpecs, init) =>
                     val feat = optDeclaration.feature
-                    val newDeclSpecs = declSpecs.map(x => x match {
+                    val newDeclSpecs = declSpecs.map(x => if (x.feature.equivalentTo(trueF) || x.feature.equivalentTo(optDeclaration.feature)) x match {
                         case o@Opt(ft, EnumSpecifier(Some(i: Id), Some(enums))) =>
                             val newEnums = Some(enums.map(x => convertAllIds(x, ft)))
                             if (defuse.containsKey(i)) {
@@ -2225,7 +2250,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
                         case k =>
                             k
-                    })
+                    } else x)
                     val tmpDecl = Declaration(newDeclSpecs, init)
                     val features = computeNextRelevantFeatures(tmpDecl, feat)
                     if (!features.isEmpty) {
@@ -2252,6 +2277,66 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                         result
                     }
             }
+        }*/
+        optDeclaration.entry match {
+            case d@Declaration(declSpecs, init) =>
+                val feat = optDeclaration.feature
+                val newDeclSpecs = declSpecs.map(x => if (x.feature.equivalentTo(trueF) || x.feature.equivalentTo(optDeclaration.feature)) x
+                else x match {
+                    case o@Opt(ft, EnumSpecifier(Some(i: Id), Some(enums))) =>
+                        val newEnums = Some(enums.map(x => convertAllIds(x, ft)))
+                        if (defuse.containsKey(i)) {
+                            addIdUsages(i, feat)
+                            Opt(ft, EnumSpecifier(Some(Id(getPrefixFromIdMap(feat) + i.name)), newEnums))
+                        } else {
+                            Opt(ft, EnumSpecifier(Some(i), newEnums))
+                        }
+                    case o@Opt(ft, EnumSpecifier(None, Some(enums))) =>
+                        val newEnums = Some(enums.map(x => convertAllIds(x, ft)))
+                        Opt(ft, EnumSpecifier(None, newEnums))
+                    case o@Opt(ft, EnumSpecifier(Some(i: Id), k)) =>
+                        if (defuse.containsKey(i)) {
+                            addIdUsages(i, feat)
+                            Opt(ft, EnumSpecifier(Some(Id(getPrefixFromIdMap(feat) + i.name)), k))
+                        } else {
+                            o
+                        }
+                    case o@Opt(ft, StructOrUnionSpecifier(a, Some(i: Id), b, c, d)) =>
+                        if (defuse.containsKey(i)) {
+                            addIdUsages(i, feat)
+                            Opt(ft, StructOrUnionSpecifier(a, Some(Id(getPrefixFromIdMap(feat) + i.name)), b, c, d))
+                        } else {
+                            o
+                        }
+
+                    case k =>
+                        k
+                })
+                val tmpDecl = Declaration(newDeclSpecs, init)
+                val features = computeNextRelevantFeatures(tmpDecl, feat)
+                if (!features.isEmpty) {
+                    val result = features.map(x => Opt(trueF, transformRecursive(convertId(replaceOptAndId(tmpDecl, x), x), x)))
+                    result
+                } else {
+                    if (isTopLevel) {
+                        if (declSpecs.exists(x => x.entry.isInstanceOf[TypedefSpecifier])) {
+                            noOfOptionalTypedefs = noOfOptionalTypedefs + 1
+                        } else if (declSpecs.exists(x => x.entry.isInstanceOf[StructOrUnionSpecifier])) {
+                            noOfOptionalStructUnions = noOfOptionalStructUnions + 1
+                        } else if (declSpecs.exists(x => x.entry.isInstanceOf[EnumSpecifier])) {
+                            noOfOptionalEnums = noOfOptionalEnums + 1
+                        } else {
+                            // Function forward declarations
+                            if (init.exists(x => x.entry.declarator.extensions.exists(y => y.entry.isInstanceOf[DeclIdentifierList] || y.entry.isInstanceOf[DeclParameterDeclList]))) {
+                                noOfOptionalForwardFunctions = noOfOptionalForwardFunctions + 1
+                            } else {
+                                noOfOptionalVariables = noOfOptionalVariables + 1
+                            }
+                        }
+                    }
+                    val result = List(Opt(trueF, transformRecursive(replaceOptAndId(convertId(tmpDecl, feat), feat), feat)))
+                    result
+                }
         }
     }
 
@@ -2466,13 +2551,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
     /**
      * Counts the number of different declarations at the very top level in the AST: typefdef, structOrUnions, enums,
-     * functions, variables.
+     * functions, foward function declarations, variables.
      */
-    def getNumberOfTopLevelDeclarationElements(ast: TranslationUnit): (Long, Long, Long, Long, Long) = {
+    def getNumberOfTopLevelDeclarationElements(ast: TranslationUnit): (Long, Long, Long, Long, Long, Long) = {
         var typedefs: Long = 0
         var structOrUnions: Long = 0
         var enums: Long = 0
         var functions: Long = 0
+        var forwardFunctions: Long = 0
         var variables: Long = 0
 
         ast.defs.foreach(x => x.entry match {
@@ -2486,7 +2572,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 } else {
                     // Function forward declaration
                     if (inits.exists(x => x.entry.declarator.extensions.exists(y => y.entry.isInstanceOf[DeclIdentifierList] || y.entry.isInstanceOf[DeclParameterDeclList]))) {
-                        functions = functions + 1
+                        forwardFunctions = forwardFunctions + 1
                     } else {
                         variables = variables + 1
                     }
@@ -2496,7 +2582,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             case _ =>
         })
 
-        val result = (typedefs, structOrUnions, enums, functions, variables)
+        val result = (typedefs, structOrUnions, enums, functions, forwardFunctions, variables)
         result
     }
 
@@ -2587,13 +2673,15 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             "StructUnions", "Optional StructUnions", "StructUnions to duplicate", "StructUnion duplications",
             "Enums", "Optional Enums", "Enums to duplicate", "Enum duplications",
             "Functions", "Optional Functions", "Functions to duplicate", "Function duplications",
+            "Function forward declarations", "Optional function forward declarations", "Function forward declarations to duplicate", "Function forward declaration duplications",
             "Variables", "Optional Variables", "Variables to duplicate", "Variable Duplications")
         val elements = getNumberOfTopLevelDeclarationElements(ast)
         val numbers = fileName :: List(elements._1, noOfOptionalTypedefs, noOfTypedefsToDuplicate, noOfTypedefDuplications,
             elements._2, noOfOptionalStructUnions, noOfStructUnionsToDuplicate, noOfStructUnionDuplications,
             elements._3, noOfOptionalEnums, noOfEnumsToDuplicate, noOfEnumDuplications,
             elements._4, noOfOptionalFunctions, noOfFunctionsToDuplicate, noOfFunctionDuplications,
-            elements._5, noOfOptionalVariables, noOfVariablesToDuplicate, noOfVariableDuplications).map(x => x.toString)
+            elements._5, noOfOptionalForwardFunctions, noOfForwardFunctionsToDuplicate, noOfForwardFunctionDuplications,
+            elements._6, noOfOptionalVariables, noOfVariablesToDuplicate, noOfVariableDuplications).map(x => x.toString)
         (createCommaSeparatedString(headers) ++ "\n", createCommaSeparatedString(numbers) ++ "\n")
     }
 
