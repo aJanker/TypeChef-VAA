@@ -6,7 +6,6 @@ import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem._
 import java.io._
 import java.util
-import util.IdentityHashMap
 import scala.Some
 import scala.Tuple2
 import de.fosd.typechef.conditional.{Choice, One, Opt}
@@ -200,7 +199,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         (typeCheckSourceDuration, typeCheckResultDuration)
     }
 
-    private def getDefUse(ast: TranslationUnit): (IdentityHashMap[Id, List[Id]], IdentityHashMap[Id, List[Id]]) = {
+    private def getDefUse(ast: TranslationUnit): (IdentityIdHashMap, IdentityIdHashMap) = {
         typecheckTranslationUnit(ast)
         (getDeclUseMap, getUseDeclMap)
     }

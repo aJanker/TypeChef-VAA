@@ -356,7 +356,7 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
                         case None =>
                         case Some(x) => {
                             if (fi.isSatisfiable(fm)) {
-                                val xdecls = udm.get(x)
+                                val xdecls = udm.get(x._1._1)
                                 var edecls = udm.get(e)
                                 if (edecls == null) edecls = List(e)
 

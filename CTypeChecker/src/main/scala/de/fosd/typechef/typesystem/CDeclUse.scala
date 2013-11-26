@@ -44,6 +44,24 @@ import de.fosd.typechef.parser.c.CastExpr
 import de.fosd.typechef.parser.c.NestedNamedDeclarator
 
 
+/**
+ * Wrapper case class for IdentityHashMap as java's IdentityHashMap allows get(Anyref)
+ *
+ * @param iIdHashMap the wrapped map
+ */
+case class IdentityIdHashMap(iIdHashMap: util.IdentityHashMap[Id, List[Id]]) extends Iterable[(Id, List[Id])] {
+
+    def get(id: Id) = iIdHashMap.get(id)
+
+    def containsKey(id: Id) = iIdHashMap.containsKey(id)
+
+    def keySet = iIdHashMap.keySet
+
+    def values = iIdHashMap.values
+
+    def iterator = iIdHashMap.iterator
+}
+
 // this trait is a hook into the typesystem to preserve typing informations
 // of declarations and usages
 // the trait basically provides two maps: declaration -> usage and usages -> declarations
@@ -94,8 +112,6 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
 
     private[typesystem] def clear() = clearDeclUseMap()
 
-    private val newIdentifierName = "rnd_ident"
-
     private def putToDeclUseMap(decl: Id) = {
         if (decl.name.equals("forward")) {
             print("")
@@ -138,15 +154,14 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
         }
     }
 
-    def getDeclUseMap: util.IdentityHashMap[Id, List[Id]] = {
+    def getDeclUseMap: IdentityIdHashMap = {
         val morphedDeclUsedMap = new util.IdentityHashMap[Id, List[Id]]()
         declUseMap.keySet().foreach(x => morphedDeclUsedMap.put(x, declUseMap.get(x).toList))
-        morphedDeclUsedMap
+        IdentityIdHashMap(morphedDeclUsedMap)
     }
 
-    def getUseDeclMap = useDeclMap
+    def getUseDeclMap = IdentityIdHashMap(useDeclMap)
 
-    def getUntouchedDeclUseMap = declUseMap
 
     // add definition:
     //   - function: function declarations (forward declarations) and function definitions are handled
@@ -718,7 +733,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     }
 
 
-    def checkDefuse(ast: AST, declUseMap: IdentityHashMap[Id, List[Id]], useDeclMap: util.IdentityHashMap[Id, List[Id]], fm: FeatureModel = FeatureExprLib.featureModelFactory().empty): (String, Int, Int, Int) = {
+    def checkDefuse(ast: AST, declUseMap: IdentityIdHashMap, useDeclMap: IdentityIdHashMap, fm: FeatureModel = FeatureExprLib.featureModelFactory().empty): (String, Int, Int, Int) = {
         def getAllRelevantIds(a: Any): List[Id] = {
             a match {
                 case id: Id => if (!(id.name.startsWith("__builtin"))) List(id) else List()
@@ -738,7 +753,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
         val missingLB: ListBuffer[Id] = ListBuffer()
         val duplicateLB: ListBuffer[Id] = ListBuffer()
         val allIds: IdentityHashMap[Id, Id] = new IdentityHashMap()
-        val defuseKeyList = declUseMap.keySet().toArray().toList
+        val defuseKeyList = declUseMap.keySet.toArray().toList
 
         declUseMap.flatMap(x => x._1 :: x._2).foreach(x => {
             if (allIds.contains(x)) {
