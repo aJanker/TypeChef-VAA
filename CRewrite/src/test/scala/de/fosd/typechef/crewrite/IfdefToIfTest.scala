@@ -119,7 +119,6 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             // new_ast._1 is the generated ast
             // result_ast is the ast parsed from the generated file
             // 1. is the generated ast ok?
-            println(PrettyPrinter.print(result_ast))
             val wellTypedAST = i.getTypeSystem(new_ast._1).checkAST()
             if (wellTypedAST) {
                 println("\t--TypeCheck: " + true + "--\n")
@@ -129,6 +128,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             assert(wellTypedAST, "generated AST is not well typed")
 
             // 2. is the generated file well typed?
+            println(PrettyPrinter.print(result_ast))
             val wellTypedFile = i.getTypeSystem(result_ast).checkAST()
             assert(wellTypedFile, "generated file is not well typed or could not be parsed")
             // 3. does it still contain #if statements?
@@ -945,7 +945,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println(testAst(source_ast))
     }
 
-    @Ignore def test_opt_def_use {
+    @Test def test_opt_def_use {
         val source_ast = getAST( """
       int o = 32;
       int fooZ();
@@ -1166,8 +1166,8 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         testFile(file)
     }
 
-    @Ignore def single_busybox_file_test() {
-        val filename = "init"
+    @Test def single_busybox_file_test() {
+        val filename = "ls"
         transformSingleFile(filename, busyBoxPath)
     }
 
