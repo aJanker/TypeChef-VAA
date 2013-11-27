@@ -1885,17 +1885,29 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         def getVariableIds(a: Any, currentContext: FeatureExpr = trueF): List[Id] = {
             a match {
                 case d@Opt(ft, entry: Initializer) =>
+                    //println("IdFeat canceled at: " + entry)
                     List()
                 case d@Opt(ft, entry: Enumerator) =>
+                    //println("IdFeat canceled at: " + entry)
                     List()
                 case d@Opt(ft, entry: Statement) =>
+                    //println("IdFeat canceled at: " + entry)
                     List()
                 case d@Opt(ft, entry: Declaration) =>
+                    //println("IdFeat canceled at: " + entry)
                     List()
                 case d@Opt(ft, entry: StructDeclaration) =>
+                    //println("IdFeat canceled at: " + entry)
                     List()
                 case d@Opt(ft, entry: FunctionDef) =>
+                    //println("IdFeat canceled at: " + entry)
                     List()
+                case d@Opt(ft, i: Id) =>
+                    if (idsToBeReplaced.containsKey(i)) {
+                        List(i)
+                    } else {
+                        List()
+                    }
                 case d@Opt(ft, entry: AST) =>
                     entry.productIterator.toList.flatMap(getVariableIds(_))
                 case i: Id =>
@@ -1904,15 +1916,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     } else {
                         List()
                     }
-                case d@Opt(ft, i: Id) =>
-                    if (idsToBeReplaced.containsKey(i)) {
-                        List(i)
-                    } else {
-                        List()
-                    }
                 case p: Product =>
                     p.productIterator.toList.flatMap(getVariableIds(_))
                 case k =>
+                    //println("IdFeat canceled at: " + k)
                     List()
             }
         }
