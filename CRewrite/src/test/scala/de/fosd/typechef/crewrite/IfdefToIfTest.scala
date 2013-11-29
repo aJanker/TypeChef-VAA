@@ -6,7 +6,6 @@ import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem._
 import java.io._
 import java.util
-import util.IdentityHashMap
 import scala.Some
 import scala.Tuple2
 import de.fosd.typechef.conditional.{Choice, One, Opt}
@@ -149,7 +148,6 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             // new_ast._1 is the generated ast
             // result_ast is the ast parsed from the generated file
             // 1. is the generated ast ok?
-            println(PrettyPrinter.print(result_ast))
             val wellTypedAST = i.getTypeSystem(new_ast._1).checkAST()
             if (wellTypedAST) {
                 println("\t--TypeCheck: " + true + "--\n")
@@ -159,6 +157,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             assert(wellTypedAST, "generated AST is not well typed")
 
             // 2. is the generated file well typed?
+            println(PrettyPrinter.print(result_ast))
             val wellTypedFile = i.getTypeSystem(result_ast).checkAST()
             assert(wellTypedFile, "generated file is not well typed or could not be parsed")
 
@@ -204,6 +203,15 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         ("+++New Code+++\n" + PrettyPrinter.print(newAst))
     }
 
+    def getNewAst(source_ast: TranslationUnit): TranslationUnit = {
+        typecheckTranslationUnit(source_ast)
+        val defUseMap = getDeclUseMap
+        val useDefMap = getUseDeclMap
+
+        val optionsAst = i.getOptionFile(source_ast)
+        i.transformAst(source_ast, defUseMap, useDefMap, 0)._1
+    }
+
     def testFolder(path: String) {
         val folder = new File(path)
         val asts = analyseDir(folder)
@@ -238,7 +246,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         (typeCheckSourceDuration, typeCheckResultDuration)
     }
 
-    private def getDefUse(ast: TranslationUnit): (IdentityHashMap[Id, List[Id]], IdentityHashMap[Id, List[Id]]) = {
+    private def getDefUse(ast: TranslationUnit): (IdentityIdHashMap, IdentityIdHashMap) = {
         typecheckTranslationUnit(ast)
         (getDeclUseMap, getUseDeclMap)
     }
@@ -984,11 +992,12 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println(testAst(source_ast))
     }
 
-    @Ignore def test_opt_def_use {
+    @Test def test_opt_def_use {
         val source_ast = getAST( """
       int o = 32;
+      int fooZ();
       int fooZ() {
-        #if definedEx(A)
+        #if definedEx(AA)
         const int konst = 55;
         int c = 32;
         #else
@@ -1002,7 +1011,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         return z;
       }
       int fooVariableArgument(
-      #if definedEx(A)
+      #if definedEx(AA)
       int
       #else
       float
@@ -1010,7 +1019,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
       a) {
         return 0;
       }
-      #if definedEx(A)
+      #if definedEx(AA)
       int fooA(int a) {
         return a;
       }
@@ -1020,7 +1029,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
       }
       #endif
       int main(void) {
-        #if definedEx(A)
+        #if definedEx(AA)
         int b = fooA(0);
         int argInt = 2;
         fooVariableArgument(argInt);
@@ -1029,7 +1038,9 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         fooVariableArgument(argFloat);
         fooA(0);
         #endif
-
+        #if definedEx(AA)
+        int bb = 0
+        #endif
         return 0;
       }
                                  """);
@@ -1098,6 +1109,16 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
     @Test def test_alex_12() {
         val file = new File(ifdeftoifTestPath + "12.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+    @Test def test_alex_13() {
+        val file = new File(ifdeftoifTestPath + "13.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+    @Test def test_alex_14() {
+        val file = new File(ifdeftoifTestPath + "14.c")
         println(i.getAstFromFile(file))
         testFile(file)
     }
@@ -1172,7 +1193,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         testFile(file)
     }
 
-    @Ignore def test_decompress_unzip_pi() {
+    @Test def test_decompress_unzip_pi() {
         val file = new File(busyBoxPath + "archival/libarchive/decompress_unzip.pi")
         testFile(file)
     }
@@ -1192,8 +1213,8 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         testFile(file)
     }
 
-    @Ignore def single_busybox_file_test() {
-        val filename = "init"
+    @Test def single_busybox_file_test() {
+        val filename = "ls"
         transformSingleFile(filename, busyBoxPath)
     }
 

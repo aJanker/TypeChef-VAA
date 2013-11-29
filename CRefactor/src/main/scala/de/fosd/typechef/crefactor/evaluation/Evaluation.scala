@@ -11,16 +11,16 @@ import de.fosd.typechef.parser.c.GnuAsmExpr
 import de.fosd.typechef.parser.c.Id
 import scala.collection.immutable.HashMap
 import de.fosd.typechef.conditional.{Opt, Choice}
-import de.fosd.typechef.crefactor.evaluation.busybox_1_18_5.setup.building.BuildCondition
+import de.fosd.typechef.crefactor.evaluation.setup.BuildCondition
 
 trait Evaluation extends Logging with BuildCondition {
 
+    val evalName: String
     val caseStudyPath: String
-    val completeBusyBoxPath: String
-    val busyBoxFiles: String
+    val completePath: String
+    val filesToEval: String
     val blackListFiles: List[String]
-    val busyBoxPath: String
-    val busyBoxPathUntouched: String
+    val sourcePath: String
     val result: String
 
     val filterFeatures: List[String]
@@ -28,13 +28,13 @@ trait Evaluation extends Logging with BuildCondition {
     val allFeatures: (List[SingleFeatureExpr], IdentityHashMap[String, String])
     val pairWiseFeaturesFile: String
 
-    val systemProperties: String
-    val includeHeader: String
-    val includeDir: String
     val featureModel: String
     val featureModel_DIMACS: String
 
     val runTimeout: Int
+
+    val FORCE_VARIABILITY: Boolean
+    val FORCE_LINKING: Boolean
 
 
     /**
@@ -291,10 +291,10 @@ trait Evaluation extends Logging with BuildCondition {
 
     def write(ast: AST, filePath: String, orgFile: String = null) = {
         val refFile = if (orgFile != null) orgFile else filePath
-        writeAST(ast, filePath)
+        printAndWriteAST(ast, filePath)
         val resultDir = getResultDir(refFile)
         val path = resultDir.getCanonicalPath + File.separatorChar + getFileName(filePath)
-        writeAST(ast, path)
+        printAndWriteAST(ast, path)
         writePlainAST(ast, path + ".ast")
     }
 
@@ -308,7 +308,7 @@ trait Evaluation extends Logging with BuildCondition {
         out.close()
     }
 
-    def writeAST(ast: AST, filePath: String) {
+    def printAndWriteAST(ast: AST, filePath: String) {
         val file = new File(filePath)
         val prettyPrinted = PrettyPrinter.print(ast).replace("definedEx", "defined")
         val writer = new FileWriter(file, false)
@@ -418,7 +418,7 @@ trait Evaluation extends Logging with BuildCondition {
                 case x => List(x + ".c").:::(readIn(reader))
             }
         }
-        val reader = new BufferedReader(new FileReader(busyBoxFiles))
+        val reader = new BufferedReader(new FileReader(filesToEval))
         val files = readIn(reader)
         reader.close()
         files

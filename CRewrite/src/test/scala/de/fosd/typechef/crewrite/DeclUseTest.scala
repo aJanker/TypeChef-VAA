@@ -11,6 +11,7 @@ import de.fosd.typechef.parser.c.TranslationUnit
 class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse with CTypeSystem with TestHelper {
 
     val decluseTestPath = new File(".").getCanonicalPath() ++ "/CRewrite/src/test/resources/decluse_testfiles/"
+    val ifdeftoifTestPath = new File(".").getCanonicalPath() ++ "/CRewrite/src/test/resources/ifdeftoif_testfiles/"
 
     @Test def test_cstruct_def_use {
         val source_ast = getAST( """
@@ -83,7 +84,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 18
         val numberOfEntries = 33
         val numberOfVariableIds = 2
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     private def getAstFromPi(fileToAnalyse: File): TranslationUnit = {
@@ -101,7 +102,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 7
         val numberOfEntries = 3
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_typedef_in_sizeof {
@@ -111,7 +112,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 4
         val numberOfEntries = 2
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Ignore def test_forward_declared_struct {
@@ -121,7 +122,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 15
         val numberOfEntries = 4
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_struct_globals {
@@ -131,7 +132,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 9
         val numberOfEntries = 7
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Ignore def test_sizeof_tags {
@@ -141,7 +142,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 14
         val numberOfEntries = 10
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_linux_pte {
@@ -151,7 +152,18 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 9
         val numberOfEntries = 7
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
+    }
+
+    @Test def test_alex_14 {
+        val source_ast = getAstFromPi(new File(ifdeftoifTestPath + "14.c"))
+        println(source_ast)
+        val result = runDefUseOnAst(source_ast)
+        val numberOfDefinitions = 9
+        val numberOfEntries = 7
+        val numberOfVariableIds = 0
+        println(result)
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_struct_swpd {
@@ -171,7 +183,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 3
         val numberOfEntries = 1
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_builtin_offsetof_typedef_struct_union {
@@ -181,7 +193,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 10
         val numberOfEntries = 6
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_malloc_sizeof {
@@ -191,7 +203,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 6
         val numberOfEntries = 4
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_linked_struct {
@@ -201,7 +213,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 5
         val numberOfEntries = 2
         val numberOfVariableIds = 0
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_similar_structs {
@@ -211,7 +223,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 8
         val numberOfEntries = 13
         val numberOfVariableIds = 2
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_struct_sigevent {
@@ -222,7 +234,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfEntries = 8
         val numberOfVariableIds = 0
         println(result)
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Ignore def test_gzip_pi {
@@ -236,7 +248,8 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 6815
         val numberOfEntries = 4535
         val numberOfVariableIds = 2
-        assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
+        println(result)
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
     @Test def test_struct_def_use {
@@ -292,10 +305,10 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val source_ast = getAST( """
      int main(void) {
        #if definedEx(A)
-       int i = 8;
+       int a = 8;
        #endif
        #if definedEx(B)
-       int i = 16;
+       int b = 16;
        #endif
 
        #if definedEx(C)
@@ -452,7 +465,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         fw.write(sb.toString)
         fw.close()*/
         println("TypeChecking Runtime:\t" + (endtime - starttime) / 1000.0 + " seconds.\n")
-        println("DeclUseMap:\n" + (declUse.keySet().toArray.toList.map(x => x.asInstanceOf[Id].name + "@" + x.asInstanceOf[Id].range.get._1.getLine + " = (" + (declUse.get(x).map(y => y.name + "@" + y.range.get._1.getLine) mkString (",")) + ")") mkString ("; ")))
+        println("DeclUseMap:\n" + (declUse.keySet.toArray.toList.asInstanceOf[List[Id]].sortWith {(x: Id, y: Id) => if (x.name.equals(y.name)) x.getPositionFrom < y.getPositionFrom else x.name < y.name}.map(x => x.name + "@" + x.asInstanceOf[Id].range.get._1.getLine + " = (" + (declUse.get(x).sortBy(_.getPositionFrom.getLine).map(y => y.name + "@" + y.range.get._1.getLine) mkString (",")) + ")") mkString ("; ")))
         println(success + "\n\n")
         Thread.sleep(2000)
         (quad._2, quad._3, quad._4)

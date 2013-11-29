@@ -138,8 +138,13 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
         //type specifiers
         var types = List[Conditional[CType]]()
         for (specifier <- specifiers) specifier match {
-            case StructOrUnionSpecifier(isUnion, Some(id), _, _, _) =>
-                //addStructDeclUse(id, env, isUnion, featureExpr)
+            case StructOrUnionSpecifier(isUnion, Some(id), a, b, c) =>
+                /*a match {
+                    case None =>
+                        addStructDeclUse(id, env, isUnion, featureExpr)
+                    case _ =>
+                }*/
+                addStructDeclUse(id, env, isUnion, featureExpr)
                 if (hasTransparentUnionAttribute(specifiers)) {
                     types = types :+ One(CIgnore().toCType) //ignore transparent union for now
                 }
@@ -151,7 +156,13 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
                     types = types :+ One(CIgnore().toCType) //ignore transparent union for now
                 else
                     types = types :+ One(CAnonymousStruct(parseStructMembers(members.getOrElse(Nil), featureExpr, env), isUnion).toCType)
-            case e@TypeDefTypeSpecifier(Id(typedefname)) => {
+            case e@TypeDefTypeSpecifier(i@Id(typedefname)) => {
+
+                /**
+                 * CDeclUse:
+                 * Add typedef usage to usages.
+                 */
+                addTypeUse(i, env, featureExpr)
                 val typedefEnvironment = env.typedefEnv
                 //typedef name can be shadowed by variable
                 val shadow = env.varEnv(typedefname).simplify(featureExpr)
@@ -163,7 +174,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
                         One(reportTypeError(f, "type " + typedefname + " not defined (shadowed by variable with type " + t + ")", e).toCType)
                 })
             }
-            case EnumSpecifier(_, _) =>
+            case e@EnumSpecifier(id, enumerators) =>
                 //according to tests with GCC, this should be unsigned int (see test "enum type is unsigned int" in TypeSystemTest)
                 types = types :+ One(CUnsigned(CInt()).toCType) //TODO check that enum name is actually defined (not urgent, there is not much checking possible for enums anyway)
             case TypeOfSpecifierT(typename) => types = types :+ getTypenameType(typename, featureExpr, env)
@@ -342,25 +353,26 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
         var result = List[(String, FeatureExpr, AST, Conditional[CType], DeclarationKind, Conditional[Linkage])]()
         for (Opt(f, spec) <- specs) spec match {
             case EnumSpecifier(optId, Some(enums)) =>
-                optId match {
-                    case Some(id: Id) => addDefinition(id, env, f and featureExpr)
-                    case _ =>
-                }
                 for (Opt(f2, enum) <- enums) {
                     enum.assignment.map(checkEnumInitializer(_, f and f2 and featureExpr, localEnv))
-                    //addDecl(enum, featureExpr and f and f2, env)
-                    /*enum match {
-                        case Enumerator(_, Some(BuiltinOffsetof(TypeName(specs, decl), offsetMember))) =>
-                            for (Opt(f, TypeDefTypeSpecifier(name)) <- specs) {
-                                addTypeUse(name, env, featureExpr)
-                            }
-                        case _ =>
-                    }*/
+
+                    /**
+                     * CDeclUse:
+                     * Add enum member Ids to Declarations
+                     */
                     addDefinition(enum.id, env)
                     localEnv = localEnv.addVar(enum.id.name, featureExpr and f and f2, enum, One(CSigned(CInt()).toCType), KEnumVar, env.scope, One(NoLinkage))
                     result = (enum.id.name, featureExpr and f and f2, enum, One(CSigned(CInt()).toCType), KEnumVar, One(NoLinkage)) :: result
                 }
             //recurse into structs
+            case EnumSpecifier(Some(i: Id), None) =>
+
+                /**
+                 * CDeclUse:
+                 * Add enum usage to usages
+                 */
+                addEnumUse(i, env, featureExpr)
+                result
             case StructOrUnionSpecifier(_, _, fields, _, _) =>
                 for (Opt(f2, structDeclaration) <- fields.getOrElse(Nil))
                     result = result ++ enumDeclarations(structDeclaration.qualifierList, featureExpr and f and f2, structDeclaration, env)
@@ -467,20 +479,14 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
         val r: List[Opt[Conditional[CType]]] = for (Opt(f, param) <- parameterDecls) yield param match {
             case p@PlainParameterDeclaration(specifiers, _) => Opt(f, constructType(specifiers, featureExpr and f, env, p))
             case p@ParameterDeclarationD(specifiers, decl, _) =>
-                for (Opt(g, StructOrUnionSpecifier(isUnion, Some(id), None, _, _)) <- specifiers) {
-                    addStructDeclUse(id, env, isUnion, featureExpr)
-                }
-                for (Opt(g, TypeDefTypeSpecifier(name)) <- specifiers) {
-                    addTypeUse(name, env, featureExpr)
-                }
                 Opt(f, getDeclaratorType(decl, constructType(specifiers, featureExpr and f, env, p), featureExpr and f, env))
             case p@ParameterDeclarationAD(specifiers, decl, _) =>
-                for (Opt(g, StructOrUnionSpecifier(isUnion, Some(id), None, _, _)) <- specifiers) {
+                /*for (Opt(g, StructOrUnionSpecifier(isUnion, Some(id), None, _, _)) <- specifiers) {
                     addStructDeclUse(id, env, isUnion, featureExpr)
                 }
                 for (Opt(g, TypeDefTypeSpecifier(name)) <- specifiers) {
                     addTypeUse(name, env, featureExpr)
-                }
+                }*/
                 Opt(f, getAbstractDeclaratorType(decl, constructType(specifiers, featureExpr and f, env, p), featureExpr and f, env))
             case VarArgs() => Opt(f, One(CVarArgs().toCType))
         }
@@ -493,9 +499,6 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
         var env = initialEnv
         var result = new ConditionalTypeMap()
         for (Opt(f, structDeclaration) <- members) {
-            for (Opt(g, EnumSpecifier(Some(i: Id), _)) <- structDeclaration.qualifierList) {
-                addEnumUse(i, env, g)
-            }
             for (Opt(g, structDeclarator) <- structDeclaration.declaratorList)
                 structDeclarator match {
                     case StructDeclarator(decl, _, attr) =>

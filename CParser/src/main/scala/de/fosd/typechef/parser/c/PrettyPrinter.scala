@@ -498,7 +498,8 @@ object PrettyPrinter {
             case CompoundStatementExpr(compoundStatement: CompoundStatement) => "(" ~ compoundStatement ~ ")"
             case Pragma(command: StringLit) => "_Pragma(" ~ command ~ ")"
 
-            case e => assert(assertion = false, message = "match not exhaustive: " + e); ""
+            case e =>
+                assert(assertion = false, message = "match not exhaustive: " + e); ""
         }
     }
 

@@ -12,63 +12,55 @@ import java.util
 import scala.collection.mutable.ListBuffer
 import de.fosd.typechef.lexer.FeatureExprLib
 import org.kiama.rewriting.Rewriter._
-import de.fosd.typechef.parser.c.PlainParameterDeclaration
 import de.fosd.typechef.parser.c.Enumerator
-import de.fosd.typechef.parser.c.EnumSpecifier
 import de.fosd.typechef.parser.c.VarArgs
 import scala.Some
-import de.fosd.typechef.parser.c.NAryExpr
 import de.fosd.typechef.parser.c.TypeDefTypeSpecifier
 import de.fosd.typechef.parser.c.Initializer
-import de.fosd.typechef.parser.c.DoStatement
-import de.fosd.typechef.parser.c.PointerPostfixSuffix
-import de.fosd.typechef.parser.c.AssignExpr
 import de.fosd.typechef.conditional.One
 import de.fosd.typechef.parser.c.BuiltinOffsetof
-import de.fosd.typechef.parser.c.DeclParameterDeclList
-import de.fosd.typechef.parser.c.Pointer
-import de.fosd.typechef.parser.c.SizeOfExprT
 import de.fosd.typechef.parser.c.LcurlyInitializer
 import de.fosd.typechef.parser.c.Id
-import de.fosd.typechef.parser.c.Constant
-import de.fosd.typechef.parser.c.PointerDerefExpr
 import de.fosd.typechef.parser.c.CompoundStatement
 import de.fosd.typechef.conditional.Opt
-import de.fosd.typechef.parser.c.ParameterDeclarationAD
 import de.fosd.typechef.parser.c.StructDeclarator
-import de.fosd.typechef.parser.c.PostfixExpr
-import de.fosd.typechef.parser.c.ArrayAccess
-import de.fosd.typechef.parser.c.ReturnStatement
 import de.fosd.typechef.parser.c.AtomicNamedDeclarator
 import de.fosd.typechef.parser.c.GnuAsmExpr
 import de.fosd.typechef.parser.c.StructOrUnionSpecifier
-import de.fosd.typechef.parser.c.PointerCreationExpr
 import de.fosd.typechef.conditional.Choice
-import de.fosd.typechef.parser.c.ConditionalExpr
-import de.fosd.typechef.parser.c.FunctionCall
-import de.fosd.typechef.parser.c.DeclArrayAccess
-import de.fosd.typechef.parser.c.IfStatement
-import de.fosd.typechef.parser.c.NArySubExpr
-import de.fosd.typechef.parser.c.WhileStatement
 import de.fosd.typechef.parser.c.InitDeclaratorI
-import de.fosd.typechef.parser.c.UnaryOpExpr
 import de.fosd.typechef.parser.c.Declaration
 import de.fosd.typechef.parser.c.InitializerAssigment
 import de.fosd.typechef.parser.c.LabelStatement
-import de.fosd.typechef.parser.c.ExprStatement
 import de.fosd.typechef.parser.c.DeclIdentifierList
-import de.fosd.typechef.parser.c.TypeOfSpecifierT
 import de.fosd.typechef.parser.c.InitializerDesignatorD
 import de.fosd.typechef.parser.c.StructDeclaration
 import de.fosd.typechef.parser.c.GotoStatement
 import de.fosd.typechef.parser.c.FunctionDef
 import de.fosd.typechef.parser.c.NestedFunctionDef
 import de.fosd.typechef.parser.c.OffsetofMemberDesignatorID
-import de.fosd.typechef.parser.c.ParameterDeclarationD
 import de.fosd.typechef.parser.c.TypeName
 import de.fosd.typechef.parser.c.CastExpr
 import de.fosd.typechef.parser.c.NestedNamedDeclarator
 
+
+/**
+ * Wrapper case class for IdentityHashMap as java's IdentityHashMap allows get(Anyref)
+ *
+ * @param iIdHashMap the wrapped map
+ */
+case class IdentityIdHashMap(iIdHashMap: util.IdentityHashMap[Id, List[Id]]) extends Iterable[(Id, List[Id])] {
+
+    def get(id: Id) = iIdHashMap.get(id)
+
+    def containsKey(id: Id) = iIdHashMap.containsKey(id)
+
+    def keySet = iIdHashMap.keySet
+
+    def values = iIdHashMap.values
+
+    def iterator = iIdHashMap.iterator
+}
 
 // this trait is a hook into the typesystem to preserve typing informations
 // of declarations and usages
@@ -77,8 +69,6 @@ import de.fosd.typechef.parser.c.NestedNamedDeclarator
 // to do so typed elements are passed during typechecking to CDeclUse which
 // stores the required information
 trait CDeclUseInterface extends CEnv {
-
-    init()
 
     def clearDeclUseMap() {}
 
@@ -114,15 +104,18 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     // TODO ASTEnv Caching
     private lazy val logger = LogManager.getLogger(this.getClass.getName)
 
+    val numberOfBuiltinFunctions = 65
+
     private var declUseMap: util.IdentityHashMap[Id, util.Set[Id]] = new util.IdentityHashMap()
     private var useDeclMap: util.IdentityHashMap[Id, List[Id]] = new util.IdentityHashMap()
     private var stringToIdMap: Map[String, Id] = Map()
 
     private[typesystem] def clear() = clearDeclUseMap()
 
-    private val newIdentifierName = "rnd_ident"
-
     private def putToDeclUseMap(decl: Id) = {
+        if (decl.name.equals("forward")) {
+            print("")
+        }
         if (!declUseMap.contains(decl)) {
             declUseMap.put(decl, Collections.newSetFromMap[Id](new util.IdentityHashMap()))
         }
@@ -161,15 +154,14 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
         }
     }
 
-    def getDeclUseMap: util.IdentityHashMap[Id, List[Id]] = {
+    def getDeclUseMap: IdentityIdHashMap = {
         val morphedDeclUsedMap = new util.IdentityHashMap[Id, List[Id]]()
         declUseMap.keySet().foreach(x => morphedDeclUsedMap.put(x, declUseMap.get(x).toList))
-        morphedDeclUsedMap
+        IdentityIdHashMap(morphedDeclUsedMap)
     }
 
-    def getUseDeclMap = useDeclMap
+    def getUseDeclMap = IdentityIdHashMap(useDeclMap)
 
-    def getUntouchedDeclUseMap = declUseMap
 
     // add definition:
     //   - function: function declarations (forward declarations) and function definitions are handled
@@ -180,10 +172,6 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
             case id: Id =>
                 if (isFunctionDeclarator) addFunctionDeclaration(env, id, feature)
                 else putToDeclUseMap(id)
-            case StructDeclaration(quals, decls) => decls.foreach(x => {
-                addDecl(x.entry, x.feature, env)
-                //quals.foreach(x => addDecl(x.entry, x.feature, env))
-            })
             case _ =>
         }
     }
@@ -474,10 +462,10 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
         // For each incoming use of an identifier, we look up in the varEnv the corresponding declaration.
         // Furthermore, known special cases are filtered before.
         val r = manytd(query {
-            case TypeDefTypeSpecifier(id) => //addTypeUse(id, env, feature)
+            case TypeDefTypeSpecifier(id) =>
+            //addTypeUse(id, env, feature)
             case TypeName(specs, decl) =>
                 specs.foreach(x => addUse(x.entry, feature, env))
-                addDecl(decl, feature, env)
             case CastExpr(typ, LcurlyInitializer(lst)) =>
                 addUseCastExpr(typ, addUse _, feature, env, lst)
 
@@ -490,7 +478,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                                 case Opt(ft, OffsetofMemberDesignatorID(offsetId: Id)) =>
                                     addStructUse(offsetId, ft, env, name.name, false)
                             })
-                            addTypeUse(name, env, ft)
+                        //addTypeUse(name, env, ft)
                         case Opt(ft, StructOrUnionSpecifier(isUnion, Some(i: Id), _, _, _)) =>
                             offsetDesignators.foreach(x => x match {
                                 case Opt(ft, OffsetofMemberDesignatorID(offsetId: Id)) =>
@@ -649,10 +637,10 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
             }
         }
 
-        // println("AddStructDeclUse: " + entry + " from " + entry.getPositionFrom.getLine)
-        /*val tst = env.structEnv.getId(entry.name, isUnion)
+        /*println("AddStructDeclUse: " + entry + " from " + entry.getPositionFrom.getLine)
+        val tst = env.structEnv.getId(entry.name, isUnion)
         println("ARR: " + tst)
-        print("")*/
+        println("")*/
         entry match {
             case use@Id(name) => {
                 if (env.structEnv.someDefinition(name, isUnion)) {
@@ -662,10 +650,11 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                         case c@Choice(_, _, _) =>
                             val tuple = conditionalToTuple(c)
                             tuple.foreach(x => {
-                                if (feature.equivalentTo(FeatureExprFactory.True) || feature.implies(x._1).isTautology) {
+                                if (x._1.equivalentTo(FeatureExprFactory.True) || x._1.implies(feature).isTautology) {
                                     addToDeclUseMap(x._2.asInstanceOf[Id], use)
                                 }
                             })
+                        case x => // match error, causes exception @ openssl - TODO analyse
                     }
                 } else {
                     addDefinition(use, env)
@@ -677,226 +666,11 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
 
     override def addDecl(current: Any, featureExpr: FeatureExpr, env: Env, isDefinition: Boolean = true) {
         current match {
-            // TODO andreas: the following three lines are obsolete; see case _ => at the end
-            case StructDeclaration(specifiers, structDecls) =>
-                for (specs <- specifiers) {
-                    specs match {
-                        case Opt(typedefFeature, TypeDefTypeSpecifier(i: Id)) =>
-                        //addTypeUse(i, env, typedefFeature)
-                        case Opt(structSpecFeature, StructOrUnionSpecifier(isUnion, idOption, enum, _, _)) =>
-                            idOption match {
-                                case None =>
-                                case Some(i: Id) =>
-                                    if (enum.equals(None)) {
-                                        addStructDeclUse(i, env, isUnion, structSpecFeature)
-                                    }
-                                case _ =>
-                            }
-                            enum match {
-                                case None =>
-                                case Some(enums) =>
-                                    enums.foreach(x => addDecl(x.entry, x.feature, env))
-                                case _ =>
-                            }
-                        case Opt(enumFeature, EnumSpecifier(Some(i: Id), enumerator)) =>
-                            if (enumerator.isEmpty) {
-                                addEnumUse(i, env, enumFeature)
-                            } else {
-                                // putToDeclUseMap(i)
-                            }
-                            addDecl(enumerator, enumFeature, env)
-                        case _ =>
-                    }
-                }
-                structDecls.foreach(x => addDecl(x.entry, featureExpr, env))
-            /*case Declaration(decl, init) =>
-                val hasTypedefSpecifier = decl.exists(x => x.entry.isInstanceOf[TypedefSpecifier])
-                val hasStructSpecifier = decl.exists(x => x.entry.isInstanceOf[StructOrUnionSpecifier])
-                val isIncompleteStruct = if (hasTypedefSpecifier && hasStructSpecifier) (init.size == 1) else if (hasStructSpecifier) (init.isEmpty) else false
-                if (isIncompleteStruct) {
-                    for (Opt(structFeature, structSpec: StructOrUnionSpecifier) <- decl) {
-                        // debug
-                        structSpec.enumerators match {
-                            case None =>
-                            case Some(structDeclarations) =>
-                                for (x <- structDeclarations) {
-                                    addDecl(x.entry, x.feature, env)
-                                }
-                        }
-                    }
-                    for (x <- init) {
-                        putToDeclUseMap(x.entry.getId)
-                    }
-                } else {
-                    decl.foreach(x => addDecl(x.entry, featureExpr, env))
-                    init.foreach(x => addDecl(x.entry, featureExpr, env))
-                }*/
-            case Opt(_, e) => addDecl(e, featureExpr, env)
-            case i@InitDeclaratorI(decl, attr, opt) =>
-                addDecl(decl, featureExpr, env)
-                attr.foreach(x => addDecl(x.entry, featureExpr, env))
-                opt match {
-                    case None =>
-                    case Some(init@Initializer(_, l: LcurlyInitializer)) =>
-                        addLcurlyInitializer(i.getId, init, featureExpr, env)
-                    case _ => // addUse(opt.get, env)
-                }
-            case Initializer(label, element) =>
-                addDecl(element, featureExpr, env)
             case AtomicNamedDeclarator(pointers, id, extension) =>
-                if (isDefinition) {
-                    pointers.foreach(x => addDecl(x, featureExpr, env))
-                    extension.foreach(x => addDecl(x, featureExpr, env))
-                    addDefinition(id, env)
-                } else {
-                    pointers.foreach(x => addDecl(x, featureExpr, env))
-                    extension.foreach(x => addDecl(x, featureExpr, env))
+                if (!isDefinition) {
                     addDefinition(id, env, featureExpr, isFunctionDeclarator = true)
                 }
-            case i: Id =>
-                if (isDefinition) {
-                    addDefinition(i, env)
-                } else {
-                    addUse(i, featureExpr, env)
-                }
-            //addDef(i, featureExpr, env)
-
-            case DeclParameterDeclList(decl) =>
-                decl.foreach(x => addDecl(x.entry, featureExpr, env))
-            case ParameterDeclarationD(specs, decl, _) =>
-                for (Opt(typedefFeature, TypeDefTypeSpecifier(i: Id)) <- specs) {
-                    //addTypeUse(i, env, typedefFeature)
-                }
-                for (Opt(structSpecFeature, StructOrUnionSpecifier(isUnion, Some(i: Id), _, _, _)) <- specs) {
-                    addStructDeclUse(i, env, isUnion, structSpecFeature)
-                }
-                for (Opt(enumFeature, EnumSpecifier(Some(i: Id), _)) <- specs) {
-                    addEnumUse(i, env, enumFeature)
-                }
-                addDecl(decl, featureExpr, env)
-            case Pointer(specs) =>
-                specs.foreach(x => addDecl(x, featureExpr, env))
-            case EnumSpecifier(id, None) =>
-                id match {
-                    case None =>
-                    case Some(i: Id) =>
-                        addEnumUse(i, env, featureExpr)
-                }
-            case EnumSpecifier(id, Some(o)) =>
-                id match {
-                    case None =>
-                    case Some(i: Id) =>
-                        addDefinition(i, env)
-                }
-                for (e <- o) {
-                    addDecl(e.entry, featureExpr, env)
-                }
-            case i@IfStatement(cond, thenExpr, elif, els) =>
-            case EnumSpecifier(_, _) =>
-            case PlainParameterDeclaration(spec, _) => spec.foreach(x => addDecl(x.entry, featureExpr, env))
-            case ParameterDeclarationAD(specs, decl, _) =>
-                for (Opt(typedefFeature, TypeDefTypeSpecifier(i: Id)) <- specs) {
-                    //addTypeUse(i, env, typedefFeature)
-                }
-                for (Opt(structSpecFeature, StructOrUnionSpecifier(isUnion, Some(i: Id), _, _, _)) <- specs) {
-                    addStructDeclUse(i, env, isUnion, structSpecFeature)
-                }
-                addDecl(decl, featureExpr, env)
-            /*case Enumerator(i@Id(name), Some(o)) =>
-                addDefinition(i, env)
-                o match {
-                    case i: Id =>
-                        addUse(i, featureExpr, env)
-                    case k => addDecl(k, featureExpr, env)
-                }
-            case Enumerator(i@Id(name), _) =>
-                addDefinition(i, env)*/
-            case BuiltinOffsetof(typeName, members) =>
-                typeName.specifiers.foreach(x => addDecl(x.entry, featureExpr, env))
-                members.foreach(x => addDecl(x.entry, featureExpr, env))
-            case OffsetofMemberDesignatorID(i) =>
-                addDecl(i, featureExpr, env)
-            case TypeDefTypeSpecifier(name: Id) =>
-                addTypeUse(name, env, featureExpr)
-            case DeclArrayAccess(Some(o)) =>
-                addDecl(o, featureExpr, env, isDefinition = false)
-            case ReturnStatement(expr) =>
-            case AssignExpr(target, operation, source) =>
-                addUse(source, featureExpr, env)
-                addUse(target, featureExpr, env)
-            case UnaryOpExpr(_, expr) =>
-                addDecl(expr, featureExpr, env)
-            case DoStatement(expr, cond) =>
-                addDecl(expr, featureExpr, env)
-                addDecl(cond, featureExpr, env)
-            case StructOrUnionSpecifier(isUnion, Some(i@Id(name)), None, _, _) =>
-                //addDefinition(i, env)
-                if (isDefinition) {
-                    //addStructUse(i, featureExpr, env, name, isUnion)
-                } else {
-                    addStructDeclUse(i, env, isUnion, featureExpr)
-                }
-            case StructOrUnionSpecifier(isUnion, Some(i@Id(name)), Some(extensions), _, _) =>
-                if (!declUseMap.contains(i)) {
-                    putToDeclUseMap(i)
-                }
-                extensions.foreach(x => addDecl(x, featureExpr, env))
-            case StructOrUnionSpecifier(_, None, Some(extensions), _, _) =>
-                extensions.foreach(x => addDecl(x, featureExpr, env))
-            case StructDeclarator(decl, Some(i: Id), _) =>
-                addDefinition(i, env)
-            case ExprStatement(expr) =>
-            //addDecl(expr, env)
-            case pe@PostfixExpr(expr, suffix) =>
-                addUse(expr, featureExpr, env)
-                addDecl(suffix, featureExpr, env)
-            case pps@PointerPostfixSuffix(_, id: Id) =>
-                addUse(id, featureExpr, env)
-            case f@FunctionCall(expr) =>
-            case StructDeclarator(decl, _, _) =>
-                addDecl(decl, featureExpr, env)
-            case StructOrUnionSpecifier(_, Some(o), None, _, _) =>
-                addDecl(o, featureExpr, env)
-            case NestedNamedDeclarator(pointers, nestedDecl, extension, _) =>
-                pointers.foreach(x => addDecl(x, featureExpr, env))
-                extension.foreach(x => addDecl(x, featureExpr, env))
-                addDecl(nestedDecl, featureExpr, env)
-            case One(o) => addDecl(o, featureExpr, env)
-            case Some(o) => addDecl(o, featureExpr, env)
-            case NAryExpr(expr, others) =>
-                expr match {
-                    case Id(_) => addUse(expr, featureExpr, env)
-                    case k => addUse(k, featureExpr, env)
-                }
-                others.foreach(x => addDecl(x.entry, featureExpr, env))
-            case NArySubExpr(_, expr) =>
-                addDecl(expr, featureExpr, env)
-            case CastExpr(typ, expr) =>
-                addDecl(expr, featureExpr, env)
-                typ.specifiers.foreach(x => addDecl(x, featureExpr, env))
-            case SizeOfExprT(TypeName(spec, decl)) =>
-                spec.foreach(x => addDecl(x.entry, featureExpr, env, isDefinition = false))
-            case TypeOfSpecifierT(TypeName(spec, decl)) =>
-                spec.foreach(x => addDecl(x.entry, featureExpr, env, isDefinition = false))
-            // addDecl(decl, env)
-            case ConditionalExpr(expr, thenExpr, elseExpr) =>
-                addDecl(expr, featureExpr, env)
-                thenExpr.foreach(x => addDecl(x, featureExpr, env))
-                addDecl(elseExpr, featureExpr, env)
-            case PointerCreationExpr(expr) =>
-                addDecl(expr, featureExpr, env)
-            case Constant(_) =>
-            case CompoundStatement(statement) => statement.foreach(x => addDecl(x.entry, featureExpr, env))
-            case PointerDerefExpr(expr) => // addUse(expr, env)
-            case WhileStatement(expr, cond) =>
-                addDecl(expr, featureExpr, env)
-                cond.toOptList.foreach(x => addDecl(x.entry, featureExpr, env))
-            case ArrayAccess(expr) => addDecl(expr, featureExpr, env)
-            case Choice(ft, thenExpr, els) =>
-                addDecl(thenExpr, featureExpr, env)
-                addDecl(els, featureExpr, env)
-            case DeclIdentifierList(decls) => decls.foreach(decl => putToDeclUseMap(decl.entry))
-            case _ => // Specifiers like StaticSpecifier() can be ignored
+            case k =>
         }
     }
 
@@ -959,7 +733,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     }
 
 
-    def checkDefuse(ast: AST, declUseMap: IdentityHashMap[Id, List[Id]], useDeclMap: util.IdentityHashMap[Id, List[Id]], fm: FeatureModel = FeatureExprLib.featureModelFactory().empty): (String, Int, Int, Int) = {
+    def checkDefuse(ast: AST, declUseMap: IdentityIdHashMap, useDeclMap: IdentityIdHashMap, fm: FeatureModel = FeatureExprLib.featureModelFactory().empty): (String, Int, Int, Int) = {
         def getAllRelevantIds(a: Any): List[Id] = {
             a match {
                 case id: Id => if (!(id.name.startsWith("__builtin"))) List(id) else List()
@@ -971,12 +745,15 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
         }
 
         val resultString = new StringBuilder()
-        val relevantIds = getAllRelevantIds(ast)
+        val relevantIds: IdentityHashMap[Id, Id] = new IdentityHashMap()
+        getAllRelevantIds(ast).foreach(x => {
+            relevantIds.put(x, null)
+        })
 
         val missingLB: ListBuffer[Id] = ListBuffer()
         val duplicateLB: ListBuffer[Id] = ListBuffer()
         val allIds: IdentityHashMap[Id, Id] = new IdentityHashMap()
-        val defuseKeyList = declUseMap.keySet().toArray().toList
+        val defuseKeyList = declUseMap.keySet.toArray().toList
 
         declUseMap.flatMap(x => x._1 :: x._2).foreach(x => {
             if (allIds.contains(x)) {
@@ -986,12 +763,12 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
             }
         })
 
-        val numberOfIdsInAst = relevantIds.size
+        val numberOfIdsInAst = relevantIds.size + numberOfBuiltinFunctions
         val numberOfIdsInDefuse = allIds.keySet().size()
 
         relevantIds.foreach(x => {
-            if (!allIds.containsKey(x)) {
-                missingLB += x
+            if (!allIds.containsKey(x._1)) {
+                missingLB += x._1
             }
         })
         if (!missingLB.isEmpty) {
