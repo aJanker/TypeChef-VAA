@@ -2321,11 +2321,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 })
                 val tmpDecl = Declaration(newDeclSpecs, init)
                 val features = computeNextRelevantFeatures(tmpDecl, feat)
-                if (!features.isEmpty) {
-                    val result = features.map(x => Opt(trueF, transformRecursive(convertId(replaceOptAndId(tmpDecl, x), x), x)))
-                    result
-                } else {
-                    if (isTopLevel) {
+                if ((features.size < 2) && isTopLevel && !currentContext.and(optDeclaration.feature).equivalentTo(trueF, fm)) {
+                    if (isTopLevel && !currentContext.and(optDeclaration.feature).equivalentTo(trueF, fm)) {
                         if (declSpecs.exists(x => x.entry.isInstanceOf[TypedefSpecifier])) {
                             noOfOptionalTypedefs = noOfOptionalTypedefs + 1
                         } else if (declSpecs.exists(x => x.entry.isInstanceOf[StructOrUnionSpecifier])) {
@@ -2341,6 +2338,11 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                             }
                         }
                     }
+                }
+                if (!features.isEmpty) {
+                    val result = features.map(x => Opt(trueF, transformRecursive(convertId(replaceOptAndId(tmpDecl, x), x), x)))
+                    result
+                } else {
                     val result = List(Opt(trueF, transformRecursive(replaceOptAndId(convertId(tmpDecl, feat), feat), feat)))
                     result
                 }
@@ -2588,7 +2590,6 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 functions = functions + 1
             case _ =>
         })
-
         val result = (typedefs, structOrUnions, enums, functions, forwardFunctions, variables)
         result
     }
