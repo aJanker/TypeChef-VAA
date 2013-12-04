@@ -13,7 +13,7 @@ import de.fosd.typechef.crefactor.evaluation.Stats._
 
 object Extract extends BusyBoxRefactor {
 
-    private val MAX_REC_DEPTH: Int = 10
+    private val MAX_REC_DEPTH: Int = 1000
 
     private val RETRIES: Int = 3
 
@@ -22,6 +22,7 @@ object Extract extends BusyBoxRefactor {
     def refactor(morpheus: Morpheus, linkInterface: CLinking): (Boolean, List[FeatureExpr]) = {
         def refactor(morpheus: Morpheus, linkInterface: CLinking, depth: Int): (Boolean, List[FeatureExpr]) = {
             val compStmts = filterAllASTElems[CompoundStatement](morpheus.getAST)
+
             def getRandomStatements(depth: Int = 0): List[AST] = {
                 val compStmt = compStmts.apply(util.Random.nextInt(compStmts.length))
                 // Ignore empty compound statements
@@ -37,7 +38,7 @@ object Extract extends BusyBoxRefactor {
 
             def getRandomVariableStatements(depth: Int = 0): List[AST] = {
                 val statements = getRandomStatements()
-                if ((statements.isEmpty || !statements.par.exists(isVariable(_))) && (depth < MAX_REC_DEPTH)) getRandomVariableStatements(depth + 1)
+                if ((statements.isEmpty /*|| !statements.par.exists(isVariable(_)) */) && (depth < MAX_REC_DEPTH)) getRandomVariableStatements(depth + 1)
                 else statements
             }
 
