@@ -714,11 +714,11 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      */
     def convertToCondExpr[T <: Product](current: T, variantFeatures: List[FeatureExpr]): T = {
         def condExprHelper(expr: Expr, features: List[FeatureExpr]): ConditionalExpr = {
-            val currentFeature = features.head
-            if (features.size == 1) {
-                ConditionalExpr(featureToCExpr(currentFeature.not), None, replaceOptAndId(expr, currentFeature))
-            } else {
-                ConditionalExpr(featureToCExpr(currentFeature), Some(replaceOptAndId(expr, currentFeature)), condExprHelper(expr, features.tail))
+            features match {
+                case x :: Nil =>
+                    ConditionalExpr(featureToCExpr(x.not), None, replaceOptAndId(expr, x))
+                case x :: xs =>
+                    ConditionalExpr(featureToCExpr(x), Some(replaceOptAndId(expr, x)), condExprHelper(expr, features.tail))
             }
         }
         current match {
