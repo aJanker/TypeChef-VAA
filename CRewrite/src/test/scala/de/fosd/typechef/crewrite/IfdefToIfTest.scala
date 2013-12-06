@@ -1076,6 +1076,12 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         testFile(file)
     }
 
+    @Test def test_opt_flags() {
+        val file = new File(ifdeftoifTestPath + "opt_flags.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+
 
     @Test def test_typedef_function_usage() {
         val file = new File(ifdeftoifTestPath + "typedef_function_usage.c")
@@ -1167,7 +1173,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def single_busybox_file_test() {
-        val filename = "cpio"
+        val filename = "ls"
         transformSingleFile(filename, busyBoxPath)
     }
 
@@ -1809,17 +1815,15 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println(testAst(source_ast))
 
         val source_ast2 = getAST( """
-    void main() {
-      int i;
-      i = 2
-    #if definedEx(A)
-      +
-    #else
-      -
-    #endif
-      2;
-      i = 2*i;
-    }
+    enum {
+        OPTBIT_color = 14
+        #if definedEx(CONFIG_READABLE)
+        * 1
+        #endif
+        #if !definedEx(CONFIG_READABLE)
+        * 0
+        #endif
+    } ;
                                   """)
         println(testAst(source_ast2))
 
@@ -1845,6 +1849,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
                                   """)
         println(testAst(source_ast3))
+        println(source_ast2)
     }
 
     @Test def scalar_test() {
