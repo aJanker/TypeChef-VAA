@@ -17,6 +17,8 @@ import de.fosd.typechef.crefactor.evaluation.setup.{Building, BuildCondition}
 import java.util.zip.{GZIPOutputStream, GZIPInputStream}
 import de.fosd.typechef.parser.c.CTypeContext
 import de.fosd.typechef.typesystem.{CDeclUse, CTypeCache, CTypeSystemFrontend}
+import de.fosd.typechef.crefactor.frontend.Editor
+import javax.swing.SwingUtilities
 
 object CRefactorFrontend extends App with InterfaceWriter with BuildCondition {
 
@@ -47,17 +49,6 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition {
         }).toArray
 
         processFile(opt)
-    }
-
-    private def prettyPrint(ast: AST, options: FrontendOptions) = {
-        val filePath = options.getFile ++ ".pp"
-        val file = new File(filePath)
-        println("+++ Pretty printing to: " + file.getCanonicalPath)
-        val prettyPrinted = PrettyPrinter.print(ast).replace("definedEx", "defined")
-        val writer = new FileWriter(file, false)
-        writer.write(addBuildCondition(filePath, prettyPrinted))
-        writer.flush()
-        writer.close()
     }
 
     private def processFile(opt: FrontendOptions): (AST, FeatureModel) = {
@@ -101,6 +92,8 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition {
             if (opt.prettyPrint) prettyPrint(ast, opt)
 
             if (opt.canBuild) canBuildAndTest(ast, opt)
+
+            if (opt.showGui) createAndShowGui(ast, fm, opt)
         }
 
 
@@ -162,5 +155,28 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition {
         val ast = fr.readObject().asInstanceOf[AST]
         fr.close()
         ast
+    }
+
+    private def prettyPrint(ast: AST, options: FrontendOptions) = {
+        val filePath = options.getFile ++ ".pp"
+        val file = new File(filePath)
+        println("+++ Pretty printing to: " + file.getCanonicalPath)
+        val prettyPrinted = PrettyPrinter.print(ast).replace("definedEx", "defined")
+        val writer = new FileWriter(file, false)
+        writer.write(addBuildCondition(filePath, prettyPrinted))
+        writer.flush()
+        writer.close()
+    }
+
+    private def createAndShowGui(ast: AST, fm: FeatureModel, opts: FrontendOptions) = {
+        val morpheus = new Morpheus(ast, fm, opts.getFile)
+        SwingUtilities.invokeLater(new Runnable {
+            def run() {
+                val editor = new Editor(morpheus)
+                editor.loadFileInEditor(opts.getFile)
+                editor.pack
+                editor.setVisible(true)
+            }
+        })
     }
 }
