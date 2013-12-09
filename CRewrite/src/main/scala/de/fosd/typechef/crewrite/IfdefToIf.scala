@@ -2323,40 +2323,43 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         }*/
         optDeclaration.entry match {
             case d@Declaration(declSpecs, init) =>
-                val feat = optDeclaration.feature
-                val newDeclSpecs = declSpecs.map(x => if (x.feature.equivalentTo(trueF) || x.feature.equivalentTo(optDeclaration.feature)) x
-                else x match {
-                    case o@Opt(ft, EnumSpecifier(Some(i: Id), Some(enums))) =>
-                        val newEnums = Some(enums.map(x => convertAllIds(x, ft)))
-                        if (defuse.containsKey(i)) {
-                            addIdUsages(i, feat)
-                            Opt(ft, EnumSpecifier(Some(Id(getPrefixFromIdMap(feat) + i.name)), newEnums))
-                        } else {
-                            Opt(ft, EnumSpecifier(Some(i), newEnums))
-                        }
-                    case o@Opt(ft, EnumSpecifier(None, Some(enums))) =>
-                        val newEnums = Some(enums.map(x => convertAllIds(x, ft)))
-                        Opt(ft, EnumSpecifier(None, newEnums))
-                    case o@Opt(ft, EnumSpecifier(Some(i: Id), k)) =>
-                        if (defuse.containsKey(i)) {
-                            addIdUsages(i, feat)
-                            Opt(ft, EnumSpecifier(Some(Id(getPrefixFromIdMap(feat) + i.name)), k))
-                        } else {
-                            o
-                        }
-                    case o@Opt(ft, StructOrUnionSpecifier(a, Some(i: Id), b, c, d)) =>
-                        if (defuse.containsKey(i)) {
-                            addIdUsages(i, feat)
-                            Opt(ft, StructOrUnionSpecifier(a, Some(Id(getPrefixFromIdMap(feat) + i.name)), b, c, d))
-                        } else {
-                            o
-                        }
+                val declarationFeature = optDeclaration.feature
+                val newDeclSpecs = declSpecs.map(x => if (optDeclaration.feature.equivalentTo(currentContext) && currentContext.implies(x.feature).isTautology) x
+                else {
+                    val relevantFeature = x.feature.and(declarationFeature)
+                    x match {
+                        case o@Opt(ft, EnumSpecifier(Some(i: Id), Some(enums))) =>
+                            val newEnums = Some(enums.map(x => convertAllIds(x, relevantFeature)))
+                            if (defuse.containsKey(i)) {
+                                addIdUsages(i, declarationFeature)
+                                Opt(ft, EnumSpecifier(Some(Id(getPrefixFromIdMap(declarationFeature) + i.name)), newEnums))
+                            } else {
+                                Opt(ft, EnumSpecifier(Some(i), newEnums))
+                            }
+                        case o@Opt(ft, EnumSpecifier(None, Some(enums))) =>
+                            val newEnums = Some(enums.map(x => convertAllIds(x, relevantFeature)))
+                            Opt(ft, EnumSpecifier(None, newEnums))
+                        case o@Opt(ft, EnumSpecifier(Some(i: Id), k)) =>
+                            if (defuse.containsKey(i)) {
+                                addIdUsages(i, relevantFeature)
+                                Opt(ft, EnumSpecifier(Some(Id(getPrefixFromIdMap(relevantFeature) + i.name)), k))
+                            } else {
+                                o
+                            }
+                        case o@Opt(ft, StructOrUnionSpecifier(a, Some(i: Id), b, c, d)) =>
+                            if (defuse.containsKey(i)) {
+                                addIdUsages(i, relevantFeature)
+                                Opt(ft, StructOrUnionSpecifier(a, Some(Id(getPrefixFromIdMap(relevantFeature) + i.name)), b, c, d))
+                            } else {
+                                o
+                            }
 
-                    case k =>
-                        k
+                        case k =>
+                            k
+                    }
                 })
                 val tmpDecl = Declaration(newDeclSpecs, init)
-                val features = computeNextRelevantFeatures(tmpDecl, feat.and(currentContext))
+                val features = computeNextRelevantFeatures(tmpDecl, declarationFeature.and(currentContext))
                 if ((features.size < 2) && isTopLevel && !currentContext.and(optDeclaration.feature).equivalentTo(trueF, fm)) {
                     if (isTopLevel && !currentContext.and(optDeclaration.feature).equivalentTo(trueF, fm)) {
                         if (declSpecs.exists(x => x.entry.isInstanceOf[TypedefSpecifier])) {
@@ -2379,7 +2382,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     val result = features.map(x => Opt(trueF, transformRecursive(convertId(replaceOptAndId(tmpDecl, x), x), x)))
                     result
                 } else {
-                    val result = List(Opt(trueF, transformRecursive(replaceOptAndId(convertId(tmpDecl, feat), feat), feat)))
+                    val result = List(Opt(trueF, transformRecursive(replaceOptAndId(convertId(tmpDecl, declarationFeature), declarationFeature), declarationFeature)))
                     result
                 }
         }
