@@ -38,6 +38,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_REFLINk = Options.genOptionId();
     private final static char F_CANBUILD = Options.genOptionId();
     private final static char F_REFSTUDY = Options.genOptionId();
+    private final static char F_SHOWGUI = Options.genOptionId();
     private final static char F_WRITEBUILDCONDITION = Options.genOptionId();
     private final static char F_PRETTYPRINT = Options.genOptionId();
     private final File _autoErrorXMLFile = new File(".");
@@ -49,6 +50,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             refEval = false,
             refLink = false,
             canBuild = false,
+            showGui = false,
             writeBuildCondition = false,
             prettyPrint = false,
             writeInterface = false,
@@ -108,6 +110,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                 new Option("study", LongOpt.REQUIRED_ARGUMENT, F_REFSTUDY, null, "Defines the used casestudy environment"),
                 new Option("writeBuildCondition", LongOpt.NO_ARGUMENT, F_WRITEBUILDCONDITION, null, "Writes out a .bc file containing the extracted custom build properties of the analyzed file."),
                 new Option("prettyPrint", LongOpt.NO_ARGUMENT, F_PRETTYPRINT, null, "Pretty prints the parsed ast as .pp file."),
+                new Option("showGui", LongOpt.NO_ARGUMENT, F_SHOWGUI, null, "Shows the cRefactor GUI"),
                 new Option("decluse", LongOpt.NO_ARGUMENT, F_DECLUSE, null,
                         "Test the declaration use map."),
 
@@ -189,6 +192,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             refStudy = g.getOptarg();
         } else if (c == F_CANBUILD) {
             parse = canBuild = true;
+        } else if (c == F_SHOWGUI) {
+            parse = showGui = true;
         } else if (c == F_DOUBLEFREE) {
             parse = doublefree = true;
         } else if (c == F_UNINITIALIZEDMEMORY) {
@@ -198,7 +203,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
         } else if (c == F_DANGLINGSWITCHCODE) {
             parse = danglingswitchcode = true;
         } else if (c == F_SERIALIZEAST) {
-            serializeAST = true;
+            parse = serializeAST = true;
         } else if (c == F_REUSEAST) {
             reuseAST = true;
         } else if (c == F_RECORDTIMING) {
