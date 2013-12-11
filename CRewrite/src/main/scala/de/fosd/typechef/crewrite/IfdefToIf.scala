@@ -464,6 +464,23 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         }
     }
 
+    def conditionalToConditionalExpr(choice: Conditional[Expr], currentContext: FeatureExpr = trueF): Conditional[Expr] = {
+        val conditionalTuple = conditionalToTuple(choice, currentContext)
+        conditionalTuple match {
+            case Nil =>
+                choice
+            case x :: Nil =>
+                One(replaceOptAndId(x._2, x._1))
+            case x :: xs =>
+                val innerExpr = ConditionalExpr(featureToCExpr(x._1.not), None, replaceOptAndId(x._2, x._1))
+                val resultExpr = xs.foldLeft(innerExpr)((expr, condTuple) => {
+                    val newExpr = replaceOptAndId(condTuple._2, condTuple._1)
+                    ConditionalExpr(featureToCExpr(condTuple._1), Some(newExpr), expr)
+                })
+                One(resultExpr)
+        }
+    }
+
     /**
      * This method fills the IdMap which is used to map a feature expression to a number. This number is used for
      * for renaming identifiers e.g. #ifdef A int a #endif -> int _1_a     feature A is mapped to number 1.
@@ -576,7 +593,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                         if (!idMap.contains(ft)) {
                             idMap += (ft -> idMap.size)
                         }
-                        InitDeclaratorI(AtomicNamedDeclarator(a, Id(getPrefixFromIdMap(ft) + i.name), b), attr, inits)
+                        InitDeclaratorI(AtomicNamedDeclarator(a, renameIdentifier(i, ft), b), attr, inits)
                     } else {
                         init
                     }
@@ -587,7 +604,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                         if (!idMap.contains(ft)) {
                             idMap += (ft -> idMap.size)
                         }
-                        InitDeclaratorI(NestedNamedDeclarator(l, AtomicNamedDeclarator(a, Id(getPrefixFromIdMap(ft) + i.name), b), r, c), attr, inits)
+                        InitDeclaratorI(NestedNamedDeclarator(l, AtomicNamedDeclarator(a, renameIdentifier(i, ft), b), r, c), attr, inits)
                     } else {
                         init
                     }
@@ -611,7 +628,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     if (!idMap.contains(ft)) {
                         idMap += (ft -> idMap.size)
                     }
-                    StructOrUnionSpecifier(isUnion, Some(Id(getPrefixFromIdMap(ft) + i.name)), a, b, c)
+                    StructOrUnionSpecifier(isUnion, Some(renameIdentifier(i, ft)), a, b, c)
             })
 
             // @fgarbe: r(t).get.asInstanceOf[T] should be sufficient, or can None occur?
@@ -635,7 +652,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     if (!idMap.contains(ft)) {
                         idMap += (ft -> idMap.size)
                     }
-                    InitDeclaratorI(AtomicNamedDeclarator(a, Id(getPrefixFromIdMap(ft) + i.name), b), attr, inits)
+                    InitDeclaratorI(AtomicNamedDeclarator(a, renameIdentifier(i, ft), b), attr, inits)
                 } else {
                     init
                 }
@@ -646,7 +663,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     if (!idMap.contains(ft)) {
                         idMap += (ft -> idMap.size)
                     }
-                    InitDeclaratorI(NestedNamedDeclarator(l, AtomicNamedDeclarator(a, Id(getPrefixFromIdMap(ft) + i.name), b), r, c), attr, inits)
+                    InitDeclaratorI(NestedNamedDeclarator(l, AtomicNamedDeclarator(a, renameIdentifier(i, ft), b), r, c), attr, inits)
                 } else {
                     init
                 }
@@ -674,7 +691,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     if (!idMap.contains(ft)) {
                         idMap += (ft -> idMap.size)
                     }
-                    AtomicNamedDeclarator(a, Id(getPrefixFromIdMap(ft) + i.name), b)
+                    AtomicNamedDeclarator(a, renameIdentifier(i, ft), b)
                 } else {
                     decl
                 }
@@ -701,7 +718,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         if (!idMap.contains(ft)) {
             idMap += (ft -> idMap.size)
         }
-        Enumerator(Id(getPrefixFromIdMap(ft) + enu.id.name), enu.assignment)
+        Enumerator(renameIdentifier(enu.id, ft), enu.assignment)
     }
 
     /**
@@ -714,18 +731,27 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      */
     def convertToCondExpr[T <: Product](current: T, variantFeatures: List[FeatureExpr]): T = {
         def condExprHelper(expr: Expr, features: List[FeatureExpr]): Expr = {
-            val innerMostExpr = replaceOptAndId(expr, features.head)
+            val innerMostExpr = ConditionalExpr(featureToCExpr(features.head.not), None, replaceOptAndId(expr, features.head))
             features.tail.foldLeft(innerMostExpr)((first, second) => ConditionalExpr(featureToCExpr(second), Some(replaceOptAndId(expr, second)), first))
         }
-        current match {
-            case Enumerator(id: Id, Some(expr: Expr)) =>
-                val cond = condExprHelper(expr, variantFeatures)
-                Enumerator(id, Some(cond)).asInstanceOf[T]
-            case Initializer(elemLabel, expr: Expr) =>
-                val cond = condExprHelper(expr, variantFeatures)
-                Initializer(elemLabel, cond).asInstanceOf[T]
-            case k =>
+        variantFeatures match {
+            case Nil =>
                 current
+            case x :: Nil =>
+                replaceOptAndId(current, x)
+            case x :: xs =>
+                current match {
+                    case Enumerator(id: Id, Some(expr: Expr)) =>
+                        val cond = condExprHelper(expr, variantFeatures)
+                        Enumerator(id, Some(cond)).asInstanceOf[T]
+                    case Initializer(elemLabel, expr: Expr) =>
+                        val cond = condExprHelper(expr, variantFeatures)
+                        Initializer(elemLabel, cond).asInstanceOf[T]
+                    case expr: Expr =>
+                        condExprHelper(expr, variantFeatures).asInstanceOf[T]
+                    case k =>
+                        current
+                }
         }
     }
 
@@ -743,7 +769,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 if (i.name != "main") {
                     addIdUsages(i, ft)
                     replaceId.put(i, ft)
-                    Id(getPrefixFromIdMap(ft) + i.name)
+                    renameIdentifier(i, ft)
                 } else {
                     i
                 }
@@ -759,6 +785,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         } else {
             t
         }
+    }
+
+    def renameIdentifier(id: Id, context: FeatureExpr): Id = {
+        Id(getPrefixFromIdMap(context) + id.name)
     }
 
     /**
@@ -787,13 +817,13 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                         case None =>
                             // TODO: this should not happen?
                             val lst = idsToBeReplaced.get(i)
-                            Id(getPrefixFromIdMap(feat) + i.name)
+                            renameIdentifier(i, feat)
                             i
                         case Some(x: FeatureExpr) =>
                             if (x.equivalentTo(trueF, fm)) {
                                 i
                             } else {
-                                Id(getPrefixFromIdMap(x) + i.name)
+                                renameIdentifier(i, x)
                             }
                         case k =>
                             Id("")
@@ -1276,6 +1306,15 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                         val result = handleStatement(o, currentContext)
                                         countDuplications(o.entry, result.size, isTopLevel)
                                         result
+                                    case r@ReturnStatement(Some(expr)) =>
+                                        val features = computeNextRelevantFeatures(r, currentContext)
+                                        if (!features.isEmpty) {
+                                            countDuplications(o.entry, features.size, isTopLevel)
+                                            val newExpr = convertToCondExpr(expr, features)
+                                            List(Opt(trueF, ReturnStatement(Some(newExpr))))
+                                        } else {
+                                            List(transformRecursive(o, currentContext))
+                                        }
                                     case r: ReturnStatement =>
                                         val features = computeNextRelevantFeatures(r, currentContext)
                                         if (!features.isEmpty) {
@@ -1322,11 +1361,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                             countDuplications(o.entry, features.size, isTopLevel)
                                             features.map(x => Opt(trueF, IfStatement(One(featureToCExpr(x)), One(CompoundStatement(List(replaceAndTransform(Opt(trueF, e), x.and(o.feature))))), List(), None)))
                                         } else {
-                                            if (currentContext.equivalentTo(trueF, fm)) {
-                                                List(transformRecursive(o, currentContext))
-                                            } else {
-                                                List(replaceAndTransform(Opt(trueF, ExprStatement(e.expr)), currentContext))
-                                            }
+                                            List(replaceAndTransform(Opt(trueF, ExprStatement(e.expr)), currentContext))
                                         }
                                     case w@WhileStatement(expr: Expr, s: Conditional[_]) =>
                                         val result = handleStatement(o, currentContext)
@@ -1976,8 +2011,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     test match {
                         case None =>
                             // TODO: this should not happen?
-                            Id(getPrefixFromIdMap(feat) + i.name)
-                        case Some(x: FeatureExpr) => Id(getPrefixFromIdMap(x) + i.name)
+                            renameIdentifier(i, feat)
+                        case Some(x: FeatureExpr) => renameIdentifier(i, x)
                         case _ => Id("")
                     }
                 } else {
@@ -2205,6 +2240,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 // 3. Step
                 case w@WhileStatement(expr, One(stmt: Statement)) =>
                     val features = computeNextRelevantFeatures(expr)
+                    /*val newExpr = convertToCondExpr(expr, features)
+                    List(Opt(trueF, WhileStatement(newExpr, One(transformRecursive(replaceOptAndId(stmt, currentContext), currentContext)))))*/
                     if (features.isEmpty) {
                         List(Opt(trueF, WhileStatement(replaceOptAndId(expr, currentContext), One(transformRecursive(replaceOptAndId(stmt, currentContext), currentContext)))))
                     } else {
@@ -2332,7 +2369,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                             val newEnums = Some(enums.map(x => convertAllIds(x, relevantFeature)))
                             if (defuse.containsKey(i)) {
                                 addIdUsages(i, declarationFeature)
-                                Opt(ft, EnumSpecifier(Some(Id(getPrefixFromIdMap(declarationFeature) + i.name)), newEnums))
+                                Opt(ft, EnumSpecifier(Some(renameIdentifier(i, declarationFeature)), newEnums))
                             } else {
                                 Opt(ft, EnumSpecifier(Some(i), newEnums))
                             }
@@ -2342,14 +2379,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                         case o@Opt(ft, EnumSpecifier(Some(i: Id), k)) =>
                             if (defuse.containsKey(i)) {
                                 addIdUsages(i, relevantFeature)
-                                Opt(ft, EnumSpecifier(Some(Id(getPrefixFromIdMap(relevantFeature) + i.name)), k))
+                                Opt(ft, EnumSpecifier(Some(renameIdentifier(i, relevantFeature)), k))
                             } else {
                                 o
                             }
                         case o@Opt(ft, StructOrUnionSpecifier(a, Some(i: Id), b, c, d)) =>
                             if (defuse.containsKey(i)) {
                                 addIdUsages(i, relevantFeature)
-                                Opt(ft, StructOrUnionSpecifier(a, Some(Id(getPrefixFromIdMap(relevantFeature) + i.name)), b, c, d))
+                                Opt(ft, StructOrUnionSpecifier(a, Some(renameIdentifier(i, relevantFeature)), b, c, d))
                             } else {
                                 o
                             }
@@ -2395,14 +2432,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     case o@Opt(ft, EnumSpecifier(Some(i: Id), k)) =>
                         if (defuse.containsKey(i)) {
                             addIdUsages(i, feat)
-                            Opt(ft, EnumSpecifier(Some(Id(getPrefixFromIdMap(feat) + i.name)), k))
+                            Opt(ft, EnumSpecifier(Some(renameIdentifier(i, feat)), k))
                         } else {
                             o
                         }
                     case o@Opt(ft, StructOrUnionSpecifier(a, Some(i: Id), b, c, d)) =>
                         if (defuse.containsKey(i)) {
                             addIdUsages(i, feat)
-                            Opt(ft, StructOrUnionSpecifier(a, Some(Id(getPrefixFromIdMap(feat) + i.name)), b, c, d))
+                            Opt(ft, StructOrUnionSpecifier(a, Some(renameIdentifier(i, feat)), b, c, d))
                         } else {
                             o
                         }

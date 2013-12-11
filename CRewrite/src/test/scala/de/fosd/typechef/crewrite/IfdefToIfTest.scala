@@ -6,12 +6,33 @@ import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem._
 import java.io._
 import java.util
-import scala.Some
-import scala.Tuple2
-import de.fosd.typechef.conditional.{Choice, One, Opt}
 import de.fosd.typechef.featureexpr.{FeatureModel, FeatureExprParser, FeatureExprFactory}
 import de.fosd.typechef.lexer.FeatureExprLib
 import io.Source
+import scala.Some
+import de.fosd.typechef.parser.c.VoidSpecifier
+import de.fosd.typechef.parser.c.AssignExpr
+import de.fosd.typechef.parser.c.DoubleSpecifier
+import de.fosd.typechef.conditional.One
+import de.fosd.typechef.parser.c.Id
+import de.fosd.typechef.parser.c.Constant
+import de.fosd.typechef.parser.c.ExprList
+import de.fosd.typechef.parser.c.CompoundStatement
+import de.fosd.typechef.conditional.Opt
+import de.fosd.typechef.parser.c.PostfixExpr
+import de.fosd.typechef.parser.c.ReturnStatement
+import de.fosd.typechef.parser.c.AtomicNamedDeclarator
+import de.fosd.typechef.conditional.Choice
+import de.fosd.typechef.parser.c.TranslationUnit
+import de.fosd.typechef.typesystem.IdentityIdHashMap
+import de.fosd.typechef.parser.c.FunctionCall
+import de.fosd.typechef.parser.c.IfStatement
+import de.fosd.typechef.parser.c.ExprStatement
+import de.fosd.typechef.parser.c.DeclIdentifierList
+import de.fosd.typechef.parser.c.IntSpecifier
+import de.fosd.typechef.parser.c.FunctionDef
+import scala.Tuple2
+import de.fosd.typechef.parser.c.StaticSpecifier
 
 class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclUse with CTypeSystem with TestHelper {
     val makeAnalysis = true
@@ -1075,6 +1096,21 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println(i.getAstFromFile(file))
         testFile(file)
     }
+    @Test def test_alex_15() {
+        val file = new File(ifdeftoifTestPath + "15.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+    @Test def test_alex_16() {
+        val file = new File(ifdeftoifTestPath + "16.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+    @Test def test_alex_17() {
+        val file = new File(ifdeftoifTestPath + "17.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
 
     @Test def test_opt_flags() {
         val file = new File(ifdeftoifTestPath + "opt_flags.c")
@@ -1890,14 +1926,12 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         testFile(file)
     }
 
-    @Ignore def declaration_transformation_test() {
-        val c = Choice((FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_TAR_CREATE").and((FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_TAR_FROM")).not())), One(Constant("0")), One(PostfixExpr(Id("exclude_file"), FunctionCall(ExprList(List(Opt((FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_TAR_FROM").and(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_TAR_CREATE"))), PostfixExpr(Id("tbInfo"), PointerPostfixSuffix("->", Id("excludeList")))), Opt((FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_TAR_FROM").and(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_TAR_CREATE"))), Id("header_name"))))))))
+    @Test def random_choice_test() {
+        //val c = Choice((FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_TAR_CREATE").and((FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_TAR_FROM")).not())), One(Constant("0")), One(PostfixExpr(Id("exclude_file"), FunctionCall(ExprList(List(Opt((FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_TAR_FROM").and(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_TAR_CREATE"))), PostfixExpr(Id("tbInfo"), PointerPostfixSuffix("->", Id("excludeList")))), Opt((FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_TAR_FROM").and(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_TAR_CREATE"))), Id("header_name"))))))))
+        val c = Choice(FeatureExprFactory.createDefinedExternal("A"), One(Constant("0")), Choice(FeatureExprFactory.createDefinedExternal("B"), One(Constant("1")), One(Constant("2"))))
+        println(PrettyPrinter.print(ElifStatement(c, One(EmptyStatement()))))
 
-        val tsts = i.conditionalToTuple(c, FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_TAR_CREATE"))
-        val tu = TranslationUnit(List(Opt(True, Declaration(List(Opt(fx, SignedSpecifier()), Opt(True, IntSpecifier())), List(Opt(True, InitDeclaratorI(AtomicNamedDeclarator(List(), Id("i"), List()), List(), None))))), Opt(True, Declaration(List(Opt(fx, IntSpecifier()), Opt(fx.not(), LongSpecifier())), List(Opt(True, InitDeclaratorI(AtomicNamedDeclarator(List(), Id("j"), List()), List(), None))))), Opt(fx, Declaration(List(Opt(fx, IntSpecifier())), List(Opt(fx, InitDeclaratorI(AtomicNamedDeclarator(List(), Id("k"), List()), List(), None))))), Opt(fx.not(), Declaration(List(Opt(fx, IntSpecifier()), Opt(True, LongSpecifier())), List(Opt(fx.not(), InitDeclaratorI(AtomicNamedDeclarator(List(), Id("k"), List()), List(), None)))))))
-        //val decl = Opt(True,Declaration(List(Opt(fx,SignedSpecifier()), Opt(True,IntSpecifier())),List(Opt(True,InitDeclaratorI(AtomicNamedDeclarator(List(),Id("i"),List()),List(),None)))))
-        //i.handleDeclarations(decl).foreach(x => println(PrettyPrinter.print(x.entry)))
-        tu.defs.foreach(x => i.handleDeclarations(x.asInstanceOf[Opt[Declaration]]).foreach(y => println(PrettyPrinter.print(y.entry) ++ "\n")))
+        println("\n\n\n" + PrettyPrinter.print(ElifStatement(i.conditionalToConditionalExpr(c), One(EmptyStatement()))))
     }
 
     @Ignore def compareTypeCheckingTimes() {
