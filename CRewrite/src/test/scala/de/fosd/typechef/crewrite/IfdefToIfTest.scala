@@ -131,6 +131,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         }
 
         if (makeAnalysis) {
+            println("\n\nChecking generated file:")
             //if (!(new File(singleFilePath ++ fileNameWithoutExtension ++ ".src")).exists) {
             PrettyPrinter.printF(source_ast, singleFilePath ++ fileNameWithoutExtension ++ ".src")
             //}
@@ -1119,6 +1120,12 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
     @Test def test_alex_14() {
         val file = new File(ifdeftoifTestPath + "14.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+
+    @Test def test_alex_15() {
+        val file = new File(ifdeftoifTestPath + "15.c")
         println(i.getAstFromFile(file))
         testFile(file)
     }
