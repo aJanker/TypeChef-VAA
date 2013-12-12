@@ -696,14 +696,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     decl
                 }
         })
-        r(t) match {
-            case None => t
-            case k =>
-                if (ft.equivalentTo(trueF, fm)) {
-                    t
-                } else {
+        if (ft.equivalentTo(trueF, fm)) {
+            t
+        } else {
+            r(t) match {
+                case None => t
+                case k =>
                     k.get.asInstanceOf[T]
-                }
+            }
         }
     }
 
@@ -714,11 +714,15 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      * @return
      */
     def convertEnumId(enu: Enumerator, ft: FeatureExpr): Enumerator = {
-        addIdUsages(enu.id, ft)
-        if (!idMap.contains(ft)) {
-            idMap += (ft -> idMap.size)
+        if (ft.equivalentTo(trueF)) {
+            enu
+        } else {
+            addIdUsages(enu.id, ft)
+            if (!idMap.contains(ft)) {
+                idMap += (ft -> idMap.size)
+            }
+            Enumerator(renameIdentifier(enu.id, ft), enu.assignment)
         }
-        Enumerator(renameIdentifier(enu.id, ft), enu.assignment)
     }
 
     /**
@@ -788,7 +792,12 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     }
 
     def renameIdentifier(id: Id, context: FeatureExpr): Id = {
-        Id(getPrefixFromIdMap(context) + id.name)
+        if (context.equivalentTo(trueF)) {
+            assert(false, "Renaming identifier under condition True at: " + id.getPositionFrom.getLine)
+            id
+        } else {
+            Id(getPrefixFromIdMap(context) + id.name)
+        }
     }
 
     /**
@@ -2366,7 +2375,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     val relevantFeature = x.feature.and(declarationFeature)
                     x match {
                         case o@Opt(ft, EnumSpecifier(Some(i: Id), Some(enums))) =>
-                            val newEnums = Some(enums.map(x => convertAllIds(x, relevantFeature)))
+                            val newEnums = Some(enums.map(x => Opt(trueF, convertEnumId(x.entry, relevantFeature))))
                             if (defuse.containsKey(i)) {
                                 addIdUsages(i, declarationFeature)
                                 Opt(ft, EnumSpecifier(Some(renameIdentifier(i, declarationFeature)), newEnums))
@@ -2374,7 +2383,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                 Opt(ft, EnumSpecifier(Some(i), newEnums))
                             }
                         case o@Opt(ft, EnumSpecifier(None, Some(enums))) =>
-                            val newEnums = Some(enums.map(x => convertAllIds(x, relevantFeature)))
+                            val newEnums = Some(enums.map(x => Opt(trueF, convertEnumId(x.entry, relevantFeature))))
                             Opt(ft, EnumSpecifier(None, newEnums))
                         case o@Opt(ft, EnumSpecifier(Some(i: Id), k)) =>
                             if (defuse.containsKey(i)) {
