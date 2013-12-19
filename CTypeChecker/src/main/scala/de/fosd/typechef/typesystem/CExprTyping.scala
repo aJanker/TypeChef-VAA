@@ -20,6 +20,19 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
         getExprTypeRec(expr, featureExpr, env)
     }
 
+    def getExpressions(stuff: Any, current: List[Expr] = List()): List[Expr] = {
+        stuff match {
+            case s: StringLit =>
+                current
+            case e: Expr =>
+                e :: current
+            case p: Product =>
+                p.productIterator.toList.flatMap(getExpressions(_, current))
+            case k =>
+                current
+        }
+    }
+
     def getExprTypeRec(expr: Expr, featureExpr: FeatureExpr, env: Env, recurse: Boolean = false): Conditional[CType] = {
         val et = getExprTypeRec(_: Expr, featureExpr, env, true)
         def etF(e: Expr, f: FeatureExpr, newEnv: Env = env) = getExprTypeRec(e, f, newEnv, true)
@@ -298,7 +311,9 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                         t
 
                     case LcurlyInitializer(inits) => One(CCompound().toCType.toObj) //TODO more specific checks, currently just use CCompound which can be cast into any structure or array
-                    case GnuAsmExpr(_, _, _, _) =>
+                    case GnuAsmExpr(_, _, _, stuff) =>
+                        val expressions = getExpressions(stuff)
+                        expressions.foreach(x => getExprTypeRec(x, featureExpr, env))
                         One(CIgnore()) //don't care about asm now
                     case BuiltinOffsetof(typename, offsetDesignators) =>
                         typename.specifiers.foreach(x => {

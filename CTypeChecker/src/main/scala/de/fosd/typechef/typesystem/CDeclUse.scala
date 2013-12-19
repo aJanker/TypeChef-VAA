@@ -11,7 +11,6 @@ import de.fosd.typechef.parser.c._
 import java.util
 import scala.collection.mutable.ListBuffer
 import de.fosd.typechef.lexer.FeatureExprLib
-import org.kiama.rewriting.Rewriter._
 import de.fosd.typechef.parser.c.Enumerator
 import de.fosd.typechef.parser.c.VarArgs
 import scala.Some
@@ -458,14 +457,42 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
 
         // For each incoming use of an identifier, we look up in the varEnv the corresponding declaration.
         // Furthermore, known special cases are filtered before.
-        val r = manytd(query {
+
+        def getIdElements(ast: Any, current: List[AST] = List()): List[AST] = {
+            ast match {
+                case t: TypeDefTypeSpecifier =>
+                    t :: current
+                case t: TypeName =>
+                    t :: current
+                case t: CastExpr =>
+                    t :: current
+                case t: StructOrUnionSpecifier =>
+                    t :: current
+                case t: BuiltinOffsetof =>
+                    t :: current
+                case id: Id =>
+                    id :: current
+                case p: Product =>
+                    p.productIterator.toList.flatMap(getIdElements(_, current))
+                case k =>
+                    current
+            }
+        }
+
+        getIdElements(entry).foreach(x => x match {
             case TypeDefTypeSpecifier(id) =>
             //addTypeUse(id, env, feature)
             case TypeName(specs, decl) =>
                 specs.foreach(x => addUse(x.entry, feature, env))
             case CastExpr(typ, LcurlyInitializer(lst)) =>
                 addUseCastExpr(typ, addUse _, feature, env, lst)
-
+            case PostfixExpr(id: Id, suffix: PointerPostfixSuffix) =>
+                env.varEnv.getAstOrElse(id.name, null) match {
+                    case o@One(_) => addUseOne(o, id, env)
+                    case c@Choice(_, _, _) =>
+                        addChoice(c, feature, id, env, addUseOne)
+                    case x =>
+                }
             case StructOrUnionSpecifier(union, Some(i: Id), _, _, _) => addStructDeclUse(i, env, union, feature)
             case BuiltinOffsetof(typeName, offsetDesignators) =>
                 typeName.specifiers.foreach(x => {
@@ -486,6 +513,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                     }
                 })
             case id: Id =>
+                // println(id + " @ " + id.getPositionFrom.getLine)
                 if (!useDeclMap.containsKey(id)) {
                     env.varEnv.getAstOrElse(id.name, null) match {
                         case o@One(_) => addUseOne(o, id, env)
@@ -494,8 +522,8 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                         case x =>
                     }
                 }
+            case k =>
         })
-        r(entry).get
     }
 
 
