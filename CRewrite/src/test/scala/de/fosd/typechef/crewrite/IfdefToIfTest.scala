@@ -1801,6 +1801,16 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println(ast)
         testFile(new File(ifdeftoifTestPath + "for_loop.c"))
     }
+    @Test def conditional_expression() {
+        val ast = i.getAstFromFile(new File(ifdeftoifTestPath + "conditional_expression.c"))
+        println(ast)
+        testFile(new File(ifdeftoifTestPath + "conditional_expression.c"))
+    }
+    @Test def conditional_expression2() {
+        val ast = i.getAstFromFile(new File(ifdeftoifTestPath + "conditional_expression2.c"))
+        println(ast)
+        testFile(new File(ifdeftoifTestPath + "conditional_expression2.c"))
+    }
 
     @Ignore def context_variableids_test() {
         println(testAst(i.getAstFromFile(new File(ifdeftoifTestPath + "context_variableids.c"))))
@@ -1910,7 +1920,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val b = FeatureExprFactory.createDefinedExternal("B")
         val c = FeatureExprFactory.createDefinedExternal("C")
         val listOfLists = List(List(a, a.not()), List(), List(c, c.not()))
-        println(i.computeCarthesianProduct(listOfLists))
+        println(i.computeCarthesianProduct(listOfLists, FeatureExprFactory.True))
 
         println(new FeatureExprParser().parse(a.and(b).or(c).toTextExpr))
     }
