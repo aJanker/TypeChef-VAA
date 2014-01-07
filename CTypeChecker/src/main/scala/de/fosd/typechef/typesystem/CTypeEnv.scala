@@ -76,7 +76,20 @@ trait CTypeEnv extends CTypes with CTypeSystemInterface with CEnv with CDeclTypi
         case e@StructOrUnionSpecifier(isUnion, Some(i@Id(name)), Some(attributes), _, _) => {
             //for parsing the inner members, the struct itself is available incomplete
 
-            if (!initEnv.structEnv.someDefinition(name, isUnion, featureExpr)) {
+            // println(initEnv.structEnv.getId(name, isUnion))
+
+            val isAlreadyDefined = initEnv.structEnv.someDefinition(name, isUnion, featureExpr)
+            val isDefinedInImpliedContext = initEnv.structEnv.someImpliedDefinition(name, isUnion, featureExpr)
+            //println(isDefinedInImpliedContext)
+            if (!isAlreadyDefined && isDefinedInImpliedContext) {
+                /**
+                 * CDeclUse:
+                 * Struct declaration to an existing struct forward declaration in a context where
+                 * Struct declaration context implies forward declaration context
+                 */
+                addStructRedeclaration(initEnv, i, featureExpr, isUnion)
+            }
+            if (!isAlreadyDefined) {
                 /**
                  * CDeclUse:
                  * Struct declaration
@@ -84,12 +97,15 @@ trait CTypeEnv extends CTypes with CTypeSystemInterface with CEnv with CDeclTypi
                 addDefinition(i, initEnv)
             }
             var env = initEnv.updateStructEnv(initEnv.structEnv.addIncomplete(i, isUnion, featureExpr, initEnv.scope))
+            /*println("Before: " + initEnv.structEnv.getId(name, isUnion))
+            println("After: " + env.structEnv.getId(name, isUnion) + "\n")*/
             attributes.foreach(x => addDefinition(x.entry, env))
             val members = parseStructMembers(attributes, featureExpr, env)
 
+            isDefinedInImpliedContext & isAlreadyDefined
             //collect inner struct declarations recursively
             env = addInnerStructDeclarationsToEnv(attributes, featureExpr, env)
-            if (initEnv.structEnv.someDefinition(name, isUnion, featureExpr)) {
+            if (isAlreadyDefined) {
                 /**
                  * CDeclUse:
                  * Struct redeclaration

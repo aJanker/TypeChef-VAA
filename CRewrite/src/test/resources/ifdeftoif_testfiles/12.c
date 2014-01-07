@@ -40,8 +40,8 @@ extern struct pv_mmu_ops pv_mmu_ops;
 
 #endif
 
-int x;
-
+void native_pmd_val(pmd_t t);
+void test();
 #if definedEx(CONFIG_X86_LOCAL_APIC)
 
 static void set_pmd_at(struct mm_struct *mm, unsigned long addr,
@@ -54,8 +54,7 @@ static void set_pmd_at(struct mm_struct *mm, unsigned long addr,
 		
 #if (definedEx(CONFIG_PARAVIRT) && definedEx(CONFIG_LOCKDEP) && definedEx(CONFIG_X86_32))
 ({
-asm volatile("push %[_arg4];" "771:\n\t" "call *%c[paravirt_opptr];" "\n" "772:\n" ".pushsection .parainstructions,\"a\"\n" " " ".balign 4" " " "\n" " " ".long" " " " 771b\n" "  .byte " "%c[paravirt_typenum]" "\n" "  .byte 772b-771b\n" "  .short " "%c[paravirt_clobber]" "\n" ".popsection\n" "lea 4(%%esp),%%esp;" : "=a" (__eax), "=d" (__edx), "=c" (__ecx) : [paravirt_typenum] "i" ((__builtin_offsetof(struct paravirt_patch_template,pv_mmu_ops.set_pmd_at) / sizeof(void *))), [paravirt_opptr] "i" (&(pv_mmu_ops.set_pmd_at)), [paravirt_clobber] "i" (((1 << 4) - 1)),"0"((u32)(mm)), "1"((u32)(addr)), "2"((u32)(pmdp)), [_arg4] "mr"((u32)(
- native_pmd_val(pmd))) : "memory", "cc" ); })
+asm volatile("push %[mm];" "771:\n\t" "call *%c[paravirt_opptr];" "\n" "772:\n" ".pushsection .parainstructions,\"a\"\n" " " ".balign 4" " " "\n" " " ".long" " " " 771b\n" "  .byte " "%c[paravirt_typenum]" "\n" "  .byte 772b-771b\n" "  .short " "%c[paravirt_clobber]" "\n" ".popsection\n" "lea 4(%%esp),%%esp;" : "=a" (test), "=d" (test), "=c" (test) : [u64] "i" ((__builtin_offsetof(struct paravirt_patch_template,pv_mmu_ops.set_pmd_at) / sizeof(void *))), [mm] "i" (&(pv_mmu_ops.set_pmd_at)),"0"((u64)(mm)), "1"((u64)(addr)), "2"((u64)(pmdp))) : "memory", "cc" ); })
 #endif
 ;
 }

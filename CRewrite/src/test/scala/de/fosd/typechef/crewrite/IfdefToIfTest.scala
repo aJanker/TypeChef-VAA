@@ -1,7 +1,6 @@
 package de.fosd.typechef.crewrite
 
 import org.junit.{Ignore, Test}
-import de.fosd.typechef.featureexpr.sat._
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem._
 import java.io._
@@ -11,24 +10,16 @@ import de.fosd.typechef.lexer.FeatureExprLib
 import io.Source
 import scala.Some
 import de.fosd.typechef.parser.c.VoidSpecifier
-import de.fosd.typechef.parser.c.AssignExpr
 import de.fosd.typechef.parser.c.DoubleSpecifier
 import de.fosd.typechef.conditional.One
 import de.fosd.typechef.parser.c.Id
 import de.fosd.typechef.parser.c.Constant
-import de.fosd.typechef.parser.c.ExprList
 import de.fosd.typechef.parser.c.CompoundStatement
 import de.fosd.typechef.conditional.Opt
-import de.fosd.typechef.parser.c.PostfixExpr
-import de.fosd.typechef.parser.c.ReturnStatement
 import de.fosd.typechef.parser.c.AtomicNamedDeclarator
 import de.fosd.typechef.conditional.Choice
 import de.fosd.typechef.parser.c.TranslationUnit
 import de.fosd.typechef.typesystem.IdentityIdHashMap
-import de.fosd.typechef.parser.c.FunctionCall
-import de.fosd.typechef.parser.c.IfStatement
-import de.fosd.typechef.parser.c.ExprStatement
-import de.fosd.typechef.parser.c.DeclIdentifierList
 import de.fosd.typechef.parser.c.IntSpecifier
 import de.fosd.typechef.parser.c.FunctionDef
 import scala.Tuple2
@@ -1800,6 +1791,27 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         testFile(new File(ifdeftoifTestPath + "2.c"))
     }
 
+    @Test def conditional_declaration_assignments() {
+        val ast = i.getAstFromFile(new File(ifdeftoifTestPath + "conditionalDeclarationAssignments.c"))
+        println(ast)
+        testFile(new File(ifdeftoifTestPath + "conditionalDeclarationAssignments.c"))
+    }
+    @Test def for_loop() {
+        val ast = i.getAstFromFile(new File(ifdeftoifTestPath + "for_loop.c"))
+        println(ast)
+        testFile(new File(ifdeftoifTestPath + "for_loop.c"))
+    }
+    @Test def conditional_expression() {
+        val ast = i.getAstFromFile(new File(ifdeftoifTestPath + "conditional_expression.c"))
+        println(ast)
+        testFile(new File(ifdeftoifTestPath + "conditional_expression.c"))
+    }
+    @Test def conditional_expression2() {
+        val ast = i.getAstFromFile(new File(ifdeftoifTestPath + "conditional_expression2.c"))
+        println(ast)
+        testFile(new File(ifdeftoifTestPath + "conditional_expression2.c"))
+    }
+
     @Ignore def context_variableids_test() {
         println(testAst(i.getAstFromFile(new File(ifdeftoifTestPath + "context_variableids.c"))))
     }
@@ -1816,7 +1828,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def random_test() {
-        val feature = FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_CONTEXT").or(FeatureExprFactory.createDefinedExternal("CONFIG_SELINUX"))
+        /*val feature = FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_CONTEXT").or(FeatureExprFactory.createDefinedExternal("CONFIG_SELINUX"))
         val list = List(List(feature, feature), List(feature, feature), List(feature, feature), List(feature, feature), List(feature, feature))
         println(i.computeCarthesianProduct(list))
 
@@ -1830,7 +1842,22 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println(i.computeNextRelevantFeatures(exprStmt.entry, FeatureExprFactory.True))
 
         val returnStmt = ReturnStatement(Some(PostfixExpr(Id("xatoul"), FunctionCall(ExprList(List(Opt(True, Id("numstr"))))))))
-        println(i.computeNextRelevantFeatures(returnStmt))
+        println(i.computeNextRelevantFeatures(returnStmt))*/
+
+        /*val postFix = ExprStatement(PostfixExpr(PostfixExpr(Id("pv_mmu_ops"), PointerPostfixSuffix(".",Id("set_pmd_at"))), FunctionCall(ExprList(List(Opt(True,Id("mm")), Opt(True,Id("addr")), Opt(True,Id("pmdp")), Opt(True,Id("pmd")))))))
+        i.testTest(postFix)
+        val assign = Declaration(List(Opt(True,TypeDefTypeSpecifier(Id("a")))),List(Opt(True,InitDeclaratorI(AtomicNamedDeclarator(List(),Id("i"),List()),List(),Some(Initializer(None,Constant("5")))))))
+        i.testTest(assign)
+        val ast = i.getAstFromFile(new File("C:\\Users\\Flo\\test.c"))
+        println(ast + "\n\n")
+        println(testAst(ast))*/
+        val choice = Choice(FeatureExprFactory.createDefinedExternal("A"), One(Id("a")), Choice(FeatureExprFactory.createDefinedExternal("B"), One(Id("b")), One(null)))
+        val conditional = i.conditionalToCondExpr(choice)
+        conditional match {
+            case One(expr: ConditionalExpr) =>
+                println(PrettyPrinter.print(expr))
+            case k =>
+        }
     }
 
     @Test def test_statements() {
@@ -1893,7 +1920,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val b = FeatureExprFactory.createDefinedExternal("B")
         val c = FeatureExprFactory.createDefinedExternal("C")
         val listOfLists = List(List(a, a.not()), List(), List(c, c.not()))
-        println(i.computeCarthesianProduct(listOfLists))
+        println(i.computeCarthesianProduct(listOfLists, FeatureExprFactory.True))
 
         println(new FeatureExprParser().parse(a.and(b).or(c).toTextExpr))
     }
