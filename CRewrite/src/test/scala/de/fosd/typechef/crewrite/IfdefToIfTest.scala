@@ -24,6 +24,7 @@ import de.fosd.typechef.parser.c.IntSpecifier
 import de.fosd.typechef.parser.c.FunctionDef
 import scala.Tuple2
 import de.fosd.typechef.parser.c.StaticSpecifier
+import de.fosd.typechef.featureexpr.sat.True
 
 class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclUse with CTypeSystem with TestHelper {
     val makeAnalysis = true
