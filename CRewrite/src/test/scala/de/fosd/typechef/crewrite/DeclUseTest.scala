@@ -176,6 +176,17 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         assert(result ==(numberOfDefinitions, numberOfEntries, numberOfVariableIds))
     }
 
+    @Test def test_alex_12 {
+        val source_ast = getAstFromPi(new File(ifdeftoifTestPath + "12.c"))
+        println(source_ast)
+        val result = runDefUseOnAst(source_ast)
+        val numberOfDefinitions = 9
+        val numberOfEntries = 7
+        val numberOfVariableIds = 0
+        println(result)
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
+    }
+
     @Test def test_linux_typedef_struct {
         val source_ast = getAstFromPi(new File(decluseTestPath + "linux_typedef_struct.c"))
         println(source_ast)

@@ -6,15 +6,10 @@ import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem._
 import java.io._
 import java.util
-import scala.Some
-import scala.Tuple2
-import de.fosd.typechef.conditional.{Choice, One, Opt}
 import de.fosd.typechef.featureexpr.{FeatureModel, FeatureExprParser, FeatureExprFactory}
 import de.fosd.typechef.lexer.FeatureExprLib
 import io.Source
-import sys.process.{ProcessIO, Process}
 import scala.Some
-import de.fosd.typechef.parser.c.PointerPostfixSuffix
 import de.fosd.typechef.parser.c.VoidSpecifier
 import de.fosd.typechef.parser.c.AssignExpr
 import de.fosd.typechef.parser.c.DoubleSpecifier
@@ -24,19 +19,16 @@ import de.fosd.typechef.parser.c.Constant
 import de.fosd.typechef.parser.c.ExprList
 import de.fosd.typechef.parser.c.CompoundStatement
 import de.fosd.typechef.conditional.Opt
-import de.fosd.typechef.parser.c.LongSpecifier
 import de.fosd.typechef.parser.c.PostfixExpr
 import de.fosd.typechef.parser.c.ReturnStatement
 import de.fosd.typechef.parser.c.AtomicNamedDeclarator
 import de.fosd.typechef.conditional.Choice
 import de.fosd.typechef.parser.c.TranslationUnit
+import de.fosd.typechef.typesystem.IdentityIdHashMap
 import de.fosd.typechef.parser.c.FunctionCall
 import de.fosd.typechef.parser.c.IfStatement
-import de.fosd.typechef.parser.c.InitDeclaratorI
-import de.fosd.typechef.parser.c.Declaration
 import de.fosd.typechef.parser.c.ExprStatement
 import de.fosd.typechef.parser.c.DeclIdentifierList
-import de.fosd.typechef.parser.c.SignedSpecifier
 import de.fosd.typechef.parser.c.IntSpecifier
 import de.fosd.typechef.parser.c.FunctionDef
 import scala.Tuple2
@@ -131,7 +123,6 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         }
 
         if (makeAnalysis) {
-            println("\n\nChecking generated file:")
             //if (!(new File(singleFilePath ++ fileNameWithoutExtension ++ ".src")).exists) {
             PrettyPrinter.printF(source_ast, singleFilePath ++ fileNameWithoutExtension ++ ".src")
             //}
@@ -161,25 +152,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             println(PrettyPrinter.print(result_ast))
             val wellTypedFile = i.getTypeSystem(result_ast).checkAST()
             assert(wellTypedFile, "generated file is not well typed or could not be parsed")
-
-            // 3. Does gcc also say it's well typed?
-            // is gcc available?
-            var gccAvailable = false
-            try {
-                val noIO = new ProcessIO(_ => (), _ => (), _ => ())
-                Process("gcc").run(noIO).exitValue()
-                gccAvailable = true
-            } catch {
-                case e : IOException => ;
-                case e : Throwable => throw e;
-            }
-            if (gccAvailable) {
-                val pb = Process("gcc -w -S -o tmp.o -pipe " + resultFile.getAbsolutePath)
-                val p = pb.run
-                val exitCode = p.exitValue
-                assert(exitCode!=1, "gcc finds errors in generated file; exit code: " + exitCode)
-            }
-            // 4. does it still contain #if statements?
+            // 3. does it still contain #if statements?
             val containsIfdef = i.containsIfdef(result_ast)
             val fileContent = Source.fromFile(resultFile).getLines().mkString("\n")
             assert(!containsIfdef,
@@ -1123,9 +1096,18 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         println(i.getAstFromFile(file))
         testFile(file)
     }
-
     @Test def test_alex_15() {
         val file = new File(ifdeftoifTestPath + "15.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+    @Test def test_alex_16() {
+        val file = new File(ifdeftoifTestPath + "16.c")
+        println(i.getAstFromFile(file))
+        testFile(file)
+    }
+    @Test def test_alex_17() {
+        val file = new File(ifdeftoifTestPath + "17.c")
         println(i.getAstFromFile(file))
         testFile(file)
     }

@@ -74,7 +74,7 @@ trait CDeclUseInterface extends CEnv {
 
     def init() {}
 
-    def addStructRedeclaration(env: Env, declaration: Id, feature: FeatureExpr, isUnion: Boolean, doSwap: Boolean = true) {}
+    def addStructRedeclaration(env: Env, declaration: Id, feature: FeatureExpr, isUnion: Boolean) {}
 
     def addDefinition(definition: AST, env: Env, feature: FeatureExpr = FeatureExprFactory.True, isFunctionDeclarator: Boolean = false) {}
 
@@ -113,9 +113,6 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     private[typesystem] def clear() = clearDeclUseMap()
 
     private def putToDeclUseMap(decl: Id) = {
-        if (decl.name.equals("forward")) {
-            print("")
-        }
         if (!declUseMap.contains(decl)) {
             declUseMap.put(decl, Collections.newSetFromMap[Id](new util.IdentityHashMap()))
         }
@@ -217,7 +214,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
         }
     }
 
-    override def addStructRedeclaration(env: Env, declaration: Id, feature: FeatureExpr, isUnion: Boolean, doSwap: Boolean = true) {
+    override def addStructRedeclaration(env: Env, declaration: Id, feature: FeatureExpr, isUnion: Boolean) {
 
         def swapDeclaration(originalDecl: Id, newDecl: Id) = {
             putToDeclUseMap(newDecl)
@@ -248,7 +245,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
             val originalId = env.structEnv.getId(declaration.name, isUnion)
             originalId match {
                 case One(i: Id) =>
-                    if (doSwap && !i.eq(declaration)) {
+                    if (!i.eq(declaration)) {
                         swapDeclaration(i, declaration)
                     }
                 case c@Choice(_, _, _) =>
@@ -482,7 +479,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                         case Opt(ft, StructOrUnionSpecifier(isUnion, Some(i: Id), _, _, _)) =>
                             offsetDesignators.foreach(x => x match {
                                 case Opt(ft, OffsetofMemberDesignatorID(offsetId: Id)) =>
-                                    addStructUse(offsetId, ft, env, i.name, isUnion)
+                                    addStructUse(offsetId, ft, env, offsetId.name, isUnion)
                             })
                             addStructDeclUse(i, env, isUnion, ft)
                         case _ =>
@@ -492,14 +489,13 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                 if (!useDeclMap.containsKey(id)) {
                     env.varEnv.getAstOrElse(id.name, null) match {
                         case o@One(_) => addUseOne(o, id, env)
-                        case c@Choice(_, _, _) => addChoice(c, feature, id, env, addUseOne)
+                        case c@Choice(_, _, _) =>
+                            addChoice(c, feature, id, env, addUseOne)
                         case x =>
                     }
                 }
-
         })
         r(entry).get
-
     }
 
 
@@ -585,7 +581,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                         case One(i2: Id) =>
                             addToDeclUseMap(i2, i)
                         case One(null) =>
-                            addDefinition(i, env)
+                        // addDefinition(i, env)
                         case c@Choice(_, _, _) =>
                         case One(Declaration(List(Opt(_, _), Opt(_, s@StructOrUnionSpecifier(_, Some(id), _, _, _))), _)) =>
                             // TODO andreas: typedef name name // comment not specific
