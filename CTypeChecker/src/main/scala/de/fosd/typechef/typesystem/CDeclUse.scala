@@ -85,7 +85,6 @@ trait CDeclUseInterface extends CEnv {
 
     def addOldStyleParameters(oldStyleParameters: List[Opt[OldParameterDeclaration]], declarator: Declarator, expr: FeatureExpr, env: Env) = {}
 
-
     def addStructUse(entry: AST, featureExpr: FeatureExpr, env: Env, structName: String, isUnion: Boolean) {}
 
     def addAnonStructUse(id: Id, fields: ConditionalTypeMap) {}
@@ -672,11 +671,10 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                         case o@One(key: Id) =>
                             addOne(o, use)
                         case c@Choice(_, _, _) =>
-                            val tuple = conditionalToTuple(c)
+                            val condTuple = c.toList
+                            val tuple = condTuple.filter(x => x._1.equivalentTo(FeatureExprFactory.True) || x._1.implies(feature).isTautology)
                             tuple.foreach(x => {
-                                if (x._1.equivalentTo(FeatureExprFactory.True) || x._1.implies(feature).isTautology) {
-                                    addToDeclUseMap(x._2.asInstanceOf[Id], use)
-                                }
+                                addToDeclUseMap(x._2.asInstanceOf[Id], use)
                             })
                         case x => // match error, causes exception @ openssl - TODO analyse
                     }

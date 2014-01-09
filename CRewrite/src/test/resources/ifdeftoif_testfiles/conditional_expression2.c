@@ -63,7 +63,7 @@ void main()  {
   #endif
   else if (
   #if definedEx(Y)
-  y > 0
+  b > 0
   #else
   x = 0
   #endif
@@ -71,10 +71,16 @@ void main()  {
     #if definedEx(D)
   {
 	y = 0;
+	#if definedEx(Y)
+	b = 0;
+	#else
+	x = 0;
+	#endif
   }
   #else
     {
 	y = 1;
+	b = 1;
   }
   #endif
 }
