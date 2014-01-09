@@ -91,10 +91,13 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             print("\t")
         }
         val startParsingAndTypeChecking = System.currentTimeMillis()
-        val source_ast = i.prepareAST(i.getAstFromFile(file))
+        val ast = i.getAstFromFile(file)
+        val source_ast = i.prepareAST(ast)
         val ts = getTypeSystem(source_ast)
         //val env = createASTEnv(source_ast)
         ts.typecheckTranslationUnit(source_ast)
+        println(i.getTypeSystem(source_ast).checkASTSilent)
+        println(i.getTypeSystem(ast).checkASTSilent)
         val defUseMap = ts.getDeclUseMap
         val useDefMap = ts.getUseDeclMap
         val timeToParseAndTypeCheck = System.currentTimeMillis() - startParsingAndTypeChecking
