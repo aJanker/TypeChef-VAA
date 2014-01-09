@@ -32,6 +32,7 @@ trait BusyBoxEvaluation extends Evaluation with ASTNavigation with ConditionalNa
     val MAX_DEPTH = 27
     val amountOfRefactorings = 3
     val MAX = 1
+
 }
 
 

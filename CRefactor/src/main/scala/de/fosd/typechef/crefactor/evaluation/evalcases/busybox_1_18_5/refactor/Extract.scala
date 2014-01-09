@@ -1,18 +1,18 @@
-package de.fosd.typechef.crefactor.evaluation.busybox_1_18_5.refactor
+package de.fosd.typechef.crefactor.evaluation.evalcases.busybox_1_18_5.refactor
 
 import de.fosd.typechef.crefactor.Morpheus
 import de.fosd.typechef.featureexpr.FeatureExpr
 import de.fosd.typechef.parser.c.{Statement, AST, CompoundStatement}
 import de.fosd.typechef.crefactor.backend.refactor.CExtractFunction
-import de.fosd.typechef.crefactor.evaluation.busybox_1_18_5.{PrepareASTforVerification, BusyBoxRefactor}
+import de.fosd.typechef.crefactor.evaluation.busybox_1_18_5.BusyBoxEvaluation
 import de.fosd.typechef.crefactor.evaluation.util.TimeMeasurement
 import de.fosd.typechef.crefactor.evaluation.busybox_1_18_5.linking.CLinking
-import de.fosd.typechef.crefactor.evaluation.StatsJar
+import de.fosd.typechef.crefactor.evaluation.{Refactoring, StatsJar}
 import de.fosd.typechef.crefactor.evaluation.Stats._
 import de.fosd.typechef.conditional.Opt
 
 
-object Extract extends BusyBoxRefactor {
+object Extract extends BusyBoxEvaluation with Refactoring {
 
     private val MAX_REC_DEPTH: Int = 1000
 
@@ -21,8 +21,8 @@ object Extract extends BusyBoxRefactor {
     private val NAME = "refactored_func"
 
 
-    def refactor(morpheus: Morpheus, linkInterface: CLinking): (Boolean, List[FeatureExpr]) = {
-        def refactor(morpheus: Morpheus, linkInterface: CLinking, depth: Int): (Boolean, List[FeatureExpr]) = {
+    def refactor(morpheus: Morpheus, linkInterface: CLinking): (Boolean, AST, List[FeatureExpr], List[(String, AST)]) = {
+        def refactor(morpheus: Morpheus, linkInterface: CLinking, depth: Int): (Boolean, AST, List[FeatureExpr], List[(String, AST)]) = {
             val compStmts = filterAllASTElems[CompoundStatement](morpheus.getAST)
 
             // Real random approach
@@ -79,7 +79,7 @@ object Extract extends BusyBoxRefactor {
 
             if (statements.isEmpty) {
                 println("no valid statement found")
-                return (false, null)
+                return (false, null, List(), List())
             }
 
             val features = filterAllOptElems(statements).map(morpheus.getASTEnv.featureExpr(_)).distinct
@@ -88,18 +88,16 @@ object Extract extends BusyBoxRefactor {
             val refactored = CExtractFunction.extract(morpheus, statements, NAME)
             refactored match {
                 case Right(a) => {
-                    write(a, morpheus.getFile)
-                    PrepareASTforVerification.makeConfigs(a, morpheus.getFeatureModel, morpheus.getFile, features)
                     StatsJar.addStat(morpheus.getFile, RefactorTime, refactorTime.getTime)
                     StatsJar.addStat(morpheus.getFile, Statements, statements)
-                    (true, features)
+                    (true, a, features, List())
                 }
                 case Left(s) => {
                     // TODO Correct Error Handling
                     println("error")
                     println(s)
                     if (depth < RETRIES) refactor(morpheus, linkInterface, depth + 1)
-                    else (false, null)
+                    else (false, null, List(), List())
                 }
 
             }

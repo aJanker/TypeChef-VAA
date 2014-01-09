@@ -7,8 +7,8 @@ import de.fosd.typechef.crefactor.evaluation.Evaluation
 
 trait SQLiteEvaluation extends Evaluation with ASTNavigation with ConditionalNavigation {
 
-    val evalName = "sqlite"
-    val caseStudyPath = "../cRefactor-SQLiteEvaluation/"
+    val evalName = "sqlite-src-3080100"
+    val caseStudyPath = "../cRefactor-TH3SQLiteEvaluation/"
     val completePath = new File(caseStudyPath).getCanonicalPath
     val filesToEval: String = completePath + "/sqlite_files"
     val blackListFiles: List[String] = List()
