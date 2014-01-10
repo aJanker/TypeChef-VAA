@@ -1,4 +1,4 @@
-package de.fosd.typechef.crefactor.evaluation.openSSL
+package de.fosd.typechef.crefactor.evaluation.evalcases.openSSL
 
 import de.fosd.typechef.crefactor.evaluation.Evaluation
 import de.fosd.typechef.parser.c.{ConditionalNavigation, ASTNavigation}
@@ -14,6 +14,7 @@ trait OpenSSLEvaluation extends Evaluation with ASTNavigation with ConditionalNa
     val blackListFiles: List[String] = List()
     //Source.fromFile(getClass.getResource("/openssl_blacklist").getFile).getLines().toList
     val sourcePath = completePath + "/" + evalName + "/"
+    val testPath = completePath + "/" + evalName + "/"
     val result = "/result/"
 
     val filterFeatures = List()

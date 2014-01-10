@@ -1,19 +1,20 @@
 package de.fosd.typechef.crefactor.evaluation
 
 import java.io._
-import de.fosd.typechef.parser.c.{PrettyPrinter, AST}
+import de.fosd.typechef.parser.c._
 import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr, SingleFeatureExpr, FeatureModel}
 import java.util.regex.Pattern
 import scala.io.Source
 import de.fosd.typechef.crefactor.Logging
 import java.util.{TimerTask, Timer, IdentityHashMap}
-import de.fosd.typechef.parser.c.GnuAsmExpr
-import de.fosd.typechef.parser.c.Id
 import scala.collection.immutable.HashMap
-import de.fosd.typechef.conditional.{Opt, Choice}
 import de.fosd.typechef.crefactor.evaluation.setup.BuildCondition
+import de.fosd.typechef.parser.c.GnuAsmExpr
+import de.fosd.typechef.conditional.Choice
+import de.fosd.typechef.parser.c.Id
+import de.fosd.typechef.conditional.Opt
 
-trait Evaluation extends Logging with BuildCondition {
+trait Evaluation extends Logging with BuildCondition with ASTNavigation with ConditionalNavigation {
 
     val evalName: String
     val caseStudyPath: String
@@ -21,6 +22,7 @@ trait Evaluation extends Logging with BuildCondition {
     val filesToEval: String
     val blackListFiles: List[String]
     val sourcePath: String
+    val testPath: String
     val result: String
 
     val filterFeatures: List[String]
@@ -254,23 +256,6 @@ trait Evaluation extends Logging with BuildCondition {
 
     def copyFile(file1: File, file2: File) = new FileOutputStream(file2).getChannel.transferFrom(new FileInputStream(file1).getChannel, 0, Long.MaxValue)
 
-    def streamsToString(streams: (InputStream, InputStream)): (String, String) = {
-        val readerOut = new BufferedReader(new InputStreamReader(streams._1))
-        val readerErr = new BufferedReader(new InputStreamReader(streams._2))
-
-        val out = readIn(readerOut, new StringBuilder)
-        val err = readIn(readerErr, new StringBuilder)
-        (out, err)
-    }
-
-    def readIn(reader: BufferedReader, builder: StringBuilder): String = {
-        while (reader.ready()) {
-            val line = reader.readLine()
-            builder.append(line + "\n")
-        }
-        builder.toString()
-    }
-
     /**
      * Runs a shell script with either default timeout or a custom timeout in ms
      */
@@ -386,14 +371,14 @@ trait Evaluation extends Logging with BuildCondition {
     def getFileName(originalFilePath: String) = originalFilePath.substring(originalFilePath.lastIndexOf(File.separatorChar), originalFilePath.length).replace("/", "")
 
     def getResultDir(originalFilePath: String, run: Int): File = {
-        val outputFilePath = originalFilePath.replace("busybox-1.18.5", "result")
+        val outputFilePath = originalFilePath.replace(evalName, "result")
         val result = new File(outputFilePath + File.separatorChar + run + File.separatorChar)
         if (!result.exists()) result.mkdirs()
         result
     }
 
     def getResultDir(originalFilePath: String): File = {
-        val outputFilePath = originalFilePath.replace("busybox-1.18.5", "result")
+        val outputFilePath = originalFilePath.replace(evalName, "result")
         val result = new File(outputFilePath + File.separatorChar)
         if (!result.exists()) result.mkdirs()
         result
@@ -556,4 +541,30 @@ trait Evaluation extends Logging with BuildCondition {
     }
 
     def constantSlice[T](list: List[T], start: Int, end: Int) = list.drop(start).take(end - start)
+
+    def evaluateScriptResult(result: (InputStream, InputStream)): (Boolean, String, String) = {
+        val stream = streamsToString(result)
+        println("+++ STDOUT")
+        println(stream._1)
+        println("+++ STDERR")
+        println(stream._2)
+        (stream._1.contains("Success_Build"), stream._1, stream._2)
+    }
+
+    def streamsToString(streams: (InputStream, InputStream)): (String, String) = {
+        val readerOut = new BufferedReader(new InputStreamReader(streams._1))
+        val readerErr = new BufferedReader(new InputStreamReader(streams._2))
+
+        val out = readIn(readerOut, new StringBuilder)
+        val err = readIn(readerErr, new StringBuilder)
+        (out, err)
+    }
+
+    def readIn(reader: BufferedReader, builder: StringBuilder): String = {
+        while (reader.ready()) {
+            val line = reader.readLine()
+            builder.append(line + "\n")
+        }
+        builder.toString()
+    }
 }
