@@ -918,12 +918,11 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         transformRecursive(replaceOptAndId(t, feat), feat)
     }
 
-    def ifdeftoif(ast: TranslationUnit, decluse: IdentityIdHashMap, usedecl: IdentityIdHashMap, featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty, outputStem: String = "unnamed", lexAndParseTime: Long = 0, writeStatistics: Boolean = true, newPath: String = ""): (Option[AST], Long, List[TypeChefError]) = {
+    def ifdeftoif(source_ast: TranslationUnit, decluse: IdentityIdHashMap, usedecl: IdentityIdHashMap, featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty, outputStem: String = "unnamed", lexAndParseTime: Long = 0, writeStatistics: Boolean = true, newPath: String = ""): (Option[AST], Long, List[TypeChefError]) = {
         new File(path).mkdirs()
         val tb = java.lang.management.ManagementFactory.getThreadMXBean
         fm = featureModel
         //val prepareSt = tb.getCurrentThreadCpuTime()
-        val source_ast = prepareAST(ast)
         //println(source_ast)
         //println("Prepare time: " + ((tb.getCurrentThreadCpuTime() - prepareSt) / nstoms).toString())
 
@@ -1116,12 +1115,11 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     /**
      * Makes #ifdef to if transformation on given AST element. Returns new AST element and a statistics String.
      */
-    def transformAst(t: TranslationUnit, decluse: IdentityIdHashMap, usedecl: IdentityIdHashMap, parseTime: Long, featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty): (TranslationUnit, String) = {
+    def transformAst(source_ast: TranslationUnit, decluse: IdentityIdHashMap, usedecl: IdentityIdHashMap, parseTime: Long, featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty): (TranslationUnit, String) = {
         fm = featureModel
         val tb = java.lang.management.ManagementFactory.getThreadMXBean
-        val source_ast = prepareAST(t)
 
-        fillIdMap(t)
+        fillIdMap(source_ast)
         defuse = decluse
         usedef = usedecl
         val time = tb.getCurrentThreadCpuTime()
@@ -1511,7 +1509,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      * Replaces Conditional[Statements] inside e.g. IfStatements with CompoundStatements, so that we can actually
      * perform StatementDuplications.
      */
-    def prepareAST[T <: Product](t: T, currentContext: FeatureExpr = trueF): T = {
+    /*def prepareAST[T <: Product](t: T, currentContext: FeatureExpr = trueF): T = {
         val r = alltd(rule {
             case l: List[Opt[_]] =>
                 l.flatMap(x => x match {
@@ -1538,7 +1536,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             case k =>
                 k.get.asInstanceOf[T]
         }
-    }
+    }*/
 
     /**
      * Computes the cartesian product of a list of lists of FeatureExpressions using the boolean 'and' operator.
@@ -2161,8 +2159,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     def handleStatement(opt: Opt[_], currentContext: FeatureExpr = trueF): List[Opt[_]] = {
         opt.entry match {
             case i: IfStatement =>
-                handleIfStatementConditional(opt, currentContext)
-            //handleIfStatement(opt, currentContext)
+                //handleIfStatementConditional(opt, currentContext)
+                handleIfStatement(opt, currentContext)
             case f: ForStatement =>
                 handleForStatement(opt.asInstanceOf[Opt[Statement]], currentContext)
             case w: WhileStatement =>
