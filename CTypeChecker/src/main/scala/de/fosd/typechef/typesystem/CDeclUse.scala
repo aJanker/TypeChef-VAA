@@ -59,8 +59,6 @@ case class IdentityIdHashMap(iIdHashMap: util.IdentityHashMap[Id, List[Id]]) ext
     def values = iIdHashMap.values
 
     def iterator = iIdHashMap.iterator
-
-    def isTraversableAgain = true
 }
 
 // this trait is a hook into the typesystem to preserve typing informations
@@ -161,6 +159,14 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     def getUseDeclMap = IdentityIdHashMap(useDeclMap)
 
     def getAllConnectedIdentifier(id: Id): List[Id] = {
+        def isAlreadyConnected(map: IdentityIdHashMap): Boolean = {
+            val existingConnectedList = map.get(id).filter(connectedIds.contains)
+            val connected = !existingConnectedList.isEmpty
+            if (connected) connectedIds.put(id, connectedIds.get(existingConnectedList.head))
+
+            connected
+        }
+
         if (connectedIds.containsKey(id) || isAlreadyConnected(getUseDeclMap) || isAlreadyConnected(getDeclUseMap)) return connectedIds.get(id)
 
         val visited = Collections.newSetFromMap[Id](new util.IdentityHashMap())
@@ -169,14 +175,6 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
             visited.add(conn)
             if (connectedIds.contains(id)) connectedIds.put(id, conn :: connectedIds.get(id))
             else connectedIds.put(id, List(conn))
-        }
-
-        def isAlreadyConnected(map: IdentityIdHashMap): Boolean = {
-            val existingConnectedList = map.get(id).filter(connectedIds.contains)
-            val connected = !existingConnectedList.isEmpty
-            if (connected) connectedIds.put(id, connectedIds.get(existingConnectedList.head))
-
-            connected
         }
 
         // find all uses of an callId
