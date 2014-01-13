@@ -56,6 +56,8 @@ case class IdentityIdHashMap(iIdHashMap: util.IdentityHashMap[Id, List[Id]]) ext
 
     def keySet = iIdHashMap.keySet
 
+    def keys = keySet.toArray(Array[Id]()).toList
+
     def values = iIdHashMap.values
 
     def iterator = iIdHashMap.iterator
