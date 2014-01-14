@@ -117,6 +117,9 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     }
 
     private def addToDeclUseMap(decl: Id, use: Id): Any = {
+        if (decl.name.equals("pv_mmu_ops")) {
+            println("")
+        }
         if (decl.eq(use) && !declUseMap.containsKey(decl)) {
             putToDeclUseMap(decl)
         }
@@ -471,6 +474,8 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                     t :: current
                 case id: Id =>
                     id :: current
+                case pps: PointerPostfixSuffix =>
+                    current
                 case p: Product =>
                     p.productIterator.toList.flatMap(getIdElements(_, current))
                 case k =>
