@@ -3,7 +3,7 @@ package de.fosd.typechef.crefactor.evaluation.refactor
 import de.fosd.typechef.crefactor.evaluation.{Evaluation, StatsJar, Refactoring}
 import de.fosd.typechef.crefactor.{CRefactorFrontend, Morpheus}
 import de.fosd.typechef.parser.c.AST
-import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr}
+import de.fosd.typechef.featureexpr.FeatureExpr
 import de.fosd.typechef.crefactor.backend.refactor.CRenameIdentifier
 import de.fosd.typechef.crefactor.evaluation.util.TimeMeasurement
 import de.fosd.typechef.crefactor.evaluation.Stats._
@@ -11,6 +11,7 @@ import de.fosd.typechef.parser.c.Id
 import scala.collection.mutable
 import de.fosd.typechef.error.Position
 import de.fosd.typechef.crefactor.evaluation.evalcases.busybox_1_18_5.setup.linking.CLinking
+import java.io.File
 
 
 trait DefaultRename extends Refactoring with Evaluation {
@@ -26,36 +27,46 @@ trait DefaultRename extends Refactoring with Evaluation {
                 else true
             }
 
-            val allIds = morpheus.getUseDeclMap.values.toArray(Array[List[Id]]()).par.foldLeft(List[Id]())((list, entry) => list ::: entry)
+            def isWritable(id: Id): Boolean = {
+                morpheus.getAllConnectedIdentifier(id).forall(i =>
+                    isValidId(i) && (i.getFile.get.replaceFirst("file ", "").equalsIgnoreCase(morpheus.getFile) || new File(i.getFile.get.replaceFirst("file ", "")).canWrite))
+            }
+
+            val allIds = morpheus.getUseDeclMap.keys
             val linkedIds = if (FORCE_LINKING && linkInterface != null) allIds.par.filter(id => linkInterface.isListed(id.name)) else allIds
             val ids = if (linkedIds.isEmpty) allIds else linkedIds
 
             println("+++ IDs found: " + ids.size)
 
-            val writeAbleIds = ids.par.filter(id =>
-                CRenameIdentifier.getAllConnectedIdentifier(id, morpheus.getDeclUseMap, morpheus.getUseDeclMap).forall(i =>
-                    isValidId(i) && i.getFile.get.replaceFirst("file ", "").equalsIgnoreCase(morpheus.getFile) /* && new File(i.getFile.get.replaceFirst("file ", "")).canWrite */))
+            /**
+            val writeAbleIds = ids.filter(id =>
+                morpheus.getAllConnectedIdentifier(id).forall(i =>
+                    isValidId(i) && (i.getFile.get.replaceFirst("file ", "").equalsIgnoreCase(morpheus.getFile) || new File(i.getFile.get.replaceFirst("file ", "")).canWrite)))
 
-            println("+++ Writeable IDs found: " + writeAbleIds.size)
+            println("+++ Writeable IDs found: " + writeAbleIds.size) */
 
-            val variableIds = writeAbleIds.par.filter(id => {
-                val associatedIds = CRenameIdentifier.getAllConnectedIdentifier(id, morpheus.getDeclUseMap, morpheus.getUseDeclMap)
-                val features = associatedIds.map(morpheus.getASTEnv.featureExpr)
-                !(features.distinct.length == 1 && features.distinct.contains(FeatureExprFactory.True))
-            })
+            val variableIds = ids.par.filter(id => isVariable(parentOpt(id, morpheus.getASTEnv)))
 
             println("+++ Varialbe IDs found: " + variableIds.size)
 
-            val id = if (!variableIds.isEmpty && FORCE_VARIABILITY) variableIds.apply((math.random * variableIds.size).toInt) else writeAbleIds.apply((math.random * writeAbleIds.size).toInt)
+            def getRandomID: Id = {
+                val randID = if (!variableIds.isEmpty && FORCE_VARIABILITY) variableIds.apply((math.random * variableIds.size).toInt) else ids.apply((math.random * ids.size).toInt)
+                if (isWritable(randID)) randID
+                else getRandomID
+            }
+
+            val id = getRandomID
+            val associatedIds = morpheus.getAllConnectedIdentifier(id)
             println("+++ Found Id: " + id)
-            val associatedIds = CRenameIdentifier.getAllConnectedIdentifier(id, morpheus.getDeclUseMap, morpheus.getUseDeclMap)
             println("+++ Associated Ids: " + associatedIds.size)
             (id, associatedIds.length, associatedIds.map(morpheus.getASTEnv.featureExpr).distinct)
         }
 
         val time = new TimeMeasurement
         val toRename = getVariableIdToRename
-        StatsJar.addStat(morpheus.getFile, RandomRefactorDeterminationTime, time.getTime)
+        val determineTime = time.getTime
+        println("+++ Time to determine id: " + time.getTime)
+        StatsJar.addStat(morpheus.getFile, RandomRefactorDeterminationTime, determineTime)
         val id = toRename._1
         StatsJar.addStat(morpheus.getFile, RenamedId, id.name)
 

@@ -56,6 +56,8 @@ case class IdentityIdHashMap(iIdHashMap: util.IdentityHashMap[Id, List[Id]]) ext
 
     def keySet = iIdHashMap.keySet
 
+    def keys = keySet.toArray(Array[Id]()).toList
+
     def values = iIdHashMap.values
 
     def iterator = iIdHashMap.iterator
@@ -106,6 +108,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
 
     private var declUseMap: util.IdentityHashMap[Id, util.Set[Id]] = new util.IdentityHashMap()
     private var useDeclMap: util.IdentityHashMap[Id, List[Id]] = new util.IdentityHashMap()
+    private val connectedIds: util.IdentityHashMap[Id, List[Id]] = new util.IdentityHashMap()
     private var stringToIdMap: Map[String, Id] = Map()
 
     private[typesystem] def clear() = clearDeclUseMap()
@@ -141,6 +144,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     override def clearDeclUseMap() {
         declUseMap.clear()
         useDeclMap.clear()
+        connectedIds.clear()
     }
 
     override def init() {
@@ -159,6 +163,44 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     }
 
     def getUseDeclMap = IdentityIdHashMap(useDeclMap)
+
+    def getAllConnectedIdentifier(id: Id): List[Id] = {
+        def isAlreadyConnected(map: IdentityIdHashMap): Boolean = {
+            if (!map.containsKey(id)) return false
+            val existingConnectedList = map.get(id).filter(connectedIds.contains)
+            val connected = !existingConnectedList.isEmpty
+            if (connected) connectedIds.put(id, connectedIds.get(existingConnectedList.head))
+
+            connected
+        }
+
+        if (connectedIds.containsKey(id) || isAlreadyConnected(getUseDeclMap) || isAlreadyConnected(getDeclUseMap)) return connectedIds.get(id)
+
+        val visited = Collections.newSetFromMap[Id](new util.IdentityHashMap())
+
+        def addToConnectedIdMap(conn: Id) = {
+            visited.add(conn)
+            if (connectedIds.contains(id)) connectedIds.put(id, conn :: connectedIds.get(id))
+            else connectedIds.put(id, List(conn))
+        }
+
+        // find all uses of an callId
+        def addOccurrence(occurrence: Id) {
+            if (!visited.contains(occurrence)) {
+                addToConnectedIdMap(occurrence)
+                if (!getDeclUseMap.containsKey(occurrence)) return
+                getDeclUseMap.get(occurrence).foreach(use => {
+                    addToConnectedIdMap(use)
+                    if (getUseDeclMap.containsKey(use)) getUseDeclMap.get(use).foreach(entry => addOccurrence(entry))
+                })
+            }
+        }
+
+        if (getUseDeclMap.containsKey(id)) getUseDeclMap.get(id).foreach(addOccurrence)
+        else addOccurrence(id)
+
+        connectedIds.get(id)
+    }
 
 
     // add definition:
