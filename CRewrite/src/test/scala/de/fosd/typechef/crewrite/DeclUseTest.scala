@@ -171,8 +171,8 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val source_ast = getAstFromPi(new File(ifdeftoifTestPath + "12.c"))
         println(source_ast)
         val result = runDefUseOnAst(source_ast)
-        val numberOfDefinitions = 9
-        val numberOfEntries = 7
+        val numberOfDefinitions = 44
+        val numberOfEntries = 41
         val numberOfVariableIds = 0
         println(result)
         assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
@@ -250,6 +250,16 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         val numberOfDefinitions = 6815
         val numberOfEntries = 4535
         val numberOfVariableIds = 2
+        println(result)
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
+    }
+
+    @Test def test_loadfont_pi {
+        val source_ast = getAstFromPi(new File("../TypeChef-BusyboxAnalysis/busybox-1.18.5/console-tools/loadfont.pi"))
+        val result = runDefUseOnAst(source_ast)
+        val numberOfDefinitions = 6408
+        val numberOfEntries = 2381
+        val numberOfVariableIds = 1
         println(result)
         assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }

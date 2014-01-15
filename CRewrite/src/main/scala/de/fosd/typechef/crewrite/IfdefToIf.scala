@@ -1463,20 +1463,6 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         }
     }
 
-    def getIdUsageFeatureList(a: Any): List[List[FeatureExpr]] = {
-        val ids = filterASTElems[Id](a)
-        val features = ids.filter(x => idsToBeReplaced.containsKey(x)).map(x => idsToBeReplaced.get(x).toList)
-        features.distinct
-    }
-
-    def computeIdUsageFeatures(a: Any, currentContext: FeatureExpr = trueF): List[FeatureExpr] = {
-        var res = getIdUsageFeatureList(a, currentContext).foldLeft(List(trueF))((first, second) => first.flatMap(x => second.diff(first).map(y => y.and(x))))
-        if (!currentContext.equivalentTo(trueF, fm)) {
-            res.flatMap(x => if (currentContext.implies(x).isTautology(fm)) List(x) else List())
-        }
-        res
-    }
-
     def getNextOptList(a: Any): List[Opt[_]] = {
         a match {
             case d: Opt[_] => List(d)
@@ -1501,6 +1487,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         } else {
             feature.and(context)
         }
+        /*feature.and(context)*/
     }
 
     /**
@@ -2159,8 +2146,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     def handleStatement(opt: Opt[_], currentContext: FeatureExpr = trueF): List[Opt[_]] = {
         opt.entry match {
             case i: IfStatement =>
-                //handleIfStatementConditional(opt, currentContext)
-                handleIfStatement(opt, currentContext)
+                handleIfStatementConditional(opt, currentContext)
+            //handleIfStatement(opt, currentContext)
             case f: ForStatement =>
                 handleForStatement(opt.asInstanceOf[Opt[Statement]], currentContext)
             case w: WhileStatement =>
@@ -2197,6 +2184,13 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
                 // 2. Step with conditionalExpressions
                 case i@IfStatement(c: Conditional[Expr], thenBranch: Conditional[Statement], elif, els) =>
+                    c match {
+                        case o@One(na: NAryExpr) =>
+                            if (na.e.equals(Id("opts"))) {
+                                print("")
+                            }
+                        case k =>
+                    }
                     var newCond: Expr = null
                     val statementTuple = conditionalToTuple(thenBranch, currentContext)
                     var elseTuple = List((FeatureExprFactory.True, None.asInstanceOf[Option[Conditional[Statement]]]))
@@ -2212,7 +2206,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     totalCarthProduct match {
                         case Nil =>
                             newCond = conditionalToConditionalExpr(c, currentContext, true).value
-                            List(Opt(trueF, IfStatement(One(newCond), thenBranch, elif.flatMap(y => handleIfStatementConditional(y, currentContext).asInstanceOf[List[Opt[ElifStatement]]]), transformRecursive(els, currentContext))))
+                            List(Opt(trueF, IfStatement(One(newCond), replaceAndTransform(thenBranch, currentContext), elif.flatMap(y => handleIfStatementConditional(y, currentContext).asInstanceOf[List[Opt[ElifStatement]]]), transformRecursive(els, currentContext))))
                         case k =>
                             totalCarthProduct.flatMap(x => {
 
@@ -2569,7 +2563,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     val result = features.map(x => Opt(trueF, transformRecursive(convertId(replaceOptAndId(tmpDecl, x), x), x)))
                     result
                 } else {
-                    val result = List(Opt(trueF, transformRecursive(replaceOptAndId(convertId(tmpDecl, declarationFeature), declarationFeature), declarationFeature)))
+                    val result = List(Opt(trueF, transformRecursive(convertId(replaceOptAndId(tmpDecl, declarationFeature), declarationFeature), declarationFeature)))
                     result
                 }
         }
