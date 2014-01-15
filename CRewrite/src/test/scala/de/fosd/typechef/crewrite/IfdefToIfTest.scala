@@ -26,7 +26,7 @@ import scala.Tuple2
 import de.fosd.typechef.parser.c.StaticSpecifier
 import de.fosd.typechef.featureexpr.sat.True
 
-class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclUse with CTypeSystem with TestHelper {
+class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclUse with CTypeSystem with TestHelper with EnforceTreeHelper {
     val makeAnalysis = true
     val writeFilesIntoIfdeftoifFolder = true
     val checkForExistingFiles = true
@@ -92,17 +92,20 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             print("\t")
         }
         val startParsingAndTypeChecking = System.currentTimeMillis()
-        val source_ast = i.prepareAST(i.getAstFromFile(file))
+        val ast = i.getAstFromFile(file)
+        val source_ast = prepareAST(ast)
         val ts = getTypeSystem(source_ast)
         //val env = createASTEnv(source_ast)
         ts.typecheckTranslationUnit(source_ast)
+        println(i.getTypeSystem(source_ast).checkASTSilent)
+        println(i.getTypeSystem(ast).checkASTSilent)
         val defUseMap = ts.getDeclUseMap
         val useDefMap = ts.getUseDeclMap
         val timeToParseAndTypeCheck = System.currentTimeMillis() - startParsingAndTypeChecking
         print("--Parsed--")
 
         val startTransformation = System.currentTimeMillis()
-        val new_ast = i.transformAst(source_ast, defUseMap, useDefMap, timeToParseAndTypeCheck)
+        val new_ast = i.transformAst(prepareAST(source_ast), defUseMap, useDefMap, timeToParseAndTypeCheck)
         val timeToTransform = System.currentTimeMillis() - startTransformation
         print("\t--Transformed--")
 
@@ -165,37 +168,14 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val useDefMap = getUseDeclMap
 
         val optionsAst = i.getOptionFile(source_ast)
-        val newAst = i.transformAst(source_ast, defUseMap, useDefMap, 0)._1
+        val newAst = i.transformAst(prepareAST(source_ast), defUseMap, useDefMap, 0)._1
         ("+++New Code+++\n" + PrettyPrinter.print(newAst))
-    }
-
-    def getNewAst(source_ast: TranslationUnit): TranslationUnit = {
-        typecheckTranslationUnit(source_ast)
-        val defUseMap = getDeclUseMap
-        val useDefMap = getUseDeclMap
-
-        val optionsAst = i.getOptionFile(source_ast)
-        i.transformAst(source_ast, defUseMap, useDefMap, 0)._1
-    }
-
-    def testFolder(path: String) {
-        val folder = new File(path)
-        val asts = analyseDir(folder)
-
-        asts.foreach(x => {
-            val defuses = getDefUse(x._1)
-            writeToTextFile(x._2 ++ "_tmp", PrettyPrinter.print(i.transformAst(x._1, defuses._1, defuses._2, 0)._1))
-        })
-
-        /*val quad = asts.map(x => (x._1, createASTEnv(x._1), getDefUse(x._1), x._2))
-        val newAsts = i.transformAsts(quad)
-        newAsts.foreach(x => writeToTextFile(PrettyPrinter.print(x._1), x._2 ++ "_tmp"))*/
     }
 
     private def compareTypeChecking(file: File): Tuple2[Long, Long] = {
         val source_ast = i.getAstFromFile(file)
         val defuses = getDefUse(source_ast)
-        val result_ast = i.transformAst(source_ast, defuses._1, defuses._2, 0)._1
+        val result_ast = i.transformAst(prepareAST(source_ast), defuses._1, defuses._2, 0)._1
         val ts_source = getTypeSystem(source_ast)
         val ts_result = getTypeSystem(result_ast)
 
@@ -1674,7 +1654,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
                 val timeToParseAndTypeCheck = System.currentTimeMillis() - startParsingAndTypeChecking
                 //print("--Parsed--")
 
-                val tuple = i.ifdeftoif(source_ast, defUseMap, useDefMap, featureModel, fileNameWithoutExtension, timeToParseAndTypeCheck, makeAnalysis, path ++ fileNameWithoutExtension ++ "_ifdeftoif.c")
+                val tuple = i.ifdeftoif(prepareAST(source_ast), defUseMap, useDefMap, featureModel, fileNameWithoutExtension, timeToParseAndTypeCheck, makeAnalysis, path ++ fileNameWithoutExtension ++ "_ifdeftoif.c")
                 tuple._1 match {
                     case None =>
                         println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")
@@ -1684,7 +1664,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
                 }
 
                 val startTransformation = System.currentTimeMillis()
-                val new_ast = i.transformAst(source_ast, defUseMap, useDefMap, 0)
+                val new_ast = i.transformAst(prepareAST(source_ast), defUseMap, useDefMap, 0)
                 val timeToTransform = System.currentTimeMillis() - startTransformation
                 //print("\t--Transformed--")
 
@@ -1875,7 +1855,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
                                  """)
         println(source_ast)
-        println(PrettyPrinter.print(i.prepareAST(source_ast)))
+        println(PrettyPrinter.print(prepareAST(source_ast)))
         println(testAst(source_ast))
 
         val source_ast2 = getAST( """

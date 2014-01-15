@@ -16,7 +16,7 @@ import java.util.List;
 public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_PARSE = Options.genOptionId();
     private final static char F_INTERFACE = Options.genOptionId();
-    private final static char statF_WRITEPI = Options.genOptionId();
+    private final static char F_WRITEPI = Options.genOptionId();
     private final static char F_DEBUGINTERFACE = Options.genOptionId();
     private final static char F_DUMPCFG = Options.genOptionId();
     private final static char F_DOUBLEFREE = Options.genOptionId();
@@ -27,6 +27,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_REUSEAST = Options.genOptionId();
     private final static char F_RECORDTIMING = Options.genOptionId();
     private final static char F_FILEPC = Options.genOptionId();
+    private final static char F_DISABLEPC = Options.genOptionId();
     private final static char F_PARSERSTATS = Options.genOptionId();
     private final static char F_HIDEPARSERRESULTS = Options.genOptionId();
     private final static char F_BDD = Options.genOptionId();
@@ -67,7 +68,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             recordTiming = false,
             parserStatistics = false,
             parserResults = true,
-            writePI = false;
+            writePI = false,
+            defaultPC = true;
     protected File errorXMLFile = null;
     String outputStem = "";
     private String filePresenceConditionFile = "";
@@ -121,8 +123,10 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                 new Option("output", LongOpt.REQUIRED_ARGUMENT, 'o', "file",
                         "Path to output files (no extension, creates .pi, .macrodbg etc files)."),
 
-                new Option("writePI", LongOpt.NO_ARGUMENT, statF_WRITEPI, null,
+                new Option("writePI", LongOpt.NO_ARGUMENT, F_WRITEPI, null,
                         "Write lexer output into .pi file"),
+                new Option("disablePC", LongOpt.NO_ARGUMENT, F_DISABLEPC, null,
+                        "Disable default parsing of present *.pc files."),
                 new Option("debugInterface", LongOpt.NO_ARGUMENT, F_DEBUGINTERFACE, null,
                         "Write interface in human readable format (requires --interface)"),
 
@@ -229,8 +233,10 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             parserResults = false;
         } else if (c == F_PARSERSTATS) {
             parserStatistics = true;
-        } else if (c == statF_WRITEPI) {
+        } else if (c == F_WRITEPI) {
             writePI = true;
+        } else if (c == F_DISABLEPC) {
+            defaultPC = false;
         } else if (c == F_BDD) {
             de.fosd.typechef.featureexpr.FeatureExprFactory$.MODULE$.setDefault(de.fosd.typechef.featureexpr.FeatureExprFactory$.MODULE$.bdd());
         } else if (c == F_ERRORXML) {//--errorXML=file
@@ -346,6 +352,10 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             return new File(getFile() + ".xml");
         else
             return errorXMLFile;
+    }
+
+    public boolean getUseDefaultPC() {
+        return defaultPC;
     }
 
     public String getLinkingInterfaceFile() {

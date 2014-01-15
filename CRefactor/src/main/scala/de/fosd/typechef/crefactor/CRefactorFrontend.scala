@@ -7,18 +7,20 @@ import de.fosd.typechef.featureexpr.FeatureModel
 import de.fosd.typechef.options.{RefactorType, FrontendOptions, OptionException, FrontendOptionsWithConfigFiles}
 import de.fosd.typechef.{lexer, ErrorXML}
 import java.io._
-import de.fosd.typechef.crefactor.evaluation.busybox_1_18_5.refactor.{Inline, Extract, Rename}
 import de.fosd.typechef.parser.TokenReader
 import de.fosd.typechef.crefactor.evaluation.util.TimeMeasurement
 import de.fosd.typechef.typesystem.linker.InterfaceWriter
-import de.fosd.typechef.crefactor.evaluation.busybox_1_18_5.linking.CLinking
-import de.fosd.typechef.crefactor.evaluation.StatsJar
+import de.fosd.typechef.crefactor.evaluation.{Refactor, StatsJar}
 import de.fosd.typechef.crefactor.evaluation.setup.{Building, BuildCondition}
 import java.util.zip.{GZIPOutputStream, GZIPInputStream}
 import de.fosd.typechef.parser.c.CTypeContext
 import de.fosd.typechef.typesystem.{CDeclUse, CTypeCache, CTypeSystemFrontend}
 import de.fosd.typechef.crefactor.frontend.Editor
 import javax.swing.SwingUtilities
+import de.fosd.typechef.crefactor.evaluation.evalcases.sqlite.SQLiteRefactor
+import de.fosd.typechef.crefactor.evaluation.evalcases.busybox_1_18_5.BusyBoxRefactor
+import de.fosd.typechef.crefactor.evaluation.evalcases.openSSL.OpenSSLRefactor
+import de.fosd.typechef.crefactor.evaluation.evalcases.busybox_1_18_5.setup.linking.CLinking
 
 object CRefactorFrontend extends App with InterfaceWriter with BuildCondition {
 
@@ -55,22 +57,24 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition {
         val errorXML = new ErrorXML(opt.getErrorXMLFile)
         opt.setRenderParserError(errorXML.renderParserError)
 
-        val fm = opt.getLexerFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
+        val fm = {
+            if (opt.getUseDefaultPC) opt.getLexerFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
+            else opt.getLexerFeatureModel.and(opt.getLocalFeatureModel)
+        }
+
         opt.setFeatureModel(fm) //otherwise the lexer does not get the updated feature model with file presence conditions
 
-        if (!opt.getFilePresenceCondition.isSatisfiable(fm)) {
+        if (opt.getUseDefaultPC && !opt.getFilePresenceCondition.isSatisfiable(fm)) {
             println("file has contradictory presence condition. existing.") //otherwise this can lead to strange parser errors, because True is satisfiable, but anything else isn't
             return (null, null)
         }
 
-        // TODO Implement studies for refactorings
-
         var ast: AST = null
-        var linkInf: CLinking = null
 
         if (opt.writeBuildCondition) writeBuildCondition(opt.getFile)
 
-        if (opt.refLink) linkInf = new CLinking(opt.getLinkingInterfaceFile)
+        val linkInf = if (opt.refLink) new CLinking(opt.getLinkingInterfaceFile)
+        else null
 
         if (opt.reuseAST && opt.parse && new File(opt.getSerializedASTFilename).exists()) {
             ast = loadSerializedAST(opt.getSerializedASTFilename)
@@ -85,15 +89,15 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition {
 
             if (ast != null && opt.serializeAST) serializeAST(ast, opt.getSerializedASTFilename)
 
-            if (opt.writeInterface) writeInterface(ast, fm, opt, errorXML)
+            if (ast != null && opt.writeInterface) writeInterface(ast, fm, opt, errorXML)
 
-            if (opt.refEval) refactorEval(opt, ast, fm, linkInf)
+            if (ast != null && opt.refEval) refactorEval(opt, ast, fm, linkInf)
 
-            if (opt.prettyPrint) prettyPrint(ast, opt)
+            if (ast != null && opt.prettyPrint) prettyPrint(ast, opt)
 
-            if (opt.canBuild) canBuildAndTest(ast, opt)
+            if (ast != null && opt.canBuild) testBuildingAndTesting(ast, opt)
 
-            if (opt.showGui) createAndShowGui(ast, fm, opt)
+            if (ast != null && opt.showGui) createAndShowGui(ast, fm, opt)
         }
 
 
@@ -104,9 +108,12 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition {
 
     private def writeInterface(ast: AST, fm: FeatureModel, opt: FrontendOptions, errorXML: ErrorXML) {
         val ts = new CTypeSystemFrontend(ast.asInstanceOf[TranslationUnit], fm, opt) with CTypeCache with CDeclUse
-        val interface = ts.getInferredInterface().and(opt.getFilePresenceCondition)
+        val interface = {
+            if (opt.getUseDefaultPC) ts.getInferredInterface().and(opt.getFilePresenceCondition)
+            else ts.getInferredInterface()
+        }
 
-        val typeCheckStatus = ts.checkAST()
+        ts.checkAST()
         ts.errors.map(errorXML.renderTypeError)
 
         ts.writeInterface(interface, new File(opt.getInterfaceFilename))
@@ -121,11 +128,11 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition {
 
         ast
     }
-    private def canBuildAndTest(ast: AST, opt: FrontendOptions) {
+    private def testBuildingAndTesting(ast: AST, opt: FrontendOptions) {
         val builder: Building = {
-            if (opt.getRefStudy.equalsIgnoreCase("busybox")) de.fosd.typechef.crefactor.evaluation.busybox_1_18_5.setup.building.Builder
-            else if (opt.getRefStudy.equalsIgnoreCase("openssl")) de.fosd.typechef.crefactor.evaluation.openSSL.setup.Builder
-            else if (opt.getRefStudy.equalsIgnoreCase("sqlite")) de.fosd.typechef.crefactor.evaluation.sqlite.setup.Builder
+            if (opt.getRefStudy.equalsIgnoreCase("busybox")) de.fosd.typechef.crefactor.evaluation.evalcases.busybox_1_18_5.setup.building.Builder
+            else if (opt.getRefStudy.equalsIgnoreCase("openssl")) de.fosd.typechef.crefactor.evaluation.evalcases.openSSL.setup.Builder
+            else if (opt.getRefStudy.equalsIgnoreCase("sqlite")) de.fosd.typechef.crefactor.evaluation.evalcases.sqlite.setup.Builder
             else null
         }
 
@@ -133,10 +140,17 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition {
         println("+++ Can build " + new File(opt.getFile).getName + " : " + canBuild + " +++")
     }
     private def refactorEval(opt: FrontendOptions, ast: AST, fm: FeatureModel, linkInf: CLinking) {
+        val caseStudy: Refactor = {
+            if (opt.getRefStudy.equalsIgnoreCase("busybox")) BusyBoxRefactor
+            else if (opt.getRefStudy.equalsIgnoreCase("openssl")) OpenSSLRefactor
+            else if (opt.getRefStudy.equalsIgnoreCase("sqlite")) SQLiteRefactor
+            else null
+        }
+
         opt.getRefactorType match {
-            case RefactorType.RENAME => Rename.evaluate(ast, fm, opt.getFile, linkInf)
-            case RefactorType.EXTRACT => Extract.evaluate(ast, fm, opt.getFile, linkInf)
-            case RefactorType.INLINE => Inline.evaluate(ast, fm, opt.getFile, linkInf)
+            case RefactorType.RENAME => caseStudy.rename(ast, fm, opt.getFile, linkInf)
+            case RefactorType.EXTRACT => caseStudy.extract(ast, fm, opt.getFile, linkInf)
+            case RefactorType.INLINE => caseStudy.inline(ast, fm, opt.getFile, linkInf)
             case RefactorType.NONE => println("No refactor type defined")
         }
     }

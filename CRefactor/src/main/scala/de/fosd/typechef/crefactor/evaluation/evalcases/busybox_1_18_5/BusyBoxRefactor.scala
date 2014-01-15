@@ -1,18 +1,23 @@
-package de.fosd.typechef.crefactor.evaluation.busybox_1_18_5
+package de.fosd.typechef.crefactor.evaluation.evalcases.busybox_1_18_5
 
-import de.fosd.typechef.crefactor.evaluation.{StatsJar, Refactor}
+import de.fosd.typechef.crefactor.evaluation.{Refactoring, StatsJar, Refactor}
 import de.fosd.typechef.parser.c.AST
 import de.fosd.typechef.featureexpr.FeatureModel
 import de.fosd.typechef.crefactor.Morpheus
 import java.io.File
-import de.fosd.typechef.crefactor.evaluation.busybox_1_18_5.linking.CLinking
 import de.fosd.typechef.crefactor.evaluation.util.TimeMeasurement
 import de.fosd.typechef.crefactor.evaluation.Stats._
+import de.fosd.typechef.crefactor.evaluation.evalcases.busybox_1_18_5.refactor.{Rename, Inline, Extract}
+import de.fosd.typechef.crefactor.evaluation.evalcases.busybox_1_18_5.setup.linking.CLinking
 
 
-trait BusyBoxRefactor extends BusyBoxEvaluation with Refactor {
+object BusyBoxRefactor extends BusyBoxEvaluation with Refactor {
 
-    def evaluate(ast: AST, fm: FeatureModel, file: String, linkInterface: CLinking): Unit = {
+    def rename(ast: AST, fm: FeatureModel, file: String, linkInterface: CLinking) = evaluate(ast, fm, file, linkInterface, Rename)
+    def extract(ast: AST, fm: FeatureModel, file: String, linkInterface: CLinking) = evaluate(ast, fm, file, linkInterface, Extract)
+    def inline(ast: AST, fm: FeatureModel, file: String, linkInterface: CLinking) = evaluate(ast, fm, file, linkInterface, Inline)
+
+    private def evaluate(ast: AST, fm: FeatureModel, file: String, linkInterface: CLinking, r: Refactoring): Unit = {
         println("+++ File to refactor: " + getFileName(file) + " +++")
         val resultDir = getResultDir(file)
         val path = resultDir.getCanonicalPath + File.separatorChar + getFileName(file)
@@ -23,10 +28,12 @@ trait BusyBoxRefactor extends BusyBoxEvaluation with Refactor {
                 val morpheus = new Morpheus(ast, fm, file)
                 // reset test environment
                 runScript("./cleanAndReset.sh", sourcePath)
-                val features = refactor(morpheus, linkInterface)
-                if (features._1) {
+                val result = r.refactor(morpheus, linkInterface)
+                if (result._1) {
+                    write(result._2, morpheus.getFile)
+                    PrepareASTforVerification.makeConfigs(result._2, morpheus.getFeatureModel, morpheus.getFile, result._3)
                     val time = new TimeMeasurement
-                    StatsJar.addStat(file, AffectedFeatures, features._2)
+                    StatsJar.addStat(file, AffectedFeatures, result._3)
                     // run refactored first
                     BusyBoxVerification.verify(file, fm, "_ref")
                     runScript("./cleanAndReset.sh", sourcePath)

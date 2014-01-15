@@ -158,6 +158,7 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
     @Test def test_alex_14 {
         val source_ast = getAstFromPi(new File(ifdeftoifTestPath + "14.c"))
         println(source_ast)
+        println(PrettyPrinter.print(source_ast))
         val result = runDefUseOnAst(source_ast)
         val numberOfDefinitions = 9
         val numberOfEntries = 7

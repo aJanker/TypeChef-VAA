@@ -1,12 +1,11 @@
-package de.fosd.typechef.crefactor.evaluation.busybox_1_18_5
+package de.fosd.typechef.crefactor.evaluation.evalcases.busybox_1_18_5
 
 import java.io._
-import de.fosd.typechef.parser.c.{ConditionalNavigation, ASTNavigation}
 import de.fosd.typechef.crefactor.evaluation.Evaluation
 import scala.io.Source
 
 
-trait BusyBoxEvaluation extends Evaluation with ASTNavigation with ConditionalNavigation {
+trait BusyBoxEvaluation extends Evaluation {
 
     val evalName = "busybox-1.18.5"
     val caseStudyPath = "../cRefactor-BusyBoxEvaluation/"
@@ -14,6 +13,7 @@ trait BusyBoxEvaluation extends Evaluation with ASTNavigation with ConditionalNa
     val filesToEval: String = completePath + "/busybox_files"
     val blackListFiles: List[String] = Source.fromFile(getClass.getResource("/busybox_blacklist").getFile).getLines().toList
     val sourcePath = completePath + "/" + evalName + "/"
+    val testPath = completePath + "/" + evalName + "/"
     val result = "/result/"
 
     val filterFeatures = List("def(CONFIG_SELINUX)", "CONFIG_SELINUX", "def(CONFIG_TCPSVD)", "CONFIG_TCPSVD", "def(CONFIG_UDPSVD)", "CONFIG_UDPSVD", "def(CONFIG_MKFS_EXT2)", "CONFIG_MKFS_EXT2")
@@ -32,6 +32,7 @@ trait BusyBoxEvaluation extends Evaluation with ASTNavigation with ConditionalNa
     val MAX_DEPTH = 27
     val amountOfRefactorings = 3
     val MAX = 1
+
 }
 
 

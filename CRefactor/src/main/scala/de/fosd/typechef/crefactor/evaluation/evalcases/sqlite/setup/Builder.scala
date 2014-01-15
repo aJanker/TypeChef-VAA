@@ -1,12 +1,12 @@
-package de.fosd.typechef.crefactor.evaluation.openSSL.setup
+package de.fosd.typechef.crefactor.evaluation.evalcases.sqlite.setup
 
-import de.fosd.typechef.crefactor.evaluation.openSSL.OpenSSLEvaluation
 import de.fosd.typechef.crefactor.evaluation.setup.Building
 import de.fosd.typechef.parser.c.AST
 import java.io.File
+import de.fosd.typechef.crefactor.evaluation.sqlite.SQLiteEvaluation
 
 
-object Builder extends OpenSSLEvaluation with Building {
+object Builder extends SQLiteEvaluation with Building {
     def canBuild(ast: AST, file: String): Boolean = {
         val currentFile = new File(file)
         // clean dir first
@@ -18,11 +18,9 @@ object Builder extends OpenSSLEvaluation with Building {
 
         def buildAndTest(busyBoxFile: File, ext: String): Boolean = {
             val buildResult = build
-            val testResult = test
             writeResult(buildResult._2, resultDir.getCanonicalPath + "/" + ext + ".build")
             if (!buildResult._1) writeResult(buildResult._3, resultDir.getCanonicalPath + "/" + ext + ".buildErr")
-            writeResult(testResult._2 + "\n" + testResult._3, resultDir.getCanonicalPath + "/" + ext + ".test")
-            buildResult._1 && testResult._1
+            buildResult._1
         }
 
         val org = buildAndTest(currentFile, "_org")
@@ -33,8 +31,8 @@ object Builder extends OpenSSLEvaluation with Building {
         // write AST in current result dir
         printAndWriteAST(ast, refFile.getCanonicalPath)
         println("+++ Saving result to: " + refFile.getPath)
-        println("+++ Updating file: " + currentFile.getCanonicalPath.replace(".pi", ".c"))
-        printAndWriteAST(ast, currentFile.getCanonicalPath.replace(".pi", ".c"))
+        println("+++ Updating file: " + currentFile.getCanonicalPath)
+        printAndWriteAST(ast, currentFile.getCanonicalPath)
 
         val ppp = buildAndTest(currentFile, "_ppp")
 
@@ -56,14 +54,4 @@ object Builder extends OpenSSLEvaluation with Building {
         (stream._1.contains("Success_Build"), stream._1, stream._2)
     }
 
-    private def test: (Boolean, String, String) = {
-        println("+++ Testing")
-        val result = runScript("./runtest.sh", sourcePath)
-        val stream = streamsToString(result)
-        println("+++ STDOUT")
-        println(stream._1)
-        println("+++ STDERR")
-        println(stream._2)
-        (stream._1.contains("Success_Test"), stream._1, stream._2)
-    }
 }

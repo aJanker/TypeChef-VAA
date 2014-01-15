@@ -1,4 +1,4 @@
-struct pt_regs;
+//struct pt_regs;
 #if definedEx(CONFIG_LOCKDEP)
 #if definedEx(CONFIG_X86_32)
 struct pt_regs {unsigned long bx;}; // DEF LOCK & 32
@@ -31,3 +31,7 @@ struct pt_regs; // REFWDD !LOCK & 32
 
 //335381
 struct pt_regs; // REFWDD
+
+void main() {
+	struct pt_regs instance;
+}

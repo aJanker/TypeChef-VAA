@@ -14,7 +14,7 @@ import sat.SATFeatureExprFactory
  */
 object FeatureExprFactory {
 
-    var default: AbstractFeatureExprFactory = if (System.getProperty("FEATUREEXPR") == "BDD") bdd else sat
+    var default: AbstractFeatureExprFactory = if (System.getProperty("FEATUREEXPR") == "BDD") bdd else bdd
     def dflt = default
 
     def setDefault(newFactory: AbstractFeatureExprFactory) {
@@ -28,7 +28,7 @@ object FeatureExprFactory {
 
     //shorthands for convenience
     def createDefinedExternal(featureName: String) = default.createDefinedExternal(featureName)
-    def createFeatureExprFast(enabledFeatures : Set[SingleFeatureExpr], disabledFeatures : Set[SingleFeatureExpr]) : FeatureExpr =
+    def createFeatureExprFast(enabledFeatures: Set[SingleFeatureExpr], disabledFeatures: Set[SingleFeatureExpr]): FeatureExpr =
         default.createFeatureExprFast(enabledFeatures, disabledFeatures)
     def True: FeatureExpr = default.True
     def False: FeatureExpr = default.False
@@ -40,7 +40,7 @@ trait AbstractFeatureExprFactory extends FeatureExprTreeFactory {
     def createDefinedExternal(v: String): SingleFeatureExpr
     def createDefinedMacro(name: String, macroTable: FeatureProvider): FeatureExpr
 
-    def createFeatureExprFast(enabledFeatures : Set[SingleFeatureExpr], disabledFeatures : Set[SingleFeatureExpr]) : FeatureExpr
+    def createFeatureExprFast(enabledFeatures: Set[SingleFeatureExpr], disabledFeatures: Set[SingleFeatureExpr]): FeatureExpr
 
     def True: FeatureExpr
     def False: FeatureExpr

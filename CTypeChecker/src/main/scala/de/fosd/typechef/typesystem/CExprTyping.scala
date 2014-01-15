@@ -139,6 +139,7 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                         for ((Opt(feat, entry: TypeDefTypeSpecifier)) <- targetTypeName.specifiers) {
                             //addTypeUse(entry.name, env, feat)
                         }
+                        addUse(expr, featureExpr, env)
                         val sourceTypes = et(expr).map(_.toValue)
                         ConditionalLib.mapCombinationF(sourceTypes, targetTypes, featureExpr,
                             (fexpr: FeatureExpr, sourceType: CType, targetType: CType) => {
@@ -164,6 +165,7 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                         val providedParameterTypes: List[Opt[Conditional[CType]]] = parameterExprs.map({
                             case Opt(f, e) => Opt(f, etF(e, featureExpr and f, env.markSecurityRelevant(hasSecurityRelevantFunction, "sensitive function parameters")))
                         })
+                        parameterExprs.foreach(x => getExprTypeRec(x.entry, featureExpr.and(x.feature), env))
 
                         val providedParameterTypesExploded: Conditional[List[CType]] = ConditionalLib.explodeOptList(Conditional.flatten(providedParameterTypes))
                         ConditionalLib.mapCombinationF(functionType, providedParameterTypesExploded, featureExpr,
@@ -319,7 +321,7 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                         typename.specifiers.foreach(x => {
                             x match {
                                 case Opt(ft, TypeDefTypeSpecifier(name)) =>
-                                //addTypeUse(name, env, ft)
+                                    addTypeUse(name, env, ft)
                                 case Opt(ft, StructOrUnionSpecifier(isUnion, Some(i: Id), _, _, _)) =>
                                     offsetDesignators.foreach(x => x match {
                                         case Opt(ft, OffsetofMemberDesignatorID(offsetId: Id)) =>
