@@ -154,5 +154,47 @@ class FeatureExprTest extends TestCase {
 
   def createLT(a: FeatureExprValue, b: FeatureExprValue) = d.createLessThan(a, b)
 
+    @Test def testDiff {
+        def assertContract(a:FeatureExpr, b:FeatureExpr) {
+            val diff1 = a.diff(b)
+            assert(b.and(diff1).implies(a).isTautology())
+            val diff2 = b.diff(a)
+            assert(a.and(diff2).implies(b).isTautology())
+        }
+        val exprSet = Set(
+            feature("a") ,
+            feature("a") and True ,
+            feature("a") or True ,
+            feature("a") and False ,
+            feature("a") or False ,
+            a and b and False ,
+            feature("a") andNot feature("a") ,
+            feature("a") and feature("a") ,
+            feature("a") or feature("a") ,
+            feature("a") or feature("a") and feature("a") ,
+            feature("a") and feature("b") ,
+            feature("a") or feature("b") ,
+            a and b and a ,
+            a and b ,
+            (a and b and c) and (a and b and c) ,
+            a and b and c ,
+            a or b or a ,
+            a and False ,
+            new FeatureExprParser().atLeastOne(List(a, b, c)) ,
+            new FeatureExprParser().atMostOne(List(a, b, c)) ,
+            new FeatureExprParser().oneOf(List(a, b, c))
+        )
+        var diffsExecuted = 0;
+        for(feximpl <- Set(FeatureExprFactory.sat, FeatureExprFactory.bdd) ){
+            FeatureExprFactory.setDefault(feximpl)
+            for (a <- exprSet)
+                for (b <- exprSet) {
+                    assertContract(a,b)
+                    diffsExecuted+=2
+                }
 
+        }
+        println(diffsExecuted + " diffs done")
+
+    }
 }
