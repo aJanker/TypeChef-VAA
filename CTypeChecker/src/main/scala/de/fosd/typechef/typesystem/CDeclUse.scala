@@ -520,9 +520,6 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
             }
         }
         val idElements = getIdElements(entry)
-        if (idElements.size == 18) {
-            print("")
-        }
         idElements.foreach(x => x match {
             case TypeDefTypeSpecifier(id) =>
             //addTypeUse(id, env, feature)
