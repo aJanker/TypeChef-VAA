@@ -815,7 +815,6 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
     def renameIdentifier(id: Id, context: FeatureExpr): Id = {
         if (context.equivalentTo(trueF)) {
-            assert(false, "Renaming identifier under condition True at: " + id.getPositionFrom.getLine)
             id
         } else {
             Id(getPrefixFromIdMap(context) + id.name)
