@@ -120,9 +120,6 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     }
 
     private def addToDeclUseMap(decl: Id, use: Id): Any = {
-        if (decl.name.equals("pv_mmu_ops")) {
-            println("")
-        }
         if (decl.eq(use) && !declUseMap.containsKey(decl)) {
             putToDeclUseMap(decl)
         }
@@ -506,10 +503,8 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
             ast match {
                 case t: TypeDefTypeSpecifier =>
                     t :: current
-                case t: TypeName =>
-                    t :: current
                 case t: CastExpr =>
-                    t :: current
+                    t :: (t.productIterator.toList.flatMap(getIdElements(_, current)) ++ current)
                 case t: StructOrUnionSpecifier =>
                     t :: current
                 case t: BuiltinOffsetof =>
@@ -524,12 +519,10 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                     current
             }
         }
-
-        getIdElements(entry).foreach(x => x match {
+        val idElements = getIdElements(entry)
+        idElements.foreach(x => x match {
             case TypeDefTypeSpecifier(id) =>
             //addTypeUse(id, env, feature)
-            case TypeName(specs, decl) =>
-                specs.foreach(x => addUse(x.entry, feature, env))
             case CastExpr(typ, LcurlyInitializer(lst)) =>
                 addUseCastExpr(typ, addUse _, feature, env, lst)
             case PostfixExpr(id: Id, suffix: PointerPostfixSuffix) =>
@@ -539,7 +532,8 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                         addChoice(c, feature, id, env, addUseOne)
                     case x =>
                 }
-            case StructOrUnionSpecifier(union, Some(i: Id), _, _, _) => addStructDeclUse(i, env, union, feature)
+            case StructOrUnionSpecifier(union, Some(i: Id), _, _, _) =>
+                addStructDeclUse(i, env, union, feature)
             case BuiltinOffsetof(typeName, offsetDesignators) =>
                 typeName.specifiers.foreach(x => {
                     x match {
@@ -719,7 +713,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                             addOne(o, use)
                         case c@Choice(_, _, _) =>
                             val condTuple = c.toList
-                            val tuple = condTuple.filter(x => x._1.equivalentTo(FeatureExprFactory.True) || x._1.implies(feature).isTautology)
+                            val tuple = condTuple.filter(x => x._1.equivalentTo(FeatureExprFactory.True) || feature.implies(x._1).isTautology)
                             tuple.foreach(x => {
                                 addToDeclUseMap(x._2.asInstanceOf[Id], use)
                             })

@@ -97,8 +97,6 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val ts = getTypeSystem(source_ast)
         //val env = createASTEnv(source_ast)
         ts.typecheckTranslationUnit(source_ast)
-        println(i.getTypeSystem(source_ast).checkASTSilent)
-        println(i.getTypeSystem(ast).checkASTSilent)
         val defUseMap = ts.getDeclUseMap
         val useDefMap = ts.getUseDeclMap
         val timeToParseAndTypeCheck = System.currentTimeMillis() - startParsingAndTypeChecking
@@ -1181,7 +1179,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def single_busybox_file_test() {
-        val filename = "ls"
+        val filename = "dd"
         transformSingleFile(filename, busyBoxPath)
     }
 
@@ -1730,15 +1728,15 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val mixedVariableContradiction = FunctionDef(List(Opt(fa, StaticSpecifier()), Opt(fa.not().and(fb.not()), VoidSpecifier()), Opt(fc.and(fa.not()).and(fb).and(fb.or(fa)), IntSpecifier()), Opt(fa.not().and(fb).and(fc.not().or(fa).or(fb.not())).and(fb.or(fa)), DoubleSpecifier()), Opt(fx, StaticSpecifier())), AtomicNamedDeclarator(List(), Id("main"), List()), List(), CompoundStatement(List()))
 
 
-        val oneContradictionResult = i.computeNextRelevantFeatures(oneVariableContradiction)
-        val twoContradictionResult = i.computeNextRelevantFeatures(twoVariableContradiction)
-        val threeContradictionResult = i.computeNextRelevantFeatures(threeVariableContradiction)
+        val oneContradictionResult = i.computeNextRelevantFeatures(oneVariableContradiction, FeatureExprFactory.True)
+        val twoContradictionResult = i.computeNextRelevantFeatures(twoVariableContradiction, FeatureExprFactory.True)
+        val threeContradictionResult = i.computeNextRelevantFeatures(threeVariableContradiction, FeatureExprFactory.True)
 
-        val oneComputationResult = i.computeNextRelevantFeatures(oneVariableComputation)
-        val twoComputationResult = i.computeNextRelevantFeatures(twoVariableComputation)
-        val threeComputationResult = i.computeNextRelevantFeatures(threeVariableComputation)
+        val oneComputationResult = i.computeNextRelevantFeatures(oneVariableComputation, FeatureExprFactory.True)
+        val twoComputationResult = i.computeNextRelevantFeatures(twoVariableComputation, FeatureExprFactory.True)
+        val threeComputationResult = i.computeNextRelevantFeatures(threeVariableComputation, FeatureExprFactory.True)
 
-        val mixedComputationResult = i.computeNextRelevantFeatures(mixedVariableContradiction)
+        val mixedComputationResult = i.computeNextRelevantFeatures(mixedVariableContradiction, FeatureExprFactory.True)
 
         println("Amount of feature expressions: " + oneContradictionResult.size + ", in: " + oneContradictionResult)
         println("Amount of feature expressions: " + twoContradictionResult.size + ", in: " + twoContradictionResult)
