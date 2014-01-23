@@ -360,7 +360,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
                      * CDeclUse:
                      * Add enum member Ids to Declarations
                      */
-                    addDefinition(enum.id, env)
+                    addDefinition(enum.id, env, f and f2 and featureExpr)
                     localEnv = localEnv.addVar(enum.id.name, featureExpr and f and f2, enum, One(CSigned(CInt()).toCType), KEnumVar, env.scope, One(NoLinkage))
                     result = (enum.id.name, featureExpr and f and f2, enum, One(CSigned(CInt()).toCType), KEnumVar, One(NoLinkage)) :: result
                 }

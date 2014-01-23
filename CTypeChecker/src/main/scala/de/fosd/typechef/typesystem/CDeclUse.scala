@@ -95,6 +95,8 @@ trait CDeclUseInterface extends CEnv {
 
     def addDecl(current: Any, featureExpr: FeatureExpr, env: Env, isDefinition: Boolean = true) {}
 
+    def addStructDefinition(definition: AST, env: Env, feature: FeatureExpr) {}
+
     def addJumpStatements(compoundStatement: CompoundStatement) {}
 }
 
@@ -108,6 +110,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
 
     private var declUseMap: util.IdentityHashMap[Id, util.Set[Id]] = new util.IdentityHashMap()
     private var useDeclMap: util.IdentityHashMap[Id, List[Id]] = new util.IdentityHashMap()
+    private var structUsage: util.IdentityHashMap[Id, FeatureExpr] = new util.IdentityHashMap()
     private val connectedIds: util.IdentityHashMap[Id, List[Id]] = new util.IdentityHashMap()
     private var stringToIdMap: Map[String, Id] = Map()
 
@@ -150,6 +153,9 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
         }
         if (useDeclMap == null) {
             useDeclMap = new util.IdentityHashMap()
+        }
+        if (structUsage == null) {
+            structUsage = new util.IdentityHashMap()
         }
     }
 
@@ -204,11 +210,24 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     //   - function: function declarations (forward declarations) and function definitions are handled
     //               if a function declaration exists, we add it as def and the function definition as its use
     //               if no function declaration exists, we add the function definition as def
-    override def addDefinition(definition: AST, env: Env, feature: FeatureExpr = FeatureExprFactory.True, isFunctionDeclarator: Boolean = false) {
+    override def addDefinition(definition: AST, env: Env, feature: FeatureExpr, isFunctionDeclarator: Boolean = false) {
         definition match {
             case id: Id =>
                 if (isFunctionDeclarator) addFunctionDeclaration(env, id, feature)
                 else putToDeclUseMap(id)
+            case _ =>
+        }
+    }
+
+    override def addStructDefinition(definition: AST, env: Env, feature: FeatureExpr) {
+        definition match {
+            case id: Id =>
+                val relevantIds = structUsage.filter(x => x._2.equals(FeatureExprFactory.True) || x._2.implies(feature).isTautology())
+                addDefinition(id, env, feature)
+                relevantIds.foreach(x => {
+                    addToDeclUseMap(id, x._1)
+                    structUsage.remove(x._1)
+                })
             case _ =>
         }
     }
@@ -713,14 +732,21 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                             addOne(o, use)
                         case c@Choice(_, _, _) =>
                             val condTuple = c.toList
+                            // TODO
                             val tuple = condTuple.filter(x => x._1.equivalentTo(FeatureExprFactory.True) || feature.implies(x._1).isTautology)
+                            val tupleVariableDef = condTuple.filter(x => x._1.implies(feature).isTautology).diff(tuple)
+                            if (feature.implies(tupleVariableDef.foldLeft(FeatureExprFactory.False)((a, b) => a.or(b._1))).isTautology) {
+                                tupleVariableDef.foreach(x => {
+                                    addToDeclUseMap(x._2.asInstanceOf[Id], use)
+                                })
+                            }
                             tuple.foreach(x => {
                                 addToDeclUseMap(x._2.asInstanceOf[Id], use)
                             })
                         case x => // match error, causes exception @ openssl - TODO analyse
                     }
                 } else {
-                    addDefinition(use, env)
+                    structUsage.put(use, feature)
                 }
             }
             case _ =>

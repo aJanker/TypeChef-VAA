@@ -1178,7 +1178,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def single_busybox_file_test() {
-        val filename = "dd"
+        val filename = "touch"
         transformSingleFile(filename, busyBoxPath)
     }
 
@@ -1806,36 +1806,8 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test def random_test() {
-        /*val feature = FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_CONTEXT").or(FeatureExprFactory.createDefinedExternal("CONFIG_SELINUX"))
-        val list = List(List(feature, feature), List(feature, feature), List(feature, feature), List(feature, feature), List(feature, feature))
-        println(i.computeCarthesianProduct(list))
-
-        val ifStmt = TranslationUnit(List(Opt(FeatureExprFactory.True, FunctionDef(List(Opt(True, VoidSpecifier())), AtomicNamedDeclarator(List(), Id("main"), List(Opt(True, DeclIdentifierList(List())))), List(), CompoundStatement(List(Opt(FeatureExprFactory.True, IfStatement(One(Id("a")), One(ExprStatement(AssignExpr(Id("a"), "=", Constant("10")))), List(), None))))))))
-        println(PrettyPrinter.print(i.prepareAST(ifStmt)))
-
-        val ifStmt2 = CompoundStatement(List(Opt(FeatureExprFactory.createDefinedExternal("A").not(), IfStatement(One(Id("a")), One(ExprStatement(AssignExpr(Id("a"), "=", Constant("10")))), List(), None))))
-        println(PrettyPrinter.print(i.prepareAST(ifStmt2, FeatureExprFactory.createDefinedExternal("A"))))
-
-        val exprStmt = Opt(FeatureExprFactory.True, Opt(True, ExprStatement(PostfixExpr(Id("tostring"), FunctionCall(ExprList(List(Opt(True, Id("l")))))))))
-        println(i.computeNextRelevantFeatures(exprStmt.entry, FeatureExprFactory.True))
-
-        val returnStmt = ReturnStatement(Some(PostfixExpr(Id("xatoul"), FunctionCall(ExprList(List(Opt(True, Id("numstr"))))))))
-        println(i.computeNextRelevantFeatures(returnStmt))*/
-
-        /*val postFix = ExprStatement(PostfixExpr(PostfixExpr(Id("pv_mmu_ops"), PointerPostfixSuffix(".",Id("set_pmd_at"))), FunctionCall(ExprList(List(Opt(True,Id("mm")), Opt(True,Id("addr")), Opt(True,Id("pmdp")), Opt(True,Id("pmd")))))))
-        i.testTest(postFix)
-        val assign = Declaration(List(Opt(True,TypeDefTypeSpecifier(Id("a")))),List(Opt(True,InitDeclaratorI(AtomicNamedDeclarator(List(),Id("i"),List()),List(),Some(Initializer(None,Constant("5")))))))
-        i.testTest(assign)
-        val ast = i.getAstFromFile(new File("C:\\Users\\Flo\\test.c"))
-        println(ast + "\n\n")
-        println(testAst(ast))*/
-        val choice = Choice(FeatureExprFactory.createDefinedExternal("A"), One(Id("a")), Choice(FeatureExprFactory.createDefinedExternal("B"), One(Id("b")), One(null)))
-        val conditional = i.conditionalToCondExpr(choice)
-        conditional match {
-            case One(expr: ConditionalExpr) =>
-                println(PrettyPrinter.print(expr))
-            case k =>
-        }
+        val config = new File(busyBoxFmPath + "BusyBoxDefConfig.config")
+        println(PrettyPrinter.print(i.getFunctionFromConfiguration(config, FeatureExprLib.featureModelFactory().createFromDimacsFile_2Var(busyBoxFmPath + "BB_fm.dimacs"))))
     }
 
     @Test def test_statements() {

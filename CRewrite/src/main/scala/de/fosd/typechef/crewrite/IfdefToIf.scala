@@ -467,16 +467,18 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                 if (transformExpr) {
                     val innerExpr = replaceOptAndId(x._2, x._1)
                     val trasformedInnerExpr = convertToCondExpr(innerExpr, computeNextRelevantFeatures(innerExpr, x._1))
-                    val innerCondExpr = ConditionalExpr(featureToCExpr(x._1.not), None, trasformedInnerExpr)
-                    val resultExpr = xs.foldLeft(innerCondExpr)((expr, condTuple) => {
+                    // val newInnerExpr = ConditionalExpr(featureToCExpr(x._1.not), None, trasformedInnerExpr)
+                    val newInnerExpr = trasformedInnerExpr
+                    val resultExpr = xs.foldLeft(newInnerExpr)((expr, condTuple) => {
                         val newExpr = replaceOptAndId(condTuple._2, condTuple._1)
                         val transformedNewExpr = convertToCondExpr(newExpr, computeNextRelevantFeatures(newExpr, condTuple._1))
                         ConditionalExpr(featureToCExpr(condTuple._1), Some(transformedNewExpr), expr)
                     })
                     One(resultExpr)
                 } else {
-                    val innerCondExpr = ConditionalExpr(featureToCExpr(x._1.not), None, replaceOptAndId(x._2, x._1))
-                    val resultExpr = xs.foldLeft(innerCondExpr)((expr, condTuple) => {
+                    // val innerExpr = ConditionalExpr(featureToCExpr(x._1.not), None, replaceOptAndId(x._2, x._1))
+                    val innerExpr = replaceOptAndId(x._2, x._1)
+                    val resultExpr = xs.foldLeft(innerExpr)((expr, condTuple) => {
                         val newExpr = replaceOptAndId(condTuple._2, condTuple._1)
                         ConditionalExpr(featureToCExpr(condTuple._1), Some(newExpr), expr)
                     })
@@ -2178,13 +2180,6 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
                 // 2. Step with conditionalExpressions
                 case i@IfStatement(c: Conditional[Expr], thenBranch: Conditional[Statement], elif, els) =>
-                    c match {
-                        case o@One(na: NAryExpr) =>
-                            if (na.e.equals(Id("opts"))) {
-                                print("")
-                            }
-                        case k =>
-                    }
                     var newCond: Expr = null
                     val statementTuple = conditionalToTuple(thenBranch, currentContext)
                     var elseTuple = List((FeatureExprFactory.True, None.asInstanceOf[Option[Conditional[Statement]]]))
@@ -2523,7 +2518,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                                 o
                             }
                         case o@Opt(ft, StructOrUnionSpecifier(a, Some(i: Id), b, c, d)) =>
-                            if (defuse.containsKey(i)) {
+                            if (init.isEmpty || defuse.containsKey(i)) {
                                 addIdUsages(i, relevantFeature)
                                 Opt(ft, StructOrUnionSpecifier(a, Some(renameIdentifier(i, relevantFeature)), b, c, d))
                             } else {
@@ -2619,7 +2614,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      * 2. Transform function by looking at variability in specifiers, declarators and parameters
      */
     def handleFunction(optFunction: Opt[_], currentContext: FeatureExpr = trueF): List[Opt[_]] = {
-        if (optFunction.entry.asInstanceOf[FunctionDef].getName.equals("vi_back_motion")) {
+        if (optFunction.entry.asInstanceOf[FunctionDef].getName.endsWith("main") || optFunction.entry.asInstanceOf[FunctionDef].getName.equals("correct_password")) {
             print("")
         }
         // 1. Step
@@ -2919,7 +2914,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      * This function takes a configuration file with enabled/disabled features and generates an initFunction which
      * assings values '1' or '0' to the features depending on their selection status.
      */
-    def getFunctionFromConfiguration(@SuppressWarnings(Array("unchecked")) features: Set[SingleFeatureExpr], file: File, fm: FeatureModel): AST = {
+    def getFunctionFromConfiguration(@SuppressWarnings(Array("unchecked")) file: File, fm: FeatureModel, features: Set[SingleFeatureExpr] = Set()): AST = {
         val correctFeatureModelIncompatibility = false
         var ignoredFeatures = 0
         var changedAssignment = 0
@@ -2981,31 +2976,38 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             }
             //println(line)
         }
-        val trueFeaturesInSet = features.filter(trueFeatures.contains)
-        val falseFeaturesInSet = features.filter(falseFeatures.contains)
-        val featuresOutsideFm = features.filterNot((trueFeatures ++ falseFeatures).contains)
-        /*for (x <- featuresOutsideFm) {
-            println(x.feature)
-        }*/
-        if (correctFeatureModelIncompatibility) {
-            // save corrected file
-            val fw = new FileWriter(new File(file.getParentFile, file.getName + "_corrected"))
-            fw.write("# configFile written by typechef, based on " + file.getAbsoluteFile)
-            fw.write("# ignored " + ignoredFeatures + " features of " + totalFeatures + " features")
-            fw.write("# changed assignment for " + changedAssignment + " features of " + totalFeatures + " features")
-            for (feature <- trueFeatures)
-                fw.append(feature.feature + "=y\n")
-            fw.close()
+
+        if (features.isEmpty) {
+            val exprStmts = (trueFeatures.map(x => Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id("config_" + x.toString.toLowerCase()))), "=", Constant("1"))))) ++ falseFeatures.map(x => Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id("config_" + x.toString.toLowerCase()))), "=", Constant("0")))))).toList
+            val functionDef = FunctionDef(List(Opt(trueF, VoidSpecifier())), AtomicNamedDeclarator(List(), Id("initConfig"), List(Opt(trueF, DeclIdentifierList(List())))), List(), CompoundStatement(exprStmts))
+            functionDef
+        } else {
+            val trueFeaturesInSet = features.filter(trueFeatures.contains)
+            val falseFeaturesInSet = features.filter(falseFeatures.contains)
+            val featuresOutsideFm = features.filterNot((trueFeatures ++ falseFeatures).contains)
+            /*for (x <- featuresOutsideFm) {
+                println(x.feature)
+            }*/
+            if (correctFeatureModelIncompatibility) {
+                // save corrected file
+                val fw = new FileWriter(new File(file.getParentFile, file.getName + "_corrected"))
+                fw.write("# configFile written by typechef, based on " + file.getAbsoluteFile)
+                fw.write("# ignored " + ignoredFeatures + " features of " + totalFeatures + " features")
+                fw.write("# changed assignment for " + changedAssignment + " features of " + totalFeatures + " features")
+                for (feature <- trueFeatures)
+                    fw.append(feature.feature + "=y\n")
+                fw.close()
+            }
+            val exprStmts = (trueFeaturesInSet.map(x => Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id("config_" + x.toString.toLowerCase()))), "=", Constant("1"))))) ++ falseFeaturesInSet.map(x => Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id("config_" + x.toString.toLowerCase()))), "=", Constant("0"))))) ++ featuresOutsideFm.map(x => Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id("config_" + x.toString.toLowerCase()))), "=", Constant(parameterForFeaturesOutsideOfConfigFile)))))).toList
+            val functionDef = FunctionDef(List(Opt(trueF, VoidSpecifier())), AtomicNamedDeclarator(List(), Id("initConfig"), List(Opt(True, DeclIdentifierList(List())))), List(), CompoundStatement(exprStmts))
+            //println(PrettyPrinter.print(functionDef))
+            assert(exprStmts.size == features.size)
+            functionDef
         }
-        val exprStmts = (trueFeaturesInSet.map(x => Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id("config_" + x.toString.toLowerCase()))), "=", Constant("1"))))) ++ falseFeaturesInSet.map(x => Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id("config_" + x.toString.toLowerCase()))), "=", Constant("0"))))) ++ featuresOutsideFm.map(x => Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id("config_" + x.toString.toLowerCase()))), "=", Constant(parameterForFeaturesOutsideOfConfigFile)))))).toList
-        val functionDef = FunctionDef(List(Opt(trueF, VoidSpecifier())), AtomicNamedDeclarator(List(), Id("initConfig"), List(Opt(True, DeclIdentifierList(List())))), List(), CompoundStatement(exprStmts))
-        //println(PrettyPrinter.print(functionDef))
-        assert(exprStmts.size == features.size)
-        functionDef
     }
 
     def getConfigsFromFiles(@SuppressWarnings(Array("unchecked")) ast: AST, file: File, fm: FeatureModel): AST = {
-        getFunctionFromConfiguration(getSingleFeatures(ast), file, fm)
+        getFunctionFromConfiguration(file, fm, getSingleFeatures(ast))
     }
 
     /**
@@ -3054,24 +3056,5 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         })
         r(ast).get
         return false
-    }
-
-    def testTest(ast: Any, current: List[AST] = List()): List[AST] = {
-        val r = outermost(query {
-            case t: TypeDefTypeSpecifier =>
-                println(t)
-            case t: TypeName =>
-                println(t)
-            case t: CastExpr =>
-                println(t)
-            case t: StructOrUnionSpecifier =>
-                println(t)
-            case t: BuiltinOffsetof =>
-                println(t)
-            case id: Id =>
-                println(id)
-        })
-        r(ast).get
-        current
     }
 }

@@ -228,6 +228,17 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
         assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
     }
 
+    @Test def test_inetd_minimal {
+        val source_ast = getAstFromPi(new File(decluseTestPath + "inetd_minimal.c"))
+        println(PrettyPrinter.print(source_ast))
+        val result = runDefUseOnAst(source_ast)
+        val numberOfDefinitions = 8
+        val numberOfEntries = 13
+        val numberOfVariableIds = 2
+        println(result)
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
+    }
+
     @Test def test_struct_sigevent {
         val source_ast = getAstFromPi(new File(decluseTestPath + "struct_sigevent.c"))
         println(source_ast)
@@ -256,6 +267,16 @@ class DeclUseTest extends ConditionalNavigation with ASTNavigation with CDeclUse
 
     @Test def test_loadfont_pi {
         val source_ast = getAstFromPi(new File("../TypeChef-BusyboxAnalysis/busybox-1.18.5/console-tools/loadfont.pi"))
+        val result = runDefUseOnAst(source_ast)
+        val numberOfDefinitions = 6408
+        val numberOfEntries = 2381
+        val numberOfVariableIds = 1
+        println(result)
+        assert(result ==(numberOfDefinitions + numberOfBuiltinFunctions, numberOfEntries, numberOfVariableIds))
+    }
+
+    @Test def test_inetd_pi {
+        val source_ast = getAstFromPi(new File("../TypeChef-BusyboxAnalysis/busybox-1.18.5/networking/inetd.pi"))
         val result = runDefUseOnAst(source_ast)
         val numberOfDefinitions = 6408
         val numberOfEntries = 2381
