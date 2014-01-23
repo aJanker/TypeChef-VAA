@@ -260,8 +260,17 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
      * Runs a shell script with either default timeout or a custom timeout in ms
      */
     def runScript(script: String, dir: String, timeout: Int = runTimeout): (InputStream, InputStream) = {
-        val pb = new ProcessBuilder(script)
+        runScript(script, dir, null, timeout)
+    }
+
+    /**
+     * Runs a shell script with either default timeout or a custom timeout in ms
+     */
+    def runScript(script: String, dir: String, args: String, timeout: Int): (InputStream, InputStream) = {
+        val pb = if (args == null) new ProcessBuilder(script)
+        else new ProcessBuilder(script, args)
         pb.directory(new File(dir))
+        println(pb.command())
         val process = pb.start()
         val timer = new Timer(true)
         timer.schedule(new TimerTask() {
@@ -566,5 +575,14 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
             builder.append(line + "\n")
         }
         builder.toString()
+    }
+
+    def addOwnGCCcmds(arg: String, line: String, enabledFeatures: Set[String], disabledFeatures: Set[String]): String = {
+        val args = line.substring(arg.length).split(" ")
+
+        val dFeatures = enabledFeatures.filterNot(eFeature => args.exists(_.endsWith(eFeature)))
+        val filterArgs = args.toList.filterNot(argFeature => disabledFeatures.exists(argFeature.endsWith))
+
+        arg + " " + filterArgs + dFeatures.map(feature => "-D" + feature).mkString(" ")
     }
 }
