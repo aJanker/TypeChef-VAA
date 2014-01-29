@@ -816,10 +816,32 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     }
 
     def renameIdentifier(id: Id, context: FeatureExpr): Id = {
+        var actualContext = context
+        var idname = id.name
         if (context.equivalentTo(trueF)) {
             id
         } else {
-            Id(getPrefixFromIdMap(context) + id.name)
+            if (java.util.regex.Pattern.compile("_[0-9]+_.+").matcher(id.name).matches()) {
+                val oldPrefix = id.name.split('_')(1)
+                val intPrefix = oldPrefix.toInt
+                idname = id.name.substring(2 + oldPrefix.length())
+                val oldContext = getFeatureForId(intPrefix)
+                oldContext match {
+                    case Some(oldFeature: FeatureExpr) =>
+                        actualContext = oldFeature and context
+                    case _ =>
+                }
+            }
+            /*if (idsToBeReplaced.containsKey(id)) {
+                val featureList = idsToBeReplaced.get(id)
+                val newFeatures = featureList.diff(Set(context))
+                if (newFeatures.isEmpty) {
+                    idsToBeReplaced.remove(id)
+                } else {
+                    idsToBeReplaced.put(id, newFeatures)
+                }
+            }*/
+            Id(getPrefixFromIdMap(actualContext) + idname)
         }
     }
 
@@ -844,7 +866,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     if (!idMap.contains(feat)) {
                         idMap += (feat -> idMap.size)
                     }
-                    val matchingId = idsToBeReplaced.get(i).find(x => feat.implies(x).isTautology(fm))
+                    val featureList = idsToBeReplaced.get(i)
+                    val matchingId = featureList.find(x => feat.implies(x).isTautology(fm))
                     matchingId match {
                         case None =>
                             // TODO: this should not happen?
@@ -926,7 +949,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
 
         val time = tb.getCurrentThreadCpuTime()
-        val new_ast = transformRecursive(source_ast, trueF, true)
+        var new_ast = transformRecursive(source_ast, trueF, true)
+        /*if (!idsToBeReplaced.isEmpty()) {
+            new_ast = transformRecursive(new_ast, trueF, true)
+        }*/
         val transformTime = (tb.getCurrentThreadCpuTime() - time) / nstoms
         val features = getSingleFeatures(source_ast)
         noOfFeatures = features.size
