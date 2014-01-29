@@ -21,6 +21,14 @@ trait FeatureExpr extends Serializable {
     def and(that: FeatureExpr): FeatureExpr
     def not(): FeatureExpr
 
+    /**
+     * Informal: Returns all the information in this that is not present in b.
+     * Formal: (diff(this,b) AND b) implies this
+     * @param b
+     * @return
+     */
+    def diff(b:FeatureExpr) : FeatureExpr
+
     //equals, hashcode
 
 
