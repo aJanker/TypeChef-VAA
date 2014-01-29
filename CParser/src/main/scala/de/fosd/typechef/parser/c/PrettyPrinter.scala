@@ -273,13 +273,13 @@ object PrettyPrinter {
                     } else {
                         if (newLineForIfdefs) {
                             line ~
-                                doc ~ "#if" ~~ optExprPair.feature.toTextExpr *
+                                doc * "#if" ~~ optExprPair.feature.toTextExpr *
                                 ", " ~ docForExprPair *
                                 "#endif" ~
                                     line
                         } else {
 
-                            doc ~ "#if" ~~ optExprPair.feature.toTextExpr *
+                            doc * "#if" ~~ optExprPair.feature.toTextExpr *
                                 ", " ~ docForExprPair *
                                 "#endif"
                         }

@@ -106,7 +106,7 @@ object Frontend extends EnforceTreeHelper {
                 ast = loadSerializedAST(opt.getSerializedASTFilename)
                 ast = prepareAST[TranslationUnit](ast)
             } catch {
-                case e: Throwable => println(e.toString);e.printStackTrace(); ast=null
+                case e: Throwable => println(e.toString); e.printStackTrace(); ast = null
             }
             if (ast == null)
                 println("... failed reading AST\n")
@@ -174,7 +174,8 @@ object Frontend extends EnforceTreeHelper {
                             val defUseMap = ts.getDeclUseMap
                             val useDefMap = ts.getUseDeclMap
                             val fileName = i.outputStemToFileName(opt.getOutputStem())
-                            val tuple = i.ifdeftoif(ast, defUseMap, useDefMap, fm, opt.getOutputStem(), stopWatch.get("lexing") + stopWatch.get("parsing"), opt.ifdeftoifstatistics)
+                            val checkIfdefToIfResult = !opt.ifdeftoifnocheck
+                            val tuple = i.ifdeftoif(ast, defUseMap, useDefMap, fm, opt.getOutputStem(), stopWatch.get("lexing") + stopWatch.get("parsing"), opt.ifdeftoifstatistics, typecheckResult = checkIfdefToIfResult)
                             tuple._1 match {
                                 case None =>
                                     println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")

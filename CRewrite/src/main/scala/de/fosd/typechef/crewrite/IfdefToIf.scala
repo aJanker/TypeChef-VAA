@@ -816,10 +816,32 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     }
 
     def renameIdentifier(id: Id, context: FeatureExpr): Id = {
+        var actualContext = context
+        var idname = id.name
         if (context.equivalentTo(trueF)) {
             id
         } else {
-            Id(getPrefixFromIdMap(context) + id.name)
+            if (java.util.regex.Pattern.compile("_[0-9]+_.+").matcher(id.name).matches()) {
+                val oldPrefix = id.name.split('_')(1)
+                val intPrefix = oldPrefix.toInt
+                idname = id.name.substring(2 + oldPrefix.length())
+                val oldContext = getFeatureForId(intPrefix)
+                oldContext match {
+                    case Some(oldFeature: FeatureExpr) =>
+                        actualContext = oldFeature and context
+                    case _ =>
+                }
+            }
+            /*if (idsToBeReplaced.containsKey(id)) {
+                val featureList = idsToBeReplaced.get(id)
+                val newFeatures = featureList.diff(Set(context))
+                if (newFeatures.isEmpty) {
+                    idsToBeReplaced.remove(id)
+                } else {
+                    idsToBeReplaced.put(id, newFeatures)
+                }
+            }*/
+            Id(getPrefixFromIdMap(actualContext) + idname)
         }
     }
 
@@ -844,7 +866,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     if (!idMap.contains(feat)) {
                         idMap += (feat -> idMap.size)
                     }
-                    val matchingId = idsToBeReplaced.get(i).find(x => feat.implies(x).isTautology(fm))
+                    val featureList = idsToBeReplaced.get(i)
+                    val matchingId = featureList.find(x => feat.implies(x).isTautology(fm))
                     matchingId match {
                         case None =>
                             // TODO: this should not happen?
@@ -908,7 +931,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         transformRecursive(replaceOptAndId(t, feat), feat)
     }
 
-    def ifdeftoif(source_ast: TranslationUnit, decluse: IdentityIdHashMap, usedecl: IdentityIdHashMap, featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty, outputStem: String = "unnamed", lexAndParseTime: Long = 0, writeStatistics: Boolean = true, newPath: String = ""): (Option[AST], Long, List[TypeChefError]) = {
+    def ifdeftoif(source_ast: TranslationUnit, decluse: IdentityIdHashMap, usedecl: IdentityIdHashMap, featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty, outputStem: String = "unnamed", lexAndParseTime: Long = 0, writeStatistics: Boolean = true, newPath: String = "", typecheckResult : Boolean = true): (Option[AST], Long, List[TypeChefError]) = {
         new File(path).mkdirs()
         val tb = java.lang.management.ManagementFactory.getThreadMXBean
         fm = featureModel
@@ -926,7 +949,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
 
         val time = tb.getCurrentThreadCpuTime()
-        val new_ast = transformRecursive(source_ast, trueF, true)
+        var new_ast = transformRecursive(source_ast, trueF, true)
+        /*if (!idsToBeReplaced.isEmpty()) {
+            new_ast = transformRecursive(new_ast, trueF, true)
+        }*/
         val transformTime = (tb.getCurrentThreadCpuTime() - time) / nstoms
         val features = getSingleFeatures(source_ast)
         noOfFeatures = features.size
@@ -941,48 +967,55 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             ifdeftoif_file = newPath
         }
         PrettyPrinter.printF(result_ast, ifdeftoif_file)
+        println("Printed ifdeftoif to file " + ifdeftoif_file)
 
-        val typeCheckSuccessful = getTypeSystem(result_ast).checkASTSilent
-
-        val featureMap = idMap.-(trueF).map(x => x._1.toTextExpr + "," + x._2) mkString "\n"
-        writeToFile(path ++ "featureMap.csv", featureMap)
-
-        if (typeCheckSuccessful) {
-            if (writeStatistics) {
-                if (!(new File(path ++ "statistics.csv").exists)) {
-                    writeToFile(path ++ "statistics.csv", getCSVHeader)
-                }
-
-                val csvEntry = createCsvEntry(source_ast, new_ast, fileName, lexAndParseTime, transformTime)
-                appendToFile(path ++ "statistics.csv", csvEntry)
-
-                val csvDuplications = createCsvDuplicationString(source_ast, fileName)
-                if (!(new File(path ++ "top_level_statistics.csv").exists)) {
-                    writeToFile(path ++ "top_level_statistics.csv", csvDuplications._1)
-                }
-                appendToFile(path ++ "top_level_statistics.csv", csvDuplications._2)
-            }
+        if (!typecheckResult) {
+            println("Skipping typecheck of ifdeftoif result")
             (Some(result_ast), transformTime, List())
         } else {
-            val result_ast_with_position = getAstFromFile(new File(ifdeftoif_file))
-            if (result_ast_with_position == null) {
-                val errorHeader = "-+ ParseErrors in " + fileName + " +-\n"
-                if (!(new File(path ++ "type_errors.txt").exists)) {
-                    writeToFile(path ++ "type_errors.txt", errorHeader + "\n\n")
-                } else {
-                    appendToFile(path ++ "type_errors.txt", errorHeader + "\n\n")
+            println("Typechecking result")
+            val typeCheckSuccessful = getTypeSystem(result_ast).checkASTSilent
+
+            val featureMap = idMap.-(trueF).map(x => x._1.toTextExpr + "," + x._2) mkString "\n"
+            writeToFile(path ++ "featureMap.csv", featureMap)
+
+            if (typeCheckSuccessful) {
+                if (writeStatistics) {
+                    if (!(new File(path ++ "statistics.csv").exists)) {
+                        writeToFile(path ++ "statistics.csv", getCSVHeader)
+                    }
+
+                    val csvEntry = createCsvEntry(source_ast, new_ast, fileName, lexAndParseTime, transformTime)
+                    appendToFile(path ++ "statistics.csv", csvEntry)
+
+                    val csvDuplications = createCsvDuplicationString(source_ast, fileName)
+                    if (!(new File(path ++ "top_level_statistics.csv").exists)) {
+                        writeToFile(path ++ "top_level_statistics.csv", csvDuplications._1)
+                    }
+                    appendToFile(path ++ "top_level_statistics.csv", csvDuplications._2)
                 }
-                (None, 0, List())
+                (Some(result_ast), transformTime, List())
             } else {
-                val errors = getTypeSystem(result_ast_with_position).getASTerrors()
-                val errorHeader = "-+ TypeErrors in " + fileName + " +-\n"
-                val errorString = errors mkString "\n"
-                if (!(new File(path ++ "type_errors.txt").exists)) {
-                    writeToFile(path ++ "type_errors.txt", errorHeader + errorString + "\n\n")
+                val result_ast_with_position = getAstFromFile(new File(ifdeftoif_file))
+                if (result_ast_with_position == null) {
+                    val errorHeader = "-+ ParseErrors in " + fileName + " +-\n"
+                    if (!(new File(path ++ "type_errors.txt").exists)) {
+                        writeToFile(path ++ "type_errors.txt", errorHeader + "\n\n")
+                    } else {
+                        appendToFile(path ++ "type_errors.txt", errorHeader + "\n\n")
+                    }
+                    (None, 0, List())
                 } else {
-                    appendToFile(path ++ "type_errors.txt", errorHeader + errorString + "\n\n")
+                    val errors = getTypeSystem(result_ast_with_position).getASTerrors()
+                    val errorHeader = "-+ TypeErrors in " + fileName + " +-\n"
+                    val errorString = errors mkString "\n"
+                    if (!(new File(path ++ "type_errors.txt").exists)) {
+                        writeToFile(path ++ "type_errors.txt", errorHeader + errorString + "\n\n")
+                    } else {
+                        appendToFile(path ++ "type_errors.txt", errorHeader + errorString + "\n\n")
+                    }
+                    (None, 0, errors)
                 }
-                (None, 0, errors)
             }
         }
     }
@@ -1106,7 +1139,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      * Makes #ifdef to if transformation on given AST element. Returns new AST element and a statistics String.
      */
     def transformAst(source_ast: TranslationUnit, decluse: IdentityIdHashMap, usedecl: IdentityIdHashMap, parseTime: Long, featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty): (TranslationUnit, String) = {
-        fm = featureModel
+            fm = featureModel
         val tb = java.lang.management.ManagementFactory.getThreadMXBean
 
         fillIdMap(source_ast)

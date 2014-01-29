@@ -34,6 +34,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_ERRORXML = Options.genOptionId();
     private final static char F_IFDEFTOIF = Options.genOptionId();
     private final static char F_IFDEFTOIFSTATISTICS = Options.genOptionId();
+    private final static char F_IFDEFTOIFNOCHECK = Options.genOptionId();
     private final static char F_DECLUSE = Options.genOptionId();
     private final static char F_REFEVAL = Options.genOptionId();
     private final static char F_REFLINk = Options.genOptionId();
@@ -47,6 +48,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             typecheck = false,
             ifdeftoif = false,
             ifdeftoifstatistics = false,
+            ifdeftoifnocheck = false,
             decluse = false,
             refEval = false,
             refLink = false,
@@ -106,6 +108,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                         "Make #ifdef to if transformation."),
                 new Option("ifdeftoifstatistics", LongOpt.NO_ARGUMENT, F_IFDEFTOIFSTATISTICS, null,
                         "Make #ifdef to if transformation."),
+                new Option("ifdeftoifnocheck", LongOpt.NO_ARGUMENT, F_IFDEFTOIFNOCHECK, null,
+                        "Do not typecheck the result of #ifdef to if transformation."),
                 new Option("refEval", LongOpt.REQUIRED_ARGUMENT, F_REFEVAL, null, "Apply and verfiy random refactoring"),
                 new Option("refLink", LongOpt.REQUIRED_ARGUMENT, F_REFLINk, null, "Apply refactorings also on all linked files."),
                 new Option("canBuild", LongOpt.NO_ARGUMENT, F_CANBUILD, null, "Tests the possibility of building the pretty printed File"),
@@ -174,6 +178,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             parse = typecheck = ifdeftoif = ifdeftoifstatistics = true;
         } else if (c == F_IFDEFTOIF) {
             parse = typecheck = ifdeftoif = true;
+        } else if (c == F_IFDEFTOIFNOCHECK) {
+            parse = typecheck = ifdeftoif = ifdeftoifnocheck = true;
         } else if (c == F_DECLUSE) {
             parse = typecheck = decluse = true;
         } else if (c == F_REFEVAL) {
