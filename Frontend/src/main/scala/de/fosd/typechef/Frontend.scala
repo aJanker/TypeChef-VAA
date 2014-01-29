@@ -9,6 +9,7 @@ import parser.TokenReader
 import de.fosd.typechef.options.{FrontendOptionsWithConfigFiles, FrontendOptions, OptionException}
 import de.fosd.typechef.parser.c.CTypeContext
 import de.fosd.typechef.parser.c.TranslationUnit
+import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
 object Frontend extends EnforceTreeHelper {
 
@@ -138,6 +139,7 @@ object Frontend extends EnforceTreeHelper {
                 // some dataflow analyses require typing information
                 val ts = new CTypeSystemFrontend(ast, fm_ts, opt) with CTypeCache with CDeclUse
 
+
                 /** I did some experiments with the TypeChef FeatureModel of Linux, in case I need the routines again, they are saved here. */
                 //Debug_FeatureModelExperiments.experiment(fm_ts)
 
@@ -218,6 +220,10 @@ object Frontend extends EnforceTreeHelper {
                         stopWatch.start("uninitializedmemory")
                         sa.uninitializedMemory()
                     }
+                    if (opt.warning_case_termination) {
+                        stopWatch.start("casetermination")
+                        sa.caseTermination()
+                    }
                     if (opt.warning_xfree) {
                         stopWatch.start("xfree")
                         sa.xfree()
@@ -258,13 +264,13 @@ object Frontend extends EnforceTreeHelper {
     }
 
     def serializeAST(ast: AST, filename: String) {
-        val fw = new ObjectOutputStream(new FileOutputStream(filename))
+        val fw = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(filename)))
         fw.writeObject(ast)
         fw.close()
     }
 
     def loadSerializedAST(filename: String): TranslationUnit = try {
-        val fr = new ObjectInputStream(new FileInputStream(filename)) {
+        val fr = new ObjectInputStream(new GZIPInputStream(new FileInputStream(filename))) {
             override protected def resolveClass(desc: ObjectStreamClass) = { /*println(desc);*/ super.resolveClass(desc) }
         }
         val ast = fr.readObject().asInstanceOf[TranslationUnit]

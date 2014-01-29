@@ -46,7 +46,7 @@ class XFree(env: ASTEnv, dum: DeclUseMap, udm: UseDeclMap, fm: FeatureModel, f: 
                 if (pmallocs.isEmpty) res ++= fromCache(i)
                 else pmallocs.map {
                     case PostfixExpr(m: Id, _) if memcalls.contains(m.name) =>
-                        if (! env.featureExpr(m) equivalentTo env.featureExpr(i)) res ++= fromCache(i)
+                        if (!env.featureExpr(m) equivalentTo env.featureExpr(i)) res ++= fromCache(i)
                     case _ =>
                 }
             }
@@ -65,7 +65,7 @@ class XFree(env: ASTEnv, dum: DeclUseMap, udm: UseDeclMap, fm: FeatureModel, f: 
 
                 pmallocs.map {
                     case PostfixExpr(i: Id, _) if memcalls.contains(i.name) =>
-                        if (! env.featureExpr(i) equivalentTo env.featureExpr(target)) res ++= fromCache(target, true)
+                        if (!env.featureExpr(i) equivalentTo env.featureExpr(target)) res ++= fromCache(target, true)
                     case _ =>
                 }
             }
@@ -167,6 +167,7 @@ class XFree(env: ASTEnv, dum: DeclUseMap, udm: UseDeclMap, fm: FeatureModel, f: 
     protected def b = l
     protected def combinationOperator(l1: L, l2: L) = union(l1, l2)
 
-    protected def incached(a: AST): L = combinatorcached(a)
-    protected def outcached(a: AST): L = f_lcached(a)
+    protected def isForward = true
+
+    solve()
 }
