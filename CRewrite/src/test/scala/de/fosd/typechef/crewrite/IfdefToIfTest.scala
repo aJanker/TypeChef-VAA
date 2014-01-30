@@ -1807,7 +1807,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
 
     @Test def random_test() {
         val config = new File(busyBoxFmPath + "BusyBoxDefConfig.config")
-        println(PrettyPrinter.print(i.getFunctionFromConfiguration(config, FeatureExprLib.featureModelFactory().createFromDimacsFile_2Var(busyBoxFmPath + "BB_fm.dimacs"))))
+        println(PrettyPrinter.print(i.getConfigStruct(config, FeatureExprLib.featureModelFactory().createFromDimacsFile_2Var(busyBoxFmPath + "BB_fm.dimacs"))))
     }
 
     @Test def test_statements() {

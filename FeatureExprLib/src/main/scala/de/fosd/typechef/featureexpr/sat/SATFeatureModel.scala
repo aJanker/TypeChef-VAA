@@ -39,7 +39,9 @@ class SATFeatureModel(val variables: Map[String, Int], val clauses: IVec[IVecInt
         }
     def assumeTrue(featurename: String) = this.and(SATFeatureExprFactory.createDefinedExternal(featurename))
     def assumeFalse(featurename: String) = this.and(SATFeatureExprFactory.createDefinedExternal(featurename).not)
-
+    def getClauses(): Set[String] = {
+        variables.keySet
+    }
 
     def writeToFile(fileName: String, data: String) = {
         val fileWriter = new FileWriter(fileName)
@@ -256,7 +258,6 @@ object SATFeatureModel extends FeatureModelFactory {
                 }
         (immutable.Map[String, Int]() ++ uniqueFlagIds, lastId)
     }
-
 
     private[SATFeatureModel] def addClauses(cnf: SATFeatureExpr /*CNF*/ , variables: Map[String, Int], oldVec: IVec[IVecInt] = null): Vec[IVecInt] = {
         val result = new Vec[IVecInt]()
