@@ -301,7 +301,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         if (context.equivalentTo(trueF) || context.equivalentTo(optFeature) || !(optFeature.implies(context).isTautology())) {
             optFeature
         } else {
-            optFeature.diff(context)
+            val result = optFeature.diff(context)
+            result
         }
     }
 
@@ -1266,7 +1267,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     x match {
                         case o@Opt(ft, InitDeclaratorI(decl, attributes, Some(init@Initializer(initElemLabel, expr)))) =>
                             if (!isTopLevel) {
-                                val features = computeNextRelevantFeatures(expr, o.feature)
+                                val features = computeNextRelevantFeatures(expr, o.feature.and(currentContext))
                                 val condExpr = convertToCondExpr(init, features, currentContext)
                                 List(transformRecursive(Opt(ft, InitDeclaratorI(decl, attributes, Some(condExpr))), currentContext.and(ft)))
                             } else {

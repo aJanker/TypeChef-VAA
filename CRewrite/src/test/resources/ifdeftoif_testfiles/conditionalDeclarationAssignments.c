@@ -13,6 +13,7 @@ void main() {
 1
 #endif
 ;
+#if definedEx(C)
 	int y = 5 *
 #if definedEx(A)
 (0 * a)
@@ -20,6 +21,8 @@ void main() {
 (1 * a)
 #endif
 ;
+#endif
+#if definedEx(Z)
 	int z = 5 *
 #if definedEx(B)
 (0 * a)
@@ -27,4 +30,5 @@ void main() {
 (1 * a)
 #endif
 ;
+#endif
 }
