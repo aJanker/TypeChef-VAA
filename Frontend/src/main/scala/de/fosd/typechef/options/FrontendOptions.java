@@ -79,6 +79,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private FeatureExpr filePC = null;
     private FeatureExpr localFM = null;
     private String linkingInterfaceFile = "";
+    private final String serializeASTFileExtension = ".ast";
 
     @Override
     public List<Options.OptionGroup> getOptionGroups() {
@@ -310,8 +311,12 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
         return localFM;
     }
 
+    public String getSerializedASTFileExtension() {
+        return serializeASTFileExtension;
+    }
+
     public String getSerializedASTFilename() {
-        return outputStem + ".ast";
+        return outputStem + getSerializedASTFileExtension();
     }
 
     public String getOutputStem() {
