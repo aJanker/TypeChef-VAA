@@ -1,6 +1,7 @@
 package de.fosd.typechef.featureexpr
 
 import java.io._
+import scala.deprecated
 
 
 trait FeatureExpr extends Serializable {
@@ -21,13 +22,20 @@ trait FeatureExpr extends Serializable {
     def and(that: FeatureExpr): FeatureExpr
     def not(): FeatureExpr
 
+
+    /**
+     * use simplify(b:FeatureExpr) instead
+     */
+    @deprecated
+    def diff(b:FeatureExpr) : FeatureExpr = simplify(b)
     /**
      * Informal: Returns all the information in this that is not present in b.
-     * Formal: (diff(this,b) AND b) implies this
+     * this.simplify(b) is equivialent to this if the context b is guaranteed
+     * Formal: (b implies (this.simplify(b) equiv this))
      * @param b
      * @return
      */
-    def diff(b:FeatureExpr) : FeatureExpr
+    def simplify(b:FeatureExpr) : FeatureExpr
 
     //equals, hashcode
 

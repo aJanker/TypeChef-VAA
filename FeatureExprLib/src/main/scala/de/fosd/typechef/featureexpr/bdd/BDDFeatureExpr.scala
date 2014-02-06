@@ -142,33 +142,7 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
     }
     def not(): FeatureExpr = FExprBuilder.not(this)
 
-    def diff(b:FeatureExpr) : FeatureExpr = new BDDFeatureExpr(diff(this.bdd,asBDDFeatureExpr(b).bdd))
-
-    /**
-     * rhein@fim.uni-passau.de
-     */
-    private def diff(a:BDD, b:BDD) : BDD = {
-        if (b.isZero || b.isOne || a.isZero || a.isOne) return a
-        val iteT = (bddFactory.ithVar(a.`var`()), a.high, a.low)
-        val iteF = (bddFactory.ithVar(b.`var`()), b.high, b.low)
-        if (iteT._1.equals(iteF._1)) {
-            if (iteT._2.isZero && iteF._2.isZero)
-                diff(iteT._3, iteF._3)
-            else if (iteT._3.isZero && iteF._3.isZero)
-                diff(iteT._2, iteF._2)
-            else
-                iteT._1.ite(diff(iteT._2, iteF._2), diff(iteT._3, iteF._3))
-        } else {
-            if (iteT._1.level() < iteF._1.level())
-                iteT._1.ite(diff(iteT._2, b), diff(iteT._3, b))
-            else if (iteT._1.level() > iteF._1.level())
-                diff(a, b.exist(iteF._1))
-            else {
-                assert(false)
-                a
-            }
-        }
-    }
+    def simplify(b:FeatureExpr) : FeatureExpr = new BDDFeatureExpr(this.bdd.simplify(asBDDFeatureExpr(b).bdd))
 
     /**
      * frees the space occupied by this bdd in the bdd library.

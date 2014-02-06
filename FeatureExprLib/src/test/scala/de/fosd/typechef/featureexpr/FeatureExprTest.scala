@@ -154,7 +154,7 @@ class FeatureExprTest extends TestCase {
 
   def createLT(a: FeatureExprValue, b: FeatureExprValue) = d.createLessThan(a, b)
 
-    @Test def testDiff {
+    @Test def testSimplify {
         def assertContract(a:FeatureExpr, b:FeatureExpr) {
             val diff1 = a.diff(b)
             assert(b.and(diff1).implies(a).isTautology())

@@ -19,7 +19,7 @@ class ErrorFeature(msg: String, f: FeatureExpr) extends FeatureExpr {
     def or(that: FeatureExpr) = error
     def and(that: FeatureExpr) = error
     def not() = error
-    def diff(that: FeatureExpr) = error
+    def simplify(that: FeatureExpr) = error
     def unique(x:SingleFeatureExpr) = error
     override def evaluate(selectedFeatures: Set[String]) = false
 
