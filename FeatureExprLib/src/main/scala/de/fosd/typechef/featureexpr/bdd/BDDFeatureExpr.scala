@@ -160,6 +160,36 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
     override def unique(feature: SingleFeatureExpr): FeatureExpr = FExprBuilder.unique(this, asSingleBDDFeatureExpr(feature))
 
 
+    def countOpsInStringRep() : Int = countOpsInStringRep(this.bdd)
+    private def countOpsInStringRep(r : BDD) : Int = {
+        if ((r.low().isOne || r.low().isZero) && (r.high.isOne || r.high.isZero)) {
+            0
+        } else if (r.isOne)
+            0
+        else if (r.isZero)
+            0
+        else {
+            val snd = r.high()
+            val thrd = r.low()
+            if (snd.isOne && thrd.isZero) {
+                0
+            } else if (snd.isZero && thrd.isOne) {
+                0
+            } else if (snd.isOne) {
+                1+countOpsInStringRep(thrd)
+            } else if (snd.isZero) {
+                1+countOpsInStringRep(thrd)
+            } else if (thrd.isOne) {
+                1 + countOpsInStringRep(snd)
+            } else if (thrd.isZero) {
+                1 + countOpsInStringRep(snd)
+            } else {
+                3 +countOpsInStringRep(snd) +
+                    countOpsInStringRep(thrd)
+            }
+        }
+    }
+
     // According to advanced textbooks, this representation is not always efficient:
     // not (a equiv b) generates 4 clauses, of which 2 are tautologies.
     // In positions of negative polarity (i.e. contravariant?), a equiv b is best transformed to
