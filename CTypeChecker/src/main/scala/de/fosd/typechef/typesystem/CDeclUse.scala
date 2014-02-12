@@ -167,7 +167,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
 
     def getUseDeclMap = IdentityIdHashMap(useDeclMap)
 
-    def getAllConnectedIdentifier(id: Id): List[Id] = {
+    def linkage(id: Id): List[Id] = {
         def isAlreadyConnected(map: IdentityIdHashMap): Boolean = {
             if (!map.containsKey(id)) return false
             val existingConnectedList = map.get(id).filter(connectedIds.contains)
