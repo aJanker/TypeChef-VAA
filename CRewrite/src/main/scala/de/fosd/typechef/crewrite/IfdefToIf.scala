@@ -85,7 +85,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
     val trueF = FeatureExprFactory.True
     var fm: FeatureModel = FeatureExprFactory.empty
 
-    var analysisResults = ""
+    var file = ""
+    var featureConfig: String = ""
 
     val path = new File("..").getCanonicalPath ++ "/ifdeftoif/"
 
@@ -109,6 +110,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
 
 
     val featureStructInitializedName = "id2i"
+    val initFunctionName = "id2i_init"
     val featureStructName = "ifdef_options"
 
     val exponentialComputationThreshold = 10
@@ -332,10 +334,6 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         ((after - before) / (before.toDouble))
     }
 
-    def getAnalysisResults: String = {
-        analysisResults
-    }
-
     /**
      * Used for reading/writing to database, files, etc.
      * Code From the book "Beginning Scala"
@@ -422,27 +420,93 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         }).toList
         Declaration(List(Opt(trueF, StructOrUnionSpecifier(false, Some(Id(featureStructName)), Some(structDeclList), List(), List()))), List(Opt(trueF, InitDeclaratorI(AtomicNamedDeclarator(List(), Id(featureStructInitializedName), List()), List(), None))))
     }
+
+    def getInitFunction(defExSet: Set[SingleFeatureExpr]): FunctionDef = {
+        val correctFeatureModelIncompatibility = false
+        var fileEx: FeatureExpr = FeatureExprFactory.True
+        var trueFeatures: Set[SingleFeatureExpr] = Set()
+        var falseFeatures: Set[SingleFeatureExpr] = Set()
+
+        val enabledPattern: Pattern = java.util.regex.Pattern.compile("([^=]*)=y")
+        val disabledPattern: Pattern = java.util.regex.Pattern.compile("([^=]*)=n")
+        for (line <- Source.fromFile(new File(featureConfig)).getLines().filterNot(_.startsWith("#")).filterNot(_.isEmpty)) {
+            var matcher = enabledPattern.matcher(line)
+            if (matcher.matches()) {
+                val name = matcher.group(1)
+                val feature = FeatureExprFactory.createDefinedExternal(name)
+                var fileExTmp = fileEx.and(feature)
+                if (correctFeatureModelIncompatibility) {
+                    val isSat = fileExTmp.isSatisfiable(fm)
+                    if (!isSat) {
+                        fileExTmp = fileEx.andNot(feature)
+                        falseFeatures += feature
+                    } else {
+                        trueFeatures += feature
+                    }
+                } else {
+                    trueFeatures += feature
+                }
+                fileEx = fileExTmp
+            } else {
+                matcher = disabledPattern.matcher(line)
+                if (matcher.matches()) {
+                    val name = matcher.group(1)
+                    val feature = FeatureExprFactory.createDefinedExternal(name)
+                    var fileExTmp = fileEx.andNot(feature)
+                    if (correctFeatureModelIncompatibility) {
+                        val isSat = fileEx.isSatisfiable(fm)
+                        println("! " + name + " " + (if (isSat) "sat" else "!sat"))
+                        if (!isSat) {
+                            fileExTmp = fileEx.and(feature)
+                            trueFeatures += feature
+                        } else {
+                            falseFeatures += feature
+                        }
+                    } else {
+                        falseFeatures += feature
+                    }
+                    fileEx = fileExTmp
+                } else {
+                    //println("ignoring line: " + line)
+                }
+            }
+            //println(line)
+        }
+        val trueFeaturesInSet = defExSet.filter(trueFeatures.contains).toList
+        val falseFeaturesInSet = defExSet.filter(falseFeatures.contains).toList
+        val otherFeaturesInSet = defExSet.filterNot((trueFeatures ++ falseFeatures).contains).toList
+
+        val trueExprs = trueFeaturesInSet.map(x => Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id(x.feature.toLowerCase))), "=", Constant("1")))))
+        val falseExprs = falseFeaturesInSet.map(x => Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id(x.feature.toLowerCase))), "=", Constant("0")))))
+        val otherExprs = otherFeaturesInSet.map(x => Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id(x.feature.toLowerCase))), "=", Constant(parameterForFeaturesOutsideOfConfigFile)))))
+        val exprStmts = trueExprs ++ otherExprs ++ falseExprs
+        FunctionDef(List(Opt(trueF, VoidSpecifier())), AtomicNamedDeclarator(List(), Id(initFunctionName), List(Opt(trueF, DeclIdentifierList(List())))), List(), CompoundStatement(exprStmts))
+    }
     def getExternDeclaration(): Declaration = {
         Declaration(List(Opt(trueF, ExternSpecifier()), Opt(trueF, IntSpecifier())), List(Opt(trueF, InitDeclaratorI(AtomicNamedDeclarator(List(), Id("__VERIFIER_NONDET_INT"), List(Opt(trueF, DeclParameterDeclList(List(Opt(trueF, PlainParameterDeclaration(List(Opt(trueF, VoidSpecifier())), List()))))))), List(), None))))
     }
     def getSelectOne(): FunctionDef = {
         FunctionDef(List(Opt(trueF, IntSpecifier())), AtomicNamedDeclarator(List(), Id("select_one"), List(Opt(trueF, DeclIdentifierList(List())))), List(), CompoundStatement(List(Opt(trueF, IfStatement(One(PostfixExpr(Id("__VERIFIER_NONDET_INT"), FunctionCall(ExprList(List())))), One(CompoundStatement(List(Opt(trueF, ReturnStatement(Some(Constant("1"))))))), List(), Some(One(CompoundStatement(List(Opt(trueF, ReturnStatement(Some(Constant("0")))))))))))))
     }
-    def getInitFunction(defExSet: Set[SingleFeatureExpr]): FunctionDef = {
+    def getAlexInitFunction(defExSet: Set[SingleFeatureExpr]): FunctionDef = {
         val cmpStmt = defExSet.map(x => {
             Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id(x.feature.toLowerCase))), "=", PostfixExpr(Id("select_one"), FunctionCall(ExprList(List()))))))
         }).toList
         FunctionDef(List(Opt(trueF, VoidSpecifier())), AtomicNamedDeclarator(List(), Id("initOptions"), List(Opt(trueF, DeclIdentifierList(List())))), List(), CompoundStatement(cmpStmt))
     }
     def getInitialTranslationUnit(defExSet: Set[SingleFeatureExpr]): TranslationUnit = {
-        val structDeclaration = Opt(trueF, getOptionStruct(defExSet))
+        var structDeclaration = Opt(trueF, getOptionStruct(defExSet))
 
         if (!createFunctionsForModelChecking) {
-            TranslationUnit(List(structDeclaration))
+            if (!featureConfig.isEmpty) {
+                TranslationUnit(List(structDeclaration, Opt(trueF, getInitFunction(defExSet))))
+            } else {
+                TranslationUnit(List(structDeclaration))
+            }
         } else {
             val externDeclaration = Opt(trueF, getExternDeclaration())
             val function = Opt(trueF, getSelectOne())
-            val initFunction = Opt(trueF, getInitFunction(defExSet))
+            val initFunction = Opt(trueF, getAlexInitFunction(defExSet))
             TranslationUnit(List(externDeclaration, function, structDeclaration, initFunction))
         }
     }
@@ -690,13 +754,19 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                     Declaration(declSpecs, init.map(x => convertId(x, ft))).asInstanceOf[T]
                 case Opt(optFt, InitDeclaratorI(decl, attri, iniz)) =>
                     Opt(optFt, InitDeclaratorI(convertId(decl, ft), attri, iniz)).asInstanceOf[T]
-                case AtomicNamedDeclarator(pointers, i: Id, extensions) =>
-                    addIdUsages(i, ft)
-                    replaceId.put(i, ft)
-                    if (!idMap.contains(ft)) {
-                        idMap += (ft -> idMap.size)
+                case a@AtomicNamedDeclarator(pointers, i: Id, extensions) =>
+
+                    // Don't rename forward function declarations of the main function
+                    if (i.name.equals("main") || i.name.equals(file + "_main")) {
+                        a.asInstanceOf[T]
+                    } else {
+                        addIdUsages(i, ft)
+                        replaceId.put(i, ft)
+                        if (!idMap.contains(ft)) {
+                            idMap += (ft -> idMap.size)
+                        }
+                        AtomicNamedDeclarator(pointers, renameIdentifier(i, ft), extensions).asInstanceOf[T]
                     }
-                    AtomicNamedDeclarator(pointers, renameIdentifier(i, ft), extensions).asInstanceOf[T]
                 case NestedNamedDeclarator(pointers, nestedDecl, extensions, attrib) =>
                     NestedNamedDeclarator(pointers, convertId(nestedDecl, ft), extensions, attrib).asInstanceOf[T]
             }
@@ -1022,7 +1092,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         transformRecursive(replaceOptAndId(t, feat), feat)
     }
 
-    def ifdeftoif(source_ast: TranslationUnit, decluse: IdentityIdHashMap, usedecl: IdentityIdHashMap, featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty, outputStem: String = "unnamed", lexAndParseTime: Long = 0, writeStatistics: Boolean = true, newPath: String = "", typecheckResult: Boolean = true): (Option[AST], Long, List[TypeChefError]) = {
+    def ifdeftoif(source_ast: TranslationUnit, decluse: IdentityIdHashMap, usedecl: IdentityIdHashMap, featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty, outputStem: String = "unnamed", lexAndParseTime: Long = 0, writeStatistics: Boolean = true, newPath: String = "", typecheckResult: Boolean = true, featureConfigPath: String = ""): (Option[AST], Long, List[TypeChefError]) = {
+        featureConfig = featureConfigPath
         new File(path).mkdirs()
         val tb = java.lang.management.ManagementFactory.getThreadMXBean
         fm = featureModel
@@ -1037,7 +1108,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         defuse = decluse
         usedef = usedecl
         val fileName = outputStemToFileName(outputStem)
-
+        file = getFileNameWithoutExtension(fileName)
 
         val time = tb.getCurrentThreadCpuTime()
         var new_ast = transformRecursive(source_ast, trueF, true)
@@ -1143,20 +1214,29 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      * @return
      */
     def outputStemToifdeftoif(outputStem: String): String = {
-        def outputStemToFileNameWithoutExtension(outputStem: String): String = {
-            val indexOfLastFolderSep = outputStem.lastIndexOf(File.separatorChar)
-            val lastPathElement = outputStem.substring(indexOfLastFolderSep);
-            val lastSepIndex = indexOfLastFolderSep + lastPathElement.lastIndexOf(".")
-            if (lastSepIndex == -1) {
-                outputStem
-            } else {
-                outputStem.substring(0, lastSepIndex)
-            }
-        }
         if ((new File(outputStem)).getName.contains(".")) // if the filename has a extension, remove it
             outputStemToFileNameWithoutExtension(outputStem) + "_ifdeftoif.c"
         else
             outputStem + "_ifdeftoif.c"
+    }
+
+    def getFileNameWithoutExtension(file: File): String = {
+        file.getName().replaceFirst("[.][^.]+$", "")
+    }
+
+    def getFileNameWithoutExtension(strg: String): String = {
+        strg.replaceFirst("[.][^.]+$", "")
+    }
+
+    def outputStemToFileNameWithoutExtension(outputStem: String): String = {
+        val indexOfLastFolderSep = outputStem.lastIndexOf(File.separatorChar)
+        val lastPathElement = outputStem.substring(indexOfLastFolderSep);
+        val lastSepIndex = indexOfLastFolderSep + lastPathElement.lastIndexOf(".")
+        if (lastSepIndex == -1) {
+            outputStem
+        } else {
+            outputStem.substring(0, lastSepIndex)
+        }
     }
 
     def removeDuplicateFeatures(features: List[FeatureExpr], currentContext: FeatureExpr): List[FeatureExpr] = {
@@ -2712,37 +2792,47 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
      * 1. Transform optional function
      * 2. Transform function by looking at variability in specifiers, declarators and parameters
      */
-    def handleFunction(optFunction: Opt[_], currentContext: FeatureExpr = trueF): List[Opt[_]] = {
-        if (optFunction.entry.asInstanceOf[FunctionDef].getName.endsWith("main") || optFunction.entry.asInstanceOf[FunctionDef].getName.equals("correct_password")) {
-            print("")
-        }
-        // 1. Step
-        if (!optFunction.feature.equivalentTo(trueF)) {
-            optFunction.entry match {
+    def handleFunction(oFunction: Opt[_], context: FeatureExpr = trueF): List[Opt[_]] = {
+        var newFunction = oFunction
+        if (oFunction.entry.asInstanceOf[FunctionDef].getName.equals("main") || oFunction.entry.asInstanceOf[FunctionDef].getName.equals(file + "_main")) {
+            val initCall = Opt(trueF, ExprStatement(PostfixExpr(Id(initFunctionName), FunctionCall(ExprList(List())))))
+            oFunction.entry match {
                 case fd@FunctionDef(spec, decl, par, stmt) =>
-                    handleFunction(Opt(trueF, replaceOptAndId(fd, optFunction.feature)), optFunction.feature)
+                    newFunction = Opt(oFunction.feature, FunctionDef(spec, decl, par, CompoundStatement(initCall :: stmt.innerStatements)))
                 case nfd@NestedFunctionDef(isAuto, spec, decl, par, stmt) =>
-                    handleFunction(Opt(trueF, replaceOptAndId(nfd, optFunction.feature)), optFunction.feature)
-            }
-        } else {
-            // 2. Step
-            optFunction.entry match {
-                case fd@FunctionDef(spec, decl, par, stmt) =>
-                    val features = computeNextRelevantFeatures(fd, currentContext).filterNot(FeatureExprFactory.False.equals(_))
-                    if (features.isEmpty) {
-                        List(Opt(trueF, FunctionDef(replaceOptAndId(spec, currentContext), replaceOptAndId(convertStructId(decl, currentContext), currentContext), replaceOptAndId(par, currentContext), transformRecursive(replaceOptAndId(stmt, currentContext), currentContext))))
-                    } else {
-                        features.map(x => Opt(trueF, FunctionDef(replaceOptAndId(spec, x), replaceOptAndId(convertStructId(decl, x), x), replaceOptAndId(par, x), transformRecursive(replaceOptAndId(stmt, x), x))))
-                    }
-                case nfd@NestedFunctionDef(isAuto, spec, decl, par, stmt) =>
-                    val features = computeNextRelevantFeatures(nfd, currentContext)
-                    if (features.isEmpty) {
-                        List(Opt(trueF, NestedFunctionDef(isAuto, replaceOptAndId(spec, currentContext), replaceOptAndId(convertStructId(decl, currentContext), currentContext), replaceOptAndId(par, currentContext), transformRecursive(replaceOptAndId(stmt, currentContext), currentContext))))
-                    } else {
-                        features.map(x => Opt(trueF, NestedFunctionDef(isAuto, replaceOptAndId(spec, x), replaceOptAndId(convertStructId(decl, x), x), replaceOptAndId(par, x), transformRecursive(replaceOptAndId(stmt, x), x))))
-                    }
+                    newFunction = Opt(oFunction.feature, NestedFunctionDef(isAuto, spec, decl, par, CompoundStatement(initCall :: stmt.innerStatements)))
             }
         }
+        def handleFunctionRec(optFunction: Opt[_], currentContext: FeatureExpr = trueF): List[Opt[_]] = {
+            // 1. Step
+            if (!optFunction.feature.equivalentTo(trueF)) {
+                optFunction.entry match {
+                    case fd@FunctionDef(spec, decl, par, stmt) =>
+                        handleFunctionRec(Opt(trueF, replaceOptAndId(fd, optFunction.feature)), optFunction.feature)
+                    case nfd@NestedFunctionDef(isAuto, spec, decl, par, stmt) =>
+                        handleFunctionRec(Opt(trueF, replaceOptAndId(nfd, optFunction.feature)), optFunction.feature)
+                }
+            } else {
+                // 2. Step
+                optFunction.entry match {
+                    case fd@FunctionDef(spec, decl, par, stmt) =>
+                        val features = computeNextRelevantFeatures(fd, currentContext).filterNot(FeatureExprFactory.False.equals(_))
+                        if (features.isEmpty) {
+                            List(Opt(trueF, FunctionDef(replaceOptAndId(spec, currentContext), replaceOptAndId(convertStructId(decl, currentContext), currentContext), replaceOptAndId(par, currentContext), transformRecursive(replaceOptAndId(stmt, currentContext), currentContext))))
+                        } else {
+                            features.map(x => Opt(trueF, FunctionDef(replaceOptAndId(spec, x), replaceOptAndId(convertStructId(decl, x), x), replaceOptAndId(par, x), transformRecursive(replaceOptAndId(stmt, x), x))))
+                        }
+                    case nfd@NestedFunctionDef(isAuto, spec, decl, par, stmt) =>
+                        val features = computeNextRelevantFeatures(nfd, currentContext)
+                        if (features.isEmpty) {
+                            List(Opt(trueF, NestedFunctionDef(isAuto, replaceOptAndId(spec, currentContext), replaceOptAndId(convertStructId(decl, currentContext), currentContext), replaceOptAndId(par, currentContext), transformRecursive(replaceOptAndId(stmt, currentContext), currentContext))))
+                        } else {
+                            features.map(x => Opt(trueF, NestedFunctionDef(isAuto, replaceOptAndId(spec, x), replaceOptAndId(convertStructId(decl, x), x), replaceOptAndId(par, x), transformRecursive(replaceOptAndId(stmt, x), x))))
+                        }
+                }
+            }
+        }
+        handleFunctionRec(newFunction, context)
     }
 
     /**

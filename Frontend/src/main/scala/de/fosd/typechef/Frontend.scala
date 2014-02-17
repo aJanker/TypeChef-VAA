@@ -6,7 +6,7 @@ import de.fosd.typechef.typesystem._
 import de.fosd.typechef.crewrite._
 import java.io._
 import parser.TokenReader
-import de.fosd.typechef.options.{FrontendOptionsWithConfigFiles, FrontendOptions, OptionException}
+import de.fosd.typechef.options.{FrontendOptionsWithConfigFiles, OptionException}
 import de.fosd.typechef.parser.c.CTypeContext
 import de.fosd.typechef.parser.c.TranslationUnit
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
@@ -159,6 +159,7 @@ object Frontend extends EnforceTreeHelper {
                             fw.write(ts.checkDefuse(ast, ts.getDeclUseMap, ts.getUseDeclMap, fm_ts)._1)
                             fw.close()
                             println(ast)
+                            println(PrettyPrinter.print(ast))
                             println(ts.checkDefuse(ast, ts.getDeclUseMap, ts.getUseDeclMap, fm_ts)._1)
                             println(ts.getDeclUseMap)
                         } else {
@@ -170,17 +171,18 @@ object Frontend extends EnforceTreeHelper {
                             //ProductGeneration.typecheckProducts(fm,fm_ts,ast,opt,
                             //logMessage=("Time for lexing(ms): " + (t2-t1) + "\nTime for parsing(ms): " + (t3-t2) + "\n"))
                             //ProductGeneration.estimateNumberOfVariants(ast, fm_ts)
+                            val featureConfigurationPath = opt.getFeatureConfig
                             val i = new IfdefToIf
                             val defUseMap = ts.getDeclUseMap
                             val useDefMap = ts.getUseDeclMap
                             val fileName = i.outputStemToFileName(opt.getOutputStem())
                             val checkIfdefToIfResult = !opt.ifdeftoifnocheck
-                            val tuple = i.ifdeftoif(ast, defUseMap, useDefMap, fm, opt.getOutputStem(), stopWatch.get("lexing") + stopWatch.get("parsing"), opt.ifdeftoifstatistics, typecheckResult = checkIfdefToIfResult)
+                            val tuple = i.ifdeftoif(ast, defUseMap, useDefMap, fm, opt.getOutputStem(), stopWatch.get("lexing") + stopWatch.get("parsing"), opt.ifdeftoifstatistics, "", typecheckResult = checkIfdefToIfResult, featureConfigurationPath)
                             tuple._1 match {
                                 case None =>
                                     println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")
                                 /*
-                                tuple._3.map(errorXML.renderTypeError(_))
+                                tuple._3.map(errorXML.renderTypeError(_))             y
                                  */
                                 case Some(x) =>
                                     if (!opt.getOutputStem().isEmpty()) {
