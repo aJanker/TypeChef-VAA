@@ -6,7 +6,7 @@ import de.fosd.typechef.typesystem._
 import de.fosd.typechef.crewrite._
 import java.io._
 import parser.TokenReader
-import de.fosd.typechef.options.{FrontendOptionsWithConfigFiles, OptionException}
+import de.fosd.typechef.options.{FrontendOptionsWithConfigFiles, FrontendOptions, OptionException}
 import de.fosd.typechef.parser.c.CTypeContext
 import de.fosd.typechef.parser.c.TranslationUnit
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
@@ -159,7 +159,6 @@ object Frontend extends EnforceTreeHelper {
                             fw.write(ts.checkDefuse(ast, ts.getDeclUseMap, ts.getUseDeclMap, fm_ts)._1)
                             fw.close()
                             println(ast)
-                            println(PrettyPrinter.print(ast))
                             println(ts.checkDefuse(ast, ts.getDeclUseMap, ts.getUseDeclMap, fm_ts)._1)
                             println(ts.getDeclUseMap)
                         } else {
