@@ -403,7 +403,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
         }
 
 
-        // TODO andreas: refactor code looks a little messy
+        // TODO andreas: engine code looks a little messy
         def addUseCastExpr(typ: TypeName, addUse: (AST, FeatureExpr, CDeclUse.this.type#Env) => Unit, feature: FeatureExpr, env: CDeclUse.this.type#Env, lst: List[Opt[Initializer]]) {
             var typedefspecifier: Id = null
             typ match {

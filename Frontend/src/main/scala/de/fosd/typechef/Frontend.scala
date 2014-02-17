@@ -100,10 +100,10 @@ object Frontend extends EnforceTreeHelper {
         }
 
         var ast: TranslationUnit = null
-        if (opt.reuseAST && opt.parse && new File(opt.getSerializedASTFilename).exists()) {
+        if (opt.reuseAST && opt.parse && new File(opt.getSerializedTUnitFilename).exists()) {
             println("loading AST.")
             try {
-                ast = loadSerializedAST(opt.getSerializedASTFilename)
+                ast = loadSerializedAST(opt.getSerializedTUnitFilename)
                 ast = prepareAST[TranslationUnit](ast)
             } catch {
                 case e: Throwable => println(e.toString); e.printStackTrace(); ast = null
@@ -128,7 +128,7 @@ object Frontend extends EnforceTreeHelper {
 
                 if (ast != null && opt.serializeAST) {
                     stopWatch.start("serialize")
-                    serializeAST(ast, opt.getSerializedASTFilename)
+                    serializeAST(ast, opt.getSerializedTUnitFilename)
                 }
 
             }
