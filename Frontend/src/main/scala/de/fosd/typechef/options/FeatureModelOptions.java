@@ -94,7 +94,7 @@ public abstract class FeatureModelOptions extends LexerOptions implements ILexer
             else featureModel = featureModel.and(f);
         } else if (c == FM_CONFIG) {//--featureConfiguration
             checkFileExists(g.getOptarg());
-            if (featureConfig != null)
+            if (featureConfig != "")
                 throw new OptionException("cannot load a second feature configuration");
             featureConfig = g.getOptarg();
         } else if (c == FM_TSDIMACS) {
