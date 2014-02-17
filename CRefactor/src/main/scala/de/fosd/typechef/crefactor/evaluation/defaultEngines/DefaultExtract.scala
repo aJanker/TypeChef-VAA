@@ -1,15 +1,15 @@
-package de.fosd.typechef.crefactor.evaluation.refactor
+package de.fosd.typechef.crefactor.evaluation.defaultEngines
 
 import de.fosd.typechef.crefactor.evaluation.{StatsJar, Evaluation, Refactoring}
 import de.fosd.typechef.crefactor.Morpheus
 import de.fosd.typechef.parser.c.{Statement, AST}
 import de.fosd.typechef.featureexpr.FeatureExpr
-import de.fosd.typechef.crefactor.backend.refactor.CExtractFunction
+import de.fosd.typechef.crefactor.backend.engine.CExtractFunction
 import de.fosd.typechef.crefactor.evaluation.util.StopClock
 import de.fosd.typechef.crefactor.evaluation.Stats._
 import de.fosd.typechef.parser.c.CompoundStatement
 import de.fosd.typechef.conditional.Opt
-import de.fosd.typechef.crefactor.evaluation.setup.CLinking
+import java.io.File
 
 trait DefaultExtract extends Refactoring with Evaluation {
 
@@ -20,9 +20,12 @@ trait DefaultExtract extends Refactoring with Evaluation {
     val NAME = "refactored_func"
 
 
-    def refactor(morpheus: Morpheus, linkInterface: CLinking): (Boolean, AST, List[FeatureExpr], List[(String, AST)]) = {
-        def refactor(morpheus: Morpheus, linkInterface: CLinking, depth: Int): (Boolean, AST, List[FeatureExpr], List[(String, AST)]) = {
-            val compStmts = filterAllASTElems[CompoundStatement](morpheus.getAST)
+    def refactor(morpheus: Morpheus): (Boolean, AST, List[FeatureExpr], List[(String, AST)]) = {
+        val resultDir = getResultDir(morpheus.getFile)
+        val path = resultDir.getCanonicalPath + File.separatorChar + getFileName(morpheus.getFile)
+
+        def refactor(morpheus: Morpheus, depth: Int): (Boolean, AST, List[FeatureExpr], List[(String, AST)]) = {
+            val compStmts = filterAllASTElems[CompoundStatement](morpheus.getTranslationUnit)
 
             // Real random approach
             def getRandomStatements(depth: Int = 0): List[AST] = {
@@ -63,7 +66,7 @@ trait DefaultExtract extends Refactoring with Evaluation {
             def getExtractStatements: List[AST] = {
                 val startTime = new StopClock
                 val availableStmtsToExtract = compStmts.par.flatMap(compSmt => getAvailableExtractStatements(compSmt)).filterNot(x => x.isEmpty)
-                println("+++ Time to determine statements: " + startTime.getTime + " +++")
+                logger.info("Time to determine statements: " + startTime.getTime)
                 // Pick a random available element from the resulting array
                 if (!availableStmtsToExtract.isEmpty) availableStmtsToExtract.apply(util.Random.nextInt(availableStmtsToExtract.length))
                 else List()
@@ -77,7 +80,8 @@ trait DefaultExtract extends Refactoring with Evaluation {
             }
 
             if (statements.isEmpty) {
-                println("no valid statement found")
+                writeError("no valid extract statement found", path + "stmt")
+                logger.warn("no valid extract statement found")
                 return (false, null, List(), List())
             }
 
@@ -93,16 +97,16 @@ trait DefaultExtract extends Refactoring with Evaluation {
                 }
                 case Left(s) => {
                     // TODO Correct Error Handling
-                    println("error")
-                    println(s)
-                    if (depth < RETRIES) refactor(morpheus, linkInterface, depth + 1)
+                    logger.error(s)
+                    writeError("Refactor Error:\n" + s, path + "ref")
+                    if (depth < RETRIES) refactor(morpheus, depth + 1)
                     else (false, null, List(), List())
                 }
 
             }
         }
 
-        refactor(morpheus, linkInterface, 0)
+        refactor(morpheus, 0)
     }
 
 }

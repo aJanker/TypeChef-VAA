@@ -17,8 +17,8 @@ object BusyBoxVerification extends BusyBoxEvaluation with Verification {
 
         StatsJar.addStat(evalFile, Variants, configs.length)
 
-        configs.map(config => {
-            println("+++ Testing config: " + config.getName + " for " + evalFile + " in mode: " + mode + ".")
+        val result = configs.map(config => {
+            logger.info("Testing config: " + config.getName + " for " + evalFile + " in mode: " + mode + ".")
             def buildAndTest(busyBoxFile: File, ext: String): (Boolean, String) = {
                 val buildResult = build
                 val testResult = runTest
@@ -39,16 +39,20 @@ object BusyBoxVerification extends BusyBoxEvaluation with Verification {
             if (!buildTest._1) {
                 writeError("Invalid Config.\n", resultDir.getCanonicalPath + "/" + config.getName)
                 writeResult("Invalid Config", resultDir.getCanonicalPath + "/" + config.getName + ".result")
+                logger.error("Invalid config: " + config.getName + " for " + evalFile + " in mode: " + mode)
                 true
             } else if (buildTest._1) {
                 writeResult("true", resultDir.getCanonicalPath + "/" + config.getName + ".result")
+                logger.info("Test passed: " + config.getName + " for " + evalFile + " in mode: " + mode)
+                true
             } else {
                 writeError("Refactor build failed!\n", resultDir.getCanonicalPath + "/" + config.getName)
                 writeResult("Refactor build failed!", resultDir.getCanonicalPath + "/" + config.getName + ".result")
+                logger.info("Test failed: " + config.getName + " for " + evalFile + " in mode: " + mode)
                 false
             }
-
         })
+        logger.info(evalFile + " passed build and testing as " + mode + ": " + result.exists(x => x))
     }
 
     def runTest: String = {
@@ -105,11 +109,11 @@ object PrepareASTforVerification extends BusyBoxEvaluation {
 
         var pairCounter = 0
 
-        pairWiseConfigs._1.foreach(pairConfig => {
+        /** pairWiseConfigs._1.foreach(pairConfig => {
             val enabledFeatures = pairConfig.getTrueSet.filterNot(ft => filterFeatures.contains(ft.feature))
             writeConfig(enabledFeatures, dir, pairCounter + "pairwise.config")
             pairCounter += 1
-        })
+        })  */
 
 
         val generatedConfigs = configs.listFiles().map(config => {

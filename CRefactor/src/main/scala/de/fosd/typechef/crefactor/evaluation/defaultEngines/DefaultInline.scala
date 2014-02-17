@@ -1,14 +1,13 @@
-package de.fosd.typechef.crefactor.evaluation.refactor
+package de.fosd.typechef.crefactor.evaluation.defaultEngines
 
 import de.fosd.typechef.crefactor.evaluation.{StatsJar, Evaluation, Refactoring}
 import de.fosd.typechef.parser.c.{AST, FunctionCall, Id, PostfixExpr}
 import de.fosd.typechef.crefactor.Morpheus
 import de.fosd.typechef.featureexpr.FeatureExpr
-import de.fosd.typechef.crefactor.backend.refactor.CInlineFunction
+import de.fosd.typechef.crefactor.backend.engine.CInlineFunction
 import scala.util.Random
 import de.fosd.typechef.crefactor.evaluation.util.StopClock
 import de.fosd.typechef.crefactor.evaluation.Stats._
-import de.fosd.typechef.crefactor.evaluation.setup.CLinking
 
 trait DefaultInline extends Refactoring with Evaluation {
 
@@ -19,8 +18,8 @@ trait DefaultInline extends Refactoring with Evaluation {
         }
     }
 
-    def refactor(morpheus: Morpheus, linkInterface: CLinking): (Boolean, AST, List[FeatureExpr], List[(String, AST)]) = {
-        val psExpr = filterAllASTElems[PostfixExpr](morpheus.getAST)
+    def refactor(morpheus: Morpheus): (Boolean, AST, List[FeatureExpr], List[(String, AST)]) = {
+        val psExpr = filterAllASTElems[PostfixExpr](morpheus.getTranslationUnit)
         val funcCalls = psExpr.par.filter(isFunctionCall)
         val availableFuncCalls = funcCalls.par.filter(p => {
             p.p match {
@@ -29,13 +28,13 @@ trait DefaultInline extends Refactoring with Evaluation {
             }
         }).toList
 
-        println("+++ Function calls found to inline: " + availableFuncCalls.size)
+        logger.info("Function calls found to inline: " + availableFuncCalls.size)
 
         if (availableFuncCalls.isEmpty) return (false, null, List(), List())
 
         val callIdToInline = availableFuncCalls(Random.nextInt(availableFuncCalls.size)).p.asInstanceOf[Id]
 
-        println("+++ Trying to inline call: " + callIdToInline)
+        logger.info("Trying to inline fcall: " + callIdToInline)
 
         try {
             val refTime = new StopClock
@@ -52,13 +51,13 @@ trait DefaultInline extends Refactoring with Evaluation {
             StatsJar.addStat(morpheus.getFile, Amount, callDeclDef._1.size)
             StatsJar.addStat(morpheus.getFile, InlinedFunction, callIdToInline)
 
-            println("+++ Affected features: " + features)
+            logger.info("Affected features: " + features)
 
             (true, refAST, features, List())
 
         } catch {
             case e: Exception => {
-                println("+++ Inlining failed!")
+                logger.error("Inlining failed!")
                 e.printStackTrace
                 return (false, null, List(), List())
             }

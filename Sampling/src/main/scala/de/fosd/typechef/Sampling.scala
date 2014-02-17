@@ -54,10 +54,10 @@ object Sampling extends EnforceTreeHelper {
         }
 
         var ast: TranslationUnit = null
-        if (opt.reuseAST && opt.parse && new File(opt.getSerializedASTFilename).exists()) {
+        if (opt.reuseAST && opt.parse && new File(opt.getSerializedTUnitFilename).exists()) {
             println("loading AST.")
             try {
-                ast = Frontend.loadSerializedAST(opt.getSerializedASTFilename)
+                ast = Frontend.loadSerializedAST(opt.getSerializedTUnitFilename)
 
             } catch {
                 case e: Throwable => println(e.getMessage); ast = null
@@ -71,7 +71,7 @@ object Sampling extends EnforceTreeHelper {
             ast = parserMain.parserMain(in, opt).asInstanceOf[TranslationUnit]
 
             if (ast != null && opt.serializeAST) {
-                Frontend.serializeAST(ast, opt.getSerializedASTFilename)
+                Frontend.serializeAST(ast, opt.getSerializedTUnitFilename)
             }
         }
 

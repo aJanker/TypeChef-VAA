@@ -8,7 +8,7 @@ import javax.swing.*;
 import java.awt.event.ActionEvent;
 
 /**
- * All actions with code or ast analyse purpose are found here.
+ * All actions with code or tunit analyse purpose are found here.
  */
 public class Analyse {
 
@@ -19,7 +19,7 @@ public class Analyse {
     private static Boolean astDisplayActive = false;
 
     /**
-     * Pretty prints the current ast in the editor window
+     * Pretty prints the current tunit in the editor window
      *
      * @param editor current editor
      * @return the action
@@ -40,14 +40,14 @@ public class Analyse {
                 }
                 prettyPrintActive = true;
                 astDisplayActive = false;
-                editor.getRTextArea().setText(PrettyPrinter.print(editor.getMorpheus().getAST()));
+                editor.getRTextArea().setText(PrettyPrinter.print(editor.getMorpheus().getTranslationUnit()));
             }
         };
         return action;
     }
 
     /**
-     * Pretty prints the current ast in the editor window
+     * Pretty prints the current tunit in the editor window
      *
      * @param editor current editor
      * @return the action
@@ -68,14 +68,14 @@ public class Analyse {
                 }
                 astDisplayActive = true;
                 prettyPrintActive = false;
-                editor.getRTextArea().setText(editor.getMorpheus().getAST().toString());
+                editor.getRTextArea().setText(editor.getMorpheus().getTranslationUnit().toString());
             }
         };
         return action;
     }
 
     /**
-     * Pretty prints the current ast in the editor window
+     * Pretty prints the current tunit in the editor window
      *
      * @param editor current editor
      * @return the action

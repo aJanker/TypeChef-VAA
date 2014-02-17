@@ -79,6 +79,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private FeatureExpr filePC = null;
     private FeatureExpr localFM = null;
     private String linkingInterfaceFile = "";
+    private final String serializeTUnitFileExtension = ".tunit";
 
     @Override
     public List<Options.OptionGroup> getOptionGroups() {
@@ -310,8 +311,12 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
         return localFM;
     }
 
-    public String getSerializedASTFilename() {
-        return outputStem + ".ast";
+    public String getSerializedTUnitFileExtension() {
+        return serializeTUnitFileExtension;
+    }
+
+    public String getSerializedTUnitFilename() {
+        return outputStem + getSerializedTUnitFileExtension();
     }
 
     public String getOutputStem() {

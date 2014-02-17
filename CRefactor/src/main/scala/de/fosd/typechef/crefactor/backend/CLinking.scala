@@ -1,12 +1,13 @@
-package de.fosd.typechef.crefactor.evaluation.setup
+package de.fosd.typechef.crefactor.backend
 
 import java.io.File
 import de.fosd.typechef.typesystem.linker.{CSignature, InterfaceWriter}
 import java.util
 import de.fosd.typechef.error.Position
 import scala.collection.parallel.mutable
+import de.fosd.typechef.crefactor.Logging
 
-class CLinking(linkPath: String) {
+class CLinking(linkPath: String) extends Logging {
 
     val reader = new InterfaceWriter {}
     val linkFile = new File(linkPath)
@@ -25,18 +26,18 @@ class CLinking(linkPath: String) {
             if (isListed(expr.name)) addToMaps(expr)
             else blackList += expr.name
         )
-    } else println("+++ Warning: No interface used! +++")
+    } else logger.info("No linking interface loaded!")
 
-    def addToMaps(exp: CSignature): List[Position] = {
+    private def addToMaps(exp: CSignature): List[Position] = {
         addToExpMap(exp.name, exp)
         addToPosMap(exp.name, exp.pos.toList)
     }
 
-    def addToExpMap(key: String, value: CSignature) =
+    private def addToExpMap(key: String, value: CSignature) =
         if (idLinkExpMap.containsKey(key)) idLinkExpMap.put(key, value :: idLinkExpMap.get(key))
         else idLinkExpMap.put(key, List(value))
 
-    def addToPosMap(key: String, value: List[Position]) =
+    private def addToPosMap(key: String, value: List[Position]) =
         if (idLinkPosMap.containsKey(key)) idLinkPosMap.put(key, value ::: idLinkPosMap.get(key))
         else idLinkPosMap.put(key, value)
 
