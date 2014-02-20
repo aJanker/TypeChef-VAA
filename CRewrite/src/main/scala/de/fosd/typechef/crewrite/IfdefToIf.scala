@@ -1779,9 +1779,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                         if (!first.isEmpty) {
                             if (!currentFeatures.contains(first.head)) {
                                 /*first.foreach(x => x.collectDistinctFeatureObjects.foreach(y => currentFeatures.add(y)))*/
-                                currentFeatures.add(first.head)
+                                first.foreach(x => currentFeatures.add(x))
+                                val or = first.foldLeft(FeatureExprFactory.False)((a, b) => a.or(b))
+                                val remainingFeature = or.not().and(currentContext)
+                                currentFeatures.add(remainingFeature)
+                                featureBuffer += remainingFeature :: first
+                                /*currentFeatures.add(first.head)
                                 currentFeatures.add(first.head.or(currentContext.not()).not())
-                                featureBuffer += List(first.head, first.head.or(currentContext.not()).not())
+                                featureBuffer += List(first.head, first.head.or(currentContext.not()).not())*/
                             }
                         }
                         List()
@@ -1810,12 +1815,17 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
                             // Continue collecting mutually exclusive expressions
                             second :: first
                         } else {
-                            if (!currentFeatures.contains(first.head)) {
+                            /*if (!currentFeatures.contains(first.head)) {
                                 currentFeatures.add(first.head)
                                 currentFeatures.add(first.head.or(currentContext.not()).not())
                                 featureBuffer += List(first.head, first.head.or(currentContext.not()).not())
                                 /*first.foreach(x => x.collectDistinctFeatureObjects.foreach(y => currentFeatures.add(y)))*/
-                            }
+                            }*/
+                            first.foreach(x => currentFeatures.add(x))
+                            val or = first.foldLeft(FeatureExprFactory.False)((a, b) => a.or(b))
+                            val remainingFeature = or.not().and(currentContext)
+                            currentFeatures.add(remainingFeature)
+                            featureBuffer += remainingFeature :: first
 
                             if (second.equivalentTo(FeatureExprFactory.False)) {
                                 if (!currentFeatures.contains(second)) {
@@ -2239,7 +2249,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             }
         }
         val ids = getVariableIds(a, currentContext)
-        val listOfLists = ids.map(x => idsToBeReplaced.get(x).toList.map(y => y.and(currentContext)))
+        val listOfLists = ids.map(x => idsToBeReplaced.get(x).toList.map(y => y.and(currentContext)).filterNot(x => x.equivalentTo(FeatureExprFactory.False)))
         computeCarthesianProduct(listOfLists, currentContext).filter(z => z.isSatisfiable(fm) && !z.equivalentTo(trueF))
     }
 
