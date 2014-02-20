@@ -301,7 +301,13 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
         if (context.equivalentTo(trueF) || context.equivalentTo(optFeature) || !(optFeature.implies(context).isTautology())) {
             optFeature
         } else {
-            val result = optFeature.diff(context)
+            val result = optFeature.simplify(context)
+            if (result.isInstanceOf[BDDFeatureExpr]) {
+                val sizeOld = optFeature.asInstanceOf[BDDFeatureExpr].countOpsInStringRep()
+                val sizeNew = result.asInstanceOf[BDDFeatureExpr].countOpsInStringRep()
+                val impr = if(sizeOld==0) 0 else ((sizeOld-sizeNew)*100)/sizeOld
+                println("simplified " + impr + "% old:\"" + optFeature + "context:\"" + context + "\" new:\""+ result + "\"")
+            }
             result
         }
     }
