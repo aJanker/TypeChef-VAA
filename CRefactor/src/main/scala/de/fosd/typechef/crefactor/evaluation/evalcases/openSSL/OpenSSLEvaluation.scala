@@ -12,6 +12,8 @@ trait OpenSSLEvaluation extends Evaluation with ASTNavigation with ConditionalNa
     val completePath = new File(caseStudyPath).getCanonicalPath
     val filesToEval: String = completePath + "/openssl_files"
     val blackListFiles: List[String] = List()
+    val blackListIds: List[String] = List()
+    //Source.fromFile(getClass.getResource("/openssl_id_blacklist").getFile).getLines().toList
     //Source.fromFile(getClass.getResource("/openssl_blacklist").getFile).getLines().toList
     val sourcePath = completePath + "/" + evalName + "/"
     val testPath = completePath + "/" + evalName + "/"

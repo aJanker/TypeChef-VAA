@@ -1,14 +1,16 @@
-package de.fosd.typechef.crefactor.evaluation.refactor
+package de.fosd.typechef.crefactor.evaluation.defaultEngines
 
-import de.fosd.typechef.crefactor.evaluation.{StatsJar, Evaluation, Refactoring}
-import de.fosd.typechef.parser.c.{AST, FunctionCall, Id, PostfixExpr}
+import de.fosd.typechef.crefactor.evaluation.{StatsCan, Evaluation, Refactoring}
+import de.fosd.typechef.parser.c._
 import de.fosd.typechef.crefactor.Morpheus
 import de.fosd.typechef.featureexpr.FeatureExpr
-import de.fosd.typechef.crefactor.backend.refactor.CInlineFunction
+import de.fosd.typechef.crefactor.backend.engine.CInlineFunction
 import scala.util.Random
 import de.fosd.typechef.crefactor.evaluation.util.StopClock
 import de.fosd.typechef.crefactor.evaluation.Stats._
-import de.fosd.typechef.crefactor.evaluation.setup.CLinking
+import de.fosd.typechef.parser.c.PostfixExpr
+import de.fosd.typechef.parser.c.Id
+import de.fosd.typechef.parser.c.FunctionCall
 
 trait DefaultInline extends Refactoring with Evaluation {
 
@@ -19,8 +21,8 @@ trait DefaultInline extends Refactoring with Evaluation {
         }
     }
 
-    def refactor(morpheus: Morpheus, linkInterface: CLinking): (Boolean, AST, List[FeatureExpr], List[(String, AST)]) = {
-        val psExpr = filterAllASTElems[PostfixExpr](morpheus.getAST)
+    def refactor(morpheus: Morpheus): (Boolean, AST, List[FeatureExpr], List[(String, TranslationUnit)]) = {
+        val psExpr = filterAllASTElems[PostfixExpr](morpheus.getTranslationUnit)
         val funcCalls = psExpr.par.filter(isFunctionCall)
         val availableFuncCalls = funcCalls.par.filter(p => {
             p.p match {
@@ -35,12 +37,12 @@ trait DefaultInline extends Refactoring with Evaluation {
 
         val callIdToInline = availableFuncCalls(Random.nextInt(availableFuncCalls.size)).p.asInstanceOf[Id]
 
-        logger.info("Trying to inline call: " + callIdToInline)
+        logger.info("Trying to inline fcall: " + callIdToInline)
 
         try {
             val refTime = new StopClock
             val refAST = CInlineFunction.inline(morpheus, callIdToInline, true, true)
-            StatsJar.addStat(morpheus.getFile, RefactorTime, refTime.getTime)
+            StatsCan.addStat(morpheus.getFile, RefactorTime, refTime.getTime)
             val callDeclDef = CInlineFunction.divideCallDeclDef(callIdToInline, morpheus)
 
             val callFeatures = callDeclDef._1.map(_.feature)
@@ -49,8 +51,8 @@ trait DefaultInline extends Refactoring with Evaluation {
 
             val features = (callFeatures ::: declFeatures ::: defFeatures).distinct
 
-            StatsJar.addStat(morpheus.getFile, Amount, callDeclDef._1.size)
-            StatsJar.addStat(morpheus.getFile, InlinedFunction, callIdToInline)
+            StatsCan.addStat(morpheus.getFile, Amount, callDeclDef._1.size)
+            StatsCan.addStat(morpheus.getFile, InlinedFunction, callIdToInline)
 
             logger.info("Affected features: " + features)
 

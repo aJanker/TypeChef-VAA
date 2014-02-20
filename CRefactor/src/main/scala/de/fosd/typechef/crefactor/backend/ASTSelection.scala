@@ -11,9 +11,9 @@ trait ASTSelection extends Logging {
 
     def getAvailableIdentifiers(morpheus: Morpheus, selection: Selection): List[Id]
 
-    def isInSelectionRange(value: AST, selection: Selection): Boolean = {
+    def isPartOfSelection(value: AST, selection: Selection): Boolean = {
         /**
-         * Annotated ast elements have often the same starting line. As workaround we only identify the element by its end value.
+         * Annotated tunit elements have often the same starting line. As workaround we only identify the element by its end value.
          */
         (isInRange(value.getPositionTo.getLine, selection.getLineStart + 1, (selection.getLineEnd - 1)))
         // TODO FIX IT -> Broken!
@@ -21,19 +21,19 @@ trait ASTSelection extends Logging {
     }
 
     /**
-     * Compares the position between two ast elements.
+     * Compares the position between two tunit elements.
      */
     def comparePosition(e1: AST, e2: AST) = (e1.getPositionFrom < e2.getPositionFrom)
 
     def comparePosition(e1: Opt[AST], e2: Opt[AST]): Boolean = comparePosition(e1.entry, e2.entry)
 
     /**
-     * Checks if an ast element is in a certain range.
+     * Checks if an tunit element is in a certain range.
      */
     def isInRange(pos: Int, start: Int, end: Int) = ((start <= pos) && (pos <= end))
 
     /**
-     * Remove all ast elements except those from the specified file.
+     * Remove all tunit elements except those from the specified file.
      */
     def filterASTElementsForFile[T <: AST](selection: List[T], file: String): List[T] = {
         // offset 5 because file path of callId contains the string "file "
@@ -41,7 +41,7 @@ trait ASTSelection extends Logging {
         selection.filter(p => p.getFile.get.regionMatches(true, offset, file, 0, file.length())).toList
     }
 
-    def isElementOfFile[T <: AST](element: T, file: String) = element.getFile.get.regionMatches(true, 5, file, 0, file.length())
+    def isPartOfFile[T <: AST](element: T, file: String) = element.getFile.get.regionMatches(true, 5, file, 0, file.length())
 
     def isElementOfSelectionRange(element: AST, selection: Selection): Boolean = {
         val startLine = selection.getLineStart

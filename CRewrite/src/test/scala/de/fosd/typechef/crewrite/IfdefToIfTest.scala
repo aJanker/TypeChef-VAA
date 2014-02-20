@@ -74,17 +74,9 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         }
     }
 
-    def getFileNameWithoutExtension(file: File): String = {
-        file.getName().replaceFirst("[.][^.]+$", "")
-    }
-
-    def getFileNameWithoutExtension(strg: String): String = {
-        strg.replaceFirst("[.][^.]+$", "")
-    }
-
     def testFile(file: File, writeAst: Boolean = false, featureModel: FeatureModel = FeatureExprFactory.empty): Int = {
         new File(singleFilePath).mkdirs()
-        val fileNameWithoutExtension = getFileNameWithoutExtension(file)
+        val fileNameWithoutExtension = i.getFileNameWithoutExtension(file)
         val analyseString = "++Analyse: " + file.getName + "++"
         print(analyseString)
         for (i <- (analyseString.size / 4) until 15) {
@@ -1631,8 +1623,8 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
 
     private def runIfdefToIfOnPi(file: File, featureModel: FeatureModel = FeatureExprFactory.empty) {
         if (filesTransformed < filesToAnalysePerRun) {
-            val filePathWithoutExtension = getFileNameWithoutExtension(file.getPath())
-            val fileNameWithoutExtension = getFileNameWithoutExtension(file)
+            val filePathWithoutExtension = i.getFileNameWithoutExtension(file.getPath())
+            val fileNameWithoutExtension = i.getFileNameWithoutExtension(file)
             val transformedFileExists = (writeFilesIntoIfdeftoifFolder && new File(path ++ fileNameWithoutExtension ++ "_ifdeftoif.c").exists) || (!writeFilesIntoIfdeftoifFolder && new File(filePathWithoutExtension ++ "_ifdeftoif.c").exists)
             var fileName = file.getName()
 
@@ -1890,7 +1882,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     @Ignore def pretty_printer_test() {
         val file = new File(busyBoxPath + "applets/applets.pi")
         //testFile(file)
-        val newFullFilePath = singleFilePath ++ getFileNameWithoutExtension(file) ++ "_ifdeftoif.c"
+        val newFullFilePath = singleFilePath ++ i.getFileNameWithoutExtension(file) ++ "_ifdeftoif.c"
         val source_ast = i.getAstFromFile(new File(newFullFilePath))
         typecheckTranslationUnit(source_ast)
     }

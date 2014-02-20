@@ -100,10 +100,10 @@ object Frontend extends EnforceTreeHelper {
         }
 
         var ast: TranslationUnit = null
-        if (opt.reuseAST && opt.parse && new File(opt.getSerializedASTFilename).exists()) {
+        if (opt.reuseAST && opt.parse && new File(opt.getSerializedTUnitFilename).exists()) {
             println("loading AST.")
             try {
-                ast = loadSerializedAST(opt.getSerializedASTFilename)
+                ast = loadSerializedAST(opt.getSerializedTUnitFilename)
                 ast = prepareAST[TranslationUnit](ast)
             } catch {
                 case e: Throwable => println(e.toString); e.printStackTrace(); ast = null
@@ -123,12 +123,12 @@ object Frontend extends EnforceTreeHelper {
             if (ast == null) {
                 //no parsing and serialization if read serialized ast
                 val parserMain = new ParserMain(new CParser(fm))
-                ast = parserMain.parserMain(in, opt).asInstanceOf[TranslationUnit]
+                ast = parserMain.parserMain(in, opt)
                 ast = prepareAST[TranslationUnit](ast)
 
                 if (ast != null && opt.serializeAST) {
                     stopWatch.start("serialize")
-                    serializeAST(ast, opt.getSerializedASTFilename)
+                    serializeAST(ast, opt.getSerializedTUnitFilename)
                 }
 
             }
@@ -170,17 +170,18 @@ object Frontend extends EnforceTreeHelper {
                             //ProductGeneration.typecheckProducts(fm,fm_ts,ast,opt,
                             //logMessage=("Time for lexing(ms): " + (t2-t1) + "\nTime for parsing(ms): " + (t3-t2) + "\n"))
                             //ProductGeneration.estimateNumberOfVariants(ast, fm_ts)
+                            val featureConfigurationPath = opt.getFeatureConfig
                             val i = new IfdefToIf
                             val defUseMap = ts.getDeclUseMap
                             val useDefMap = ts.getUseDeclMap
                             val fileName = i.outputStemToFileName(opt.getOutputStem())
                             val checkIfdefToIfResult = !opt.ifdeftoifnocheck
-                            val tuple = i.ifdeftoif(ast, defUseMap, useDefMap, fm, opt.getOutputStem(), stopWatch.get("lexing") + stopWatch.get("parsing"), opt.ifdeftoifstatistics, typecheckResult = checkIfdefToIfResult)
+                            val tuple = i.ifdeftoif(ast, defUseMap, useDefMap, fm, opt.getOutputStem(), stopWatch.get("lexing") + stopWatch.get("parsing"), opt.ifdeftoifstatistics, "", typecheckResult = checkIfdefToIfResult, featureConfigurationPath)
                             tuple._1 match {
                                 case None =>
                                     println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")
                                 /*
-                                tuple._3.map(errorXML.renderTypeError(_))
+                                tuple._3.map(errorXML.renderTypeError(_))             y
                                  */
                                 case Some(x) =>
                                     if (!opt.getOutputStem().isEmpty()) {

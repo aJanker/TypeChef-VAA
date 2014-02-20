@@ -1,21 +1,12 @@
-package de.fosd.typechef.crefactor.backend.refactor
+package de.fosd.typechef.crefactor.backend
 
-import de.fosd.typechef.typesystem.CEnvCache
+import de.fosd.typechef.typesystem.{CType, CEnvCache}
 import de.fosd.typechef.crefactor.Morpheus
 import org.kiama.rewriting.Rewriter._
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.crefactor.frontend.util.Selection
-import de.fosd.typechef.conditional.Conditional
-import de.fosd.typechef.featureexpr.FeatureExpr
-import de.fosd.typechef.parser.c.CompoundStatementExpr
-import scala.{Product, Some}
-import de.fosd.typechef.conditional.Choice
-import de.fosd.typechef.parser.c.TranslationUnit
-import de.fosd.typechef.conditional.One
-import de.fosd.typechef.parser.c.Id
-import de.fosd.typechef.parser.c.FunctionDef
-import de.fosd.typechef.parser.c.CompoundStatement
-import de.fosd.typechef.conditional.Opt
+import de.fosd.typechef.conditional._
+import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr}
 
 trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation {
 
@@ -31,11 +22,15 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
      * @param name name to check
      * @return <code>true</code> if valid, <code>false</code> if not
      */
-    def isValidName(name: String): Boolean = (name.matches(VALID_NAME_PATTERN) && !name.startsWith("__") && !isReservedLanguageKeyword(name))
+    def isValidId(name: String): Boolean =
+        name.matches(VALID_NAME_PATTERN) && !name.startsWith("__") && !isReservedLanguageKeyword(name)
+
+    def isLinked(name: Opt[String], morpheus: Morpheus): Boolean =
+        (morpheus.getLinkInterface != null) && morpheus.getLinkInterface.isListed(name, morpheus.getFM)
 
     def generateValidNewName(id: Id, stmt: Opt[AST], morph: Morpheus, appendix: Int = 1): String = {
         val newName = id.name + "_" + appendix
-        if (isShadowed(newName, stmt.entry, morph)) generateValidNewName(id, stmt, morph, (appendix + 1))
+        if (isShadowed(newName, stmt.entry, morph)) generateValidNewName(id, stmt, morph, appendix + 1)
         else newName
     }
 
@@ -47,6 +42,18 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
      */
     def isReservedLanguageKeyword(name: String) = LANGUAGE_KEYWORDS.contains(name)
 
+    def getOrFeatures(a: Any): FeatureExpr = {
+        var featureSet: Set[FeatureExpr] = Set()
+        val r = manytd(query {
+            case Opt(ft, _) => featureSet += ft
+            case Choice(ft, _, _) => featureSet += ft
+        })
+        r(a).get
+        featureSet.foldRight(FeatureExprFactory.True)((fxpr, setEntry) => fxpr.or(setEntry))
+    }
+
+
+    // TODO maybe replace with conditionalFoldRight see ConditionalLib
     def buildChoice[T <: AST](attribute: List[(T, FeatureExpr)]): Conditional[T] = {
         if (attribute.isEmpty) One(null.asInstanceOf[T])
         else if (attribute.length == 1) One(attribute.head._1)
@@ -65,31 +72,33 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
 
     def isShadowed(name: String, element: AST, morpheus: Morpheus): Boolean = {
         val lookupValue = findPriorASTElem[CompoundStatement](element, morpheus.getASTEnv) match {
-            case s@Some(x) => x.innerStatements.last.entry
-            case _ => morpheus.getAST.asInstanceOf[TranslationUnit].defs.last.entry
+            case Some(x) => x.innerStatements.last.entry
+            case _ => morpheus.getTranslationUnit.defs.last.entry
         }
 
-        val env = morpheus.getEnv(lookupValue)
+        val env = morpheus.getEnv(lookupValue).asInstanceOf[Env]
+        val ctx = morpheus.getASTEnv.featureExpr(element)
 
-        isDeclaredVarInEnv(name, env.asInstanceOf[Env]) || isDeclaredStructOrUnionInEnv(name, env.asInstanceOf[Env]) || isDeclaredTypeDefInEnv(name, env.asInstanceOf[Env])
+        (isDeclaredInEnv(env.varEnv(name), ctx, morpheus)
+            || isDeclaredStructOrUnionInEnv(name, env)
+            || isDeclaredInEnv(env.typedefEnv(name), ctx, morpheus))
     }
 
-    def isDeclaredVarInEnv(name: String, env: Env) = env.varEnv(name) match {
-        case One(x) => !x.isUnknown
-        case _ => true
+    private def isDeclaredInEnv(env: Conditional[CType], ctx: FeatureExpr, morpheus: Morpheus):
+    Boolean = {
+        !ConditionalLib.items(env).forall {
+            x => x._2.isUnknown || (ctx and x._1 isContradiction morpheus.getFM)
+        }
     }
 
-    def isDeclaredStructOrUnionInEnv(name: String, env: Env) = env.structEnv.someDefinition(name, false) || env.structEnv.someDefinition(name, true)
-
-    def isDeclaredTypeDefInEnv(name: String, env: Env) = env.typedefEnv(name) match {
-        case One(x) => !x.isUnknown
-        case _ => true
+    private def isDeclaredStructOrUnionInEnv(name: String, env: Env): Boolean = {
+        env.structEnv.someDefinition(name, false) || env.structEnv.someDefinition(name, true)
     }
 
     /**
      * Replace a list of ids in AST with copied instance with new names.
      */
-    def renameIDsInAST[T <: Product](t: T, ids: List[Id], newName: String): T = {
+    def replaceIds[T <: Product](t: T, ids: List[Id], newName: String): T = {
         val r = manybu(rule {
             case id: Id => if (ids.exists(isPartOf(id, _))) id.copy(name = newName) else id
             case x => x
@@ -100,7 +109,8 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
     /**
      * Replaces the innerstatements of compoundstatements of a translation unit.
      */
-    def replaceCompoundStmtInAST[T <: Product](t: T, cStmt: CompoundStatement, newInnerStmt: List[Opt[Statement]]): T = {
+    def replaceCompoundStmt[T <: Product](t: T, cStmt: CompoundStatement,
+                                          newInnerStmt: List[Opt[Statement]]): T = {
         val r = manybu(rule {
             case cc: CompoundStatement => if (isPartOf(cStmt, cc)) cc.copy(innerStatements = newInnerStmt) else cc
             case x => x
@@ -108,7 +118,7 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
         r(t).get.asInstanceOf[T]
     }
 
-    // TODO Clean up ast rewrite strategies
+    // TODO Clean up tunit rewrite strategies
     def insertInAstBefore[T <: Product](t: T, mark: Opt[_], insert: Opt[_])(implicit m: Manifest[T]): T = {
         val r = oncetd(rule {
             case l: List[Opt[_]] => l.flatMap(x => if (x.eq(mark)) insert :: x :: Nil else x :: Nil)
@@ -151,7 +161,8 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
         r(t).get.asInstanceOf[T]
     }
 
-    // TODO toRemove
+    // TODO toRemove; I'm not sure whether the function signature reflects its purpose!
+    //                Second and third T should be different!
     def replaceInAST[T <: Product](t: T, e: T, n: T)(implicit m: Manifest[T]): T = {
         println("start replace")
         val r = manybu(rule {
@@ -195,20 +206,22 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
         else s :: nl
     }).reverse
 
-    def insertRefactoredAST(morpheus: Morpheus, callCompStmt: CompoundStatement, workingCallCompStmt: CompoundStatement): AST = {
+    def insertRefactoredAST(morpheus: Morpheus, callCompStmt: CompoundStatement, workingCallCompStmt: CompoundStatement): TranslationUnit = {
         val parent = parentOpt(callCompStmt, morpheus.getASTEnv)
         parent.entry match {
-            case f: FunctionDef => replaceInASTOnceTD(morpheus.getAST, parent, parent.copy(entry = f.copy(stmt = workingCallCompStmt)))
-            case c: CompoundStatement => replaceInAST(morpheus.getAST, c, c.copy(innerStatements = workingCallCompStmt.innerStatements))
+            case f: FunctionDef => replaceInASTOnceTD(morpheus.getTranslationUnit, parent, parent.copy(entry = f.copy(stmt = workingCallCompStmt)))
+            case c: CompoundStatement => replaceInAST(morpheus.getTranslationUnit, c,
+                c.copy(innerStatements = workingCallCompStmt.innerStatements))
+                .asInstanceOf[TranslationUnit]
             case x =>
                 assert(false, "Something bad happend - i am going to cry, i missed: " + x)
-                morpheus.getAST
+                morpheus.getTranslationUnit
         }
     }
 
     private def isPartOf(subterm: Product, term: Any): Boolean = {
         term match {
-            case _: Product if (subterm.asInstanceOf[AnyRef].eq(term.asInstanceOf[AnyRef])) => true
+            case _: Product if subterm.asInstanceOf[AnyRef].eq(term.asInstanceOf[AnyRef]) => true
             case l: List[_] => l.map(isPartOf(subterm, _)).exists(_ == true)
             case p: Product => p.productIterator.toList.map(isPartOf(subterm, _)).exists(_ == true)
             case x => false
