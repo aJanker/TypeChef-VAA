@@ -23,90 +23,6 @@ import de.fosd.typechef.typesystem._
  */
 object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation with CFGHelper {
 
-    // representation of a product configuration that can be dumped into a file
-    // and loaded at further runs
-    class SimpleConfiguration(ff: FileFeatures, trueSet: List[SingleFeatureExpr],
-                              falseSet: List[SingleFeatureExpr]) extends scala.Serializable {
-
-        val ret: scala.collection.mutable.BitSet = scala.collection.mutable.BitSet()
-        for (elem: SingleFeatureExpr <- trueSet)  ret.add(ff.featureIDHashmap(elem))
-        for (elem: SingleFeatureExpr <- falseSet) ret.remove(ff.featureIDHashmap(elem))
-        ret.toImmutable
-
-
-        def getTrueSet: Set[SingleFeatureExpr] = {
-            ff.features.filter({
-                fex: SingleFeatureExpr => ret.apply(ff.featureIDHashmap(fex))
-            }).toSet
-        }
-
-        def getFalseSet: Set[SingleFeatureExpr] = {
-            ff.features.filterNot({
-                fex: SingleFeatureExpr => ret.apply(ff.featureIDHashmap(fex))
-            }).toSet
-        }
-
-        override def toString: String = {
-            ff.features.map(
-            {
-                fex: SingleFeatureExpr => if (ret.apply(ff.featureIDHashmap(fex))) fex else fex.not()
-            }
-            ).mkString("&&")
-        }
-
-        // caching, values of this field will not be serialized
-        @transient
-        private var featureExpression: FeatureExpr = null
-
-        def toFeatureExpr: FeatureExpr = {
-            if (featureExpression == null)
-                featureExpression = FeatureExprFactory.createFeatureExprFast(getTrueSet, getFalseSet)
-            featureExpression
-        }
-
-        /**
-         * This method assumes that all features in the parameter-set appear in either the trueList,
-         * or in the falseList
-         * @param features given feature set
-         * @return
-         */
-        def containsAllFeaturesAsEnabled(features: Set[SingleFeatureExpr]): Boolean = {
-            for (fex <- features) {
-                if (!ret.apply(ff.featureIDHashmap(fex))) return false
-            }
-            true
-        }
-
-        /**
-         * This method assumes that all features in the parameter-set appear in the configuration
-         * (either as true or as false)
-         * @param features given feature set
-         * @return
-         */
-        def containsAllFeaturesAsDisabled(features: Set[SingleFeatureExpr]): Boolean = {
-            for (fex <- features) {
-                if (ret.apply(ff.featureIDHashmap(fex))) return false
-            }
-            true
-        }
-
-        def containsAtLeastOneFeatureAsEnabled(set: Set[SingleFeatureExpr]): Boolean =
-            !containsAllFeaturesAsDisabled(set)
-
-        def containsAtLeastOneFeatureAsDisabled(set: Set[SingleFeatureExpr]): Boolean =
-            !containsAllFeaturesAsEnabled(set)
-
-        override def equals(other: Any): Boolean = {
-            if (!other.isInstanceOf[SimpleConfiguration]) super.equals(other)
-            else {
-                val otherSC = other.asInstanceOf[SimpleConfiguration]
-                otherSC.ret.equals(this.ret)
-            }
-        }
-
-        override def hashCode(): Int = ret.hashCode()
-    }
-
     def saveSerializationOfTasks(tasks: List[Task], featureList: List[SingleFeatureExpr], mainDir: File,
                                  file: String) {
         def writeObject(obj: java.io.Serializable, file: File) {
@@ -128,8 +44,6 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
         }
         mainDir.mkdirs()
 
-        // it seems that the scala lists cannot be serialized, so we use java ArrayLists
-        writeObject(toJavaList(featureList.map(_.feature)), new File(mainDir, "featurehashmap.ser"))
         for ((taskName, configs) <- tasks) {
             writeObject(toJavaList(configs), new File(mainDir, taskName + ".ser"))
         }
@@ -152,20 +66,12 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
             }
         }
 
-        def toJavaList[T](orig: List[T]): java.util.ArrayList[T] = {
-            val javaList: java.util.ArrayList[T] = new java.util.ArrayList[T]
-            for (f <- orig) javaList.add(f)
-            javaList
-        }
-
         var taskList: ListBuffer[Task] = ListBuffer()
-        // it seems that the scala lists cannot be serialized, so i use java ArrayLists
-        val savedFeatures: java.util.ArrayList[String] =
-            readObject[java.util.ArrayList[String]](new File(mainDir, "featurehashmap.ser"))
-        assert(savedFeatures.equals(toJavaList(featureList.map(_.feature))))
+
+        // assert(savedFeatures.equals(toJavaList(featureList.map(_.feature))))
         for (file <- mainDir.listFiles()) {
             val fn = file.getName
-            if (!fn.equals("featurehashmap.ser") && fn.endsWith(".ser")) {
+            if (fn.endsWith(".ser")) {
                 val configs = readObject[java.util.ArrayList[SimpleConfiguration]](file)
                 val taskName = fn.substring(0, fn.length - ".ser".length)
                 var taskConfigs: scala.collection.mutable.ListBuffer[SimpleConfiguration] = ListBuffer()
@@ -312,8 +218,8 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
     /**
      * returns: (log:String, configs: List[Pair[String,List[SimpleConfiguration] ] ])
      * log is a compilation of the log messages
-     * the configs-list contains pairs of the name of the config-generation method and the respective generated configs
-     *
+     * the configs-list contains pairs of the name of the config-generation method and
+     * the respective generated configs
      */
     def buildConfigurations(tunit: TranslationUnit, ff: FileFeatures, fm: FeatureModel,
                             opt: FamilyBasedVsSampleBasedOptions,
@@ -325,8 +231,8 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
 
         var tasks: List[Task] = List()
 
-        /** try to load tasks from exisiting files */
-        if (configdir.exists() && new File(configdir, "featurehashmap.ser").exists()) {
+        /** try to load tasks from existing files */
+        if (configdir.exists()) {
 
             startTime = System.currentTimeMillis()
             println("loading tasks from serialized files")
@@ -841,6 +747,7 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
         // True node never needs to be handled
         val handledExpressions = scala.collection.mutable.HashSet(FeatureExprFactory.True)
         var retList: List[SimpleConfiguration] = List()
+
         // inner function
         def handleFeatureExpression(fex: FeatureExpr) = {
             if (!handledExpressions.contains(fex) &&
