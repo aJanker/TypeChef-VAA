@@ -23,7 +23,7 @@ class FileFeatures(val tunit: TranslationUnit) extends scala.Serializable {
     private def getAllFeatures: List[SingleFeatureExpr] = {
         var featuresSorted: List[SingleFeatureExpr] = List()
 
-        val r = alltd(query {
+        val r = manytd(query {
             case x: Opt[_] => featuresSorted ++= x.feature.collectDistinctFeatureObjects.toList
             case x: Choice[_] => featuresSorted ++= x.feature.collectDistinctFeatureObjects.toList
         })
