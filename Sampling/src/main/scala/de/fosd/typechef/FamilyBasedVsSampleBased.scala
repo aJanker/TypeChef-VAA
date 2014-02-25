@@ -946,43 +946,6 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
                 " created combinations:" + pwConfigs.size + "\n")
     }
 
-    def getAllTriplewiseConfigurations(features: List[SingleFeatureExpr], fm: FeatureModel,
-                                       existingConfigs: List[SimpleConfiguration] = List(),
-                                       preferDisabledFeatures: Boolean): (List[SimpleConfiguration], String) = {
-        var unsatCombinations = 0
-        var alreadyCoveredCombinations = 0
-        println("generating triple-wise configurations")
-        var pwConfigs: List[SimpleConfiguration] = List()
-        // this for-loop structure should avoid pairs such as "(A,A)" and ( "(A,B)" and "(B,A)" )
-        for (index1 <- 0 to features.size - 1) {
-            val f1 = features(index1)
-            for (index2 <- index1 to features.size - 1) {
-                val f2 = features(index2)
-                for (index3 <- index2 to features.size - 1) {
-                    val f3 = features(index3)
-                    if (!configListContainsFeaturesAsEnabled(pwConfigs ++ existingConfigs, Set(f1, f2, f3))) {
-                        // this pair was not considered yet
-                        val conf = FeatureExprFactory.True.and(f1).and(f2).and(f3)
-                        // make config complete by choosing the other features
-                        val completeConfig = completeConfiguration(conf, features, fm)
-                        if (completeConfig != null) {
-                            pwConfigs ::= completeConfig
-                        } else {
-                            unsatCombinations += 1
-                        }
-                    } else {
-                        alreadyCoveredCombinations += 1
-                    }
-                }
-            }
-        }
-        (pwConfigs,
-            " unsatisfiableCombinations:" + unsatCombinations + "\n" +
-                " already covered combinations:" + alreadyCoveredCombinations + "\n" +
-                " created combinations:" + pwConfigs.size + "\n")
-    }
-
-
     /*
     Configuration Coverage Method copied from Joerg and heavily modified :)
      */
@@ -1170,13 +1133,16 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
             " unsatisfiableCombinations:" + unsatCombinations + "\n" +
                 " already covered combinations:" + alreadyCoveredCombinations + "\n" +
                 " created combinations:" + retList.size + "\n" +
-                (if (!includeVariabilityFromHeaderFiles) " Features in CFile: " + getFeaturesInCoveredExpressions.size + "\n" else "") +
+                (if (!includeVariabilityFromHeaderFiles) " Features in CFile: " +
+                    getFeaturesInCoveredExpressions.size + "\n" else "") +
                 " found " + nodeExpressions.size + " NodeExpressions\n" +
-                " found " + simpleAndNodes + " simpleAndNodes, " + simpleOrNodes + " simpleOrNodes and " + complexNodes + " complex nodes.\n")
+                " found " + simpleAndNodes + " simpleAndNodes, " + simpleOrNodes +
+                " simpleOrNodes and " + complexNodes + " complex nodes.\n")
     }
 
 
-    def getConfigsFromFiles(@SuppressWarnings(Array("unchecked")) features: List[SingleFeatureExpr], fm: FeatureModel, file: File): (List[SimpleConfiguration], String) = {
+    def getConfigsFromFiles(@SuppressWarnings(Array("unchecked")) features: List[SingleFeatureExpr],
+                            fm: FeatureModel, file: File): (List[SimpleConfiguration], String) = {
         val correctFeatureModelIncompatibility = false
         var ignoredFeatures = 0
         var changedAssignment = 0
@@ -1200,7 +1166,6 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
                     if (!isSat) {
                         fileExTmp = fileEx.andNot(feature)
                         println("disabling feature " + feature)
-                        //fileExTmp = fileEx; println("ignoring Feature " +feature)
                         falseFeatures += feature
                         changedAssignment += 1
                     } else {
@@ -1245,7 +1210,8 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
             val fw = new FileWriter(new File(file.getParentFile, file.getName + "_corrected"))
             fw.write("# configFile written by typechef, based on " + file.getAbsoluteFile)
             fw.write("# ignored " + ignoredFeatures + " features of " + totalFeatures + " features")
-            fw.write("# changed assignment for " + changedAssignment + " features of " + totalFeatures + " features")
+            fw.write("# changed assignment for " + changedAssignment + " features of " +
+                totalFeatures + " features")
             for (feature <- trueFeatures)
                 fw.append(feature.feature + "=y\n")
             fw.close()
@@ -1258,63 +1224,6 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
             case Some((en, dis)) => return (List(new SimpleConfiguration(en, dis)), "")
         }
         (List(new SimpleConfiguration(interestingTrueFeatures, interestingFalseFeatures)), "")
-    }
-
-
-    /**
-     * Does the same as the other config-from-file method. However, it does not create additional bdd-Feature
-     * expressions but uses string Sets as parameters to the sat-call.
-     * Results are slightly different to the other method ?!
-     * @param features list of features
-     * @param fm input feature model
-     * @param file input file
-     * @return
-     */
-    def getConfigsFromFiles_noBDDcreation(@SuppressWarnings(Array("unchecked")) features: List[SingleFeatureExpr], fm: FeatureModel, file: File): (List[SimpleConfiguration], String) = {
-        var ignoredFeatures = 0
-        var totalFeatures = 0
-        var trueFeatures: Set[String] = Set()
-        var falseFeatures: Set[String] = Set()
-        val enabledPattern: Pattern = java.util.regex.Pattern.compile("CONFIG_([^=]*)=y")
-        val disabledPattern: Pattern = java.util.regex.Pattern.compile("CONFIG_([^=]*)=n")
-        for (line <- Source.fromFile(file).getLines().filterNot(_.startsWith("#")).filterNot(_.isEmpty)) {
-            totalFeatures += 1
-            var matcher = enabledPattern.matcher(line)
-            if (matcher.matches()) {
-                val name = "CONFIG_" + matcher.group(1)
-                trueFeatures += name
-            } else {
-                matcher = disabledPattern.matcher(line)
-                if (matcher.matches()) {
-                    val name = "CONFIG_" + matcher.group(1)
-                    falseFeatures += name
-                } else {
-                    ignoredFeatures += 1
-                }
-            }
-        }
-        println("features mentioned in c-file but not in config: ")
-        for (x <- features.filterNot({
-            x => (trueFeatures ++ falseFeatures).contains(x.feature)
-        })) {
-            println(x.feature)
-        }
-        if (fm.isInstanceOf[BDDFeatureModel]) {
-            SatSolver.getSatisfiableAssignmentFromStringSets(fm.asInstanceOf[BDDFeatureModel],
-                features.toSet, trueFeatures, falseFeatures, 1 == 1) match {
-                case None => println("configuration not satisfiable"); (List(), "")
-                case Some((en, dis)) => {
-                    val x: SimpleConfiguration = new SimpleConfiguration(en, dis)
-                    if (!x.toFeatureExpr.isSatisfiable(fm)) {
-                        println("created unsat expr")
-                    }
-                    (List(x), "")
-                }
-            }
-        } else {
-            println("ok, this works only with BDDs!")
-            null
-        }
     }
 
     /**
