@@ -164,14 +164,17 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
                 }
             }
         }
+
         def toJavaList[T](orig: List[T]): java.util.ArrayList[T] = {
             val javaList: java.util.ArrayList[T] = new java.util.ArrayList[T]
             for (f <- orig) javaList.add(f)
             javaList
         }
+
         var taskList: ListBuffer[Task] = ListBuffer()
         // it seems that the scala lists cannot be serialized, so i use java ArrayLists
-        val savedFeatures: java.util.ArrayList[String] = readObject[java.util.ArrayList[String]](new File(mainDir, "featurehashmap.ser"))
+        val savedFeatures: java.util.ArrayList[String] =
+            readObject[java.util.ArrayList[String]](new File(mainDir, "featurehashmap.ser"))
         assert(savedFeatures.equals(toJavaList(featureList.map(_.feature))))
         for (file <- mainDir.listFiles()) {
             val fn = file.getName
