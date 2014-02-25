@@ -77,7 +77,7 @@ object Sampling extends EnforceTreeHelper {
 
         ast = prepareAST[TranslationUnit](ast)
 
-        if (ast != null) {
+        if (ast != null && opt.analyze) {
             val fm_ts = opt.getTypeSystemFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
             val treeast = prepareAST[TranslationUnit](ast)
             FamilyBasedVsSampleBased.typecheckProducts(fm_ts, fm_ts, treeast, opt, "")
