@@ -7,7 +7,7 @@ import de.fosd.typechef.featureexpr.SingleFeatureExpr
 import de.fosd.typechef.parser.c.TranslationUnit
 import de.fosd.typechef.conditional.{Choice, Opt}
 
-class FileFeatures(val tunit: TranslationUnit) extends scala.Serializable {
+class FileFeatures(@transient val tunit: TranslationUnit) extends scala.Serializable {
 
     /** List of all features found in the currently processed file (tunit) */
     val features: List[SingleFeatureExpr] = getAllFeatures
@@ -21,20 +21,20 @@ class FileFeatures(val tunit: TranslationUnit) extends scala.Serializable {
      * @return
      */
     private def getAllFeatures: List[SingleFeatureExpr] = {
-        var featuresSorted: List[SingleFeatureExpr] = List()
+        val r = collects {
+            case x: Opt[_] => x.feature.collectDistinctFeatureObjects
+            case x: Choice[_] => x.feature.collectDistinctFeatureObjects
+        }
 
-        val r = manytd(query {
-            case x: Opt[_] => featuresSorted ++= x.feature.collectDistinctFeatureObjects.toList
-            case x: Choice[_] => featuresSorted ++= x.feature.collectDistinctFeatureObjects.toList
-        })
+        var featureSet = r(tunit).flatten
 
         // sort to eliminate any non-determinism caused by the set
-        featuresSorted = featuresSorted.sortWith({
+        val featureList = featureSet.toList.sortWith({
             (x: SingleFeatureExpr, y: SingleFeatureExpr) => x.feature.compare(y.feature) > 0
         })
 
-        r(tunit)
+        assert(! featureList.isEmpty)
 
-        featuresSorted
+        featureList
     }
 }

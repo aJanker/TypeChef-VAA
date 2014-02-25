@@ -4,8 +4,8 @@ import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr, SingleFeat
 
 // representation of a product configuration that can be dumped into a file
 // and loaded at further runs
-class SimpleConfiguration(val ff: FileFeatures, val trueSet: List[SingleFeatureExpr],
-                          val falseSet: List[SingleFeatureExpr]) extends scala.Serializable {
+class SimpleConfiguration(val ff: FileFeatures, @transient val trueSet: List[SingleFeatureExpr],
+                          @transient val falseSet: List[SingleFeatureExpr]) extends scala.Serializable {
 
     val ret: scala.collection.mutable.BitSet = scala.collection.mutable.BitSet()
     for (elem: SingleFeatureExpr <- trueSet)  ret.add(ff.featureIDHashmap(elem))
