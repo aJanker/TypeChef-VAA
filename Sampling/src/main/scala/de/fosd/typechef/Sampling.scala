@@ -68,7 +68,7 @@ object Sampling extends EnforceTreeHelper {
             new lexer.Main().run(opt, opt.parse)
             val in = lex(opt)
             val parserMain = new ParserMain(new CParser(fm))
-            ast = parserMain.parserMain(in, opt).asInstanceOf[TranslationUnit]
+            ast = parserMain.parserMain(in, opt)
 
             if (ast != null && opt.serializeAST) {
                 Frontend.serializeAST(ast, opt.getSerializedTUnitFilename)
@@ -79,7 +79,7 @@ object Sampling extends EnforceTreeHelper {
 
         if (ast != null) {
             val fm_ts = opt.getTypeSystemFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
-            val treeast = prepareAST[TranslationUnit](ast.asInstanceOf[TranslationUnit])
+            val treeast = prepareAST[TranslationUnit](ast)
             FamilyBasedVsSampleBased.checkErrorsAgainstSamplingConfigs(fm_ts, fm_ts, treeast, opt, "")
         }
     }
