@@ -27,7 +27,7 @@ import de.fosd.typechef.featureexpr.sat.{SATFeatureExprFactory, SATFeatureModel}
  *
  */
 object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation with CFGHelper {
-    type Task = Pair[String, List[SimpleConfiguration]]
+
 
     /** Maps SingleFeatureExpr Objects to IDs (IDs only known/used in this file) */
     private var featureIDHashmap: Map[SingleFeatureExpr, Int] = null
