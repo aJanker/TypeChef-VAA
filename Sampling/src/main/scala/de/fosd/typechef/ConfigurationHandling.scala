@@ -1,9 +1,13 @@
 package de.fosd.typechef
 
-import java.io.{FileWriter, File}
+import java.io._
 import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr, SingleFeatureExpr, FeatureModel}
 import scala.io.Source
 import java.util.regex.Pattern
+import scala.Some
+import scala.Some
+import scala.Some
+import scala.collection.mutable.ListBuffer
 
 object ConfigurationHandling {
     def loadConfigurationsFromCSVFile(csvFile: File, dimacsFile: File,
@@ -174,4 +178,65 @@ object ConfigurationHandling {
         (List(new SimpleConfiguration(ff, interestingTrueFeatures, interestingFalseFeatures)), "")
     }
 
+    def saveSerializedConfigurations(tasks: List[Task], featureList: List[SingleFeatureExpr],
+                                     mainDir: File, file: String) {
+        def writeObject(obj: java.io.Serializable, file: File) {
+            try {
+                file.createNewFile()
+                val fileOut: FileOutputStream = new FileOutputStream(file)
+                val out: ObjectOutputStream = new ObjectOutputStream(fileOut)
+                out.writeObject(obj)
+                out.close()
+                fileOut.close()
+            } catch {
+                case i: IOException => i.printStackTrace()
+            }
+        }
+        def toJavaList[T](orig: List[T]): java.util.ArrayList[T] = {
+            val javaList: java.util.ArrayList[T] = new java.util.ArrayList[T]
+            for (f <- orig) javaList.add(f)
+            javaList
+        }
+        mainDir.mkdirs()
+
+        for ((taskName, configs) <- tasks) {
+            writeObject(toJavaList(configs), new File(mainDir, taskName + ".ser"))
+        }
+    }
+
+    def loadSerializedConfigurations(featureList: List[SingleFeatureExpr], mainDir: File): List[Task] = {
+        def readObject[T](file: File): T = {
+            try {
+                val fileIn: FileInputStream = new FileInputStream(file)
+                val in: ObjectInputStream = new ObjectInputStream(fileIn)
+                val e: T = in.readObject().asInstanceOf[T]
+                in.close()
+                fileIn.close()
+                e
+            } catch {
+                case i: IOException => {
+                    // do not handle
+                    throw i
+                }
+            }
+        }
+
+        var taskList: ListBuffer[Task] = ListBuffer()
+
+        // assert(savedFeatures.equals(toJavaList(featureList.map(_.feature))))
+        for (file <- mainDir.listFiles()) {
+            val fn = file.getName
+            if (fn.endsWith(".ser")) {
+                val configs = readObject[java.util.ArrayList[SimpleConfiguration]](file)
+                val taskName = fn.substring(0, fn.length - ".ser".length)
+                var taskConfigs: scala.collection.mutable.ListBuffer[SimpleConfiguration] = ListBuffer()
+                val iter = configs.iterator()
+                while (iter.hasNext) {
+                    taskConfigs += iter.next()
+                }
+                taskList.+=((taskName, taskConfigs.toList))
+            }
+        }
+        taskList.toList
+    }
 }
