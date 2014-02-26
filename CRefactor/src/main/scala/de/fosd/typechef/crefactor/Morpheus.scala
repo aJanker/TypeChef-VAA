@@ -8,30 +8,37 @@ import de.fosd.typechef.featureexpr.FeatureModel
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem._
 import de.fosd.typechef.crefactor.evaluation.util.StopClock
-import de.fosd.typechef.crefactor.evaluation.StatsJar
-import de.fosd.typechef.crefactor.backend.CModuleInterface
+import de.fosd.typechef.crefactor.evaluation.StatsCan
 import de.fosd.typechef.conditional.Opt
+import de.fosd.typechef.crefactor.backend.CModuleInterface
 
 class Morpheus(tunit: TranslationUnit, fm: FeatureModel, moduleInterface: CModuleInterface, file: String)
     extends Observable with CDeclUse with CTypeEnv with CEnvCache with CTypeCache with CTypeSystem with Logging {
 
-    def this(tunit: TranslationUnit) = this(tunit, null, null, null)
     def this(tunit: TranslationUnit, fm: FeatureModel) = this(tunit, fm, null, null)
-    def this(tunit: TranslationUnit, file: String) = this(tunit, null, null, file)
     def this(tunit: TranslationUnit, fm: FeatureModel, file: String) = this(tunit, fm, null, file)
 
     private var tunitCached: TranslationUnit = tunit
     private var astEnvCached: ASTEnv = CASTEnv.createASTEnv(tunit)
+    private val connectedIds: java.util.IdentityHashMap[Id, List[Opt[Id]]] = new java.util.IdentityHashMap()
+    private val enforcedFMDeclUse: java.util.IdentityHashMap[Id, List[Id]] = new java.util.IdentityHashMap()
+    private val enforcedFMUseDecl: java.util.IdentityHashMap[Id, List[Id]] = new java.util.IdentityHashMap()
+
     private val typeCheck = new StopClock
 
-    typecheckTranslationUnit(tunit.asInstanceOf[TranslationUnit])
+    typecheckTranslationUnit(tunit)
     if (file != null)
-        StatsJar.addStat(file, TypeCheck, typeCheck.getTime)
+        StatsCan.addStat(file, TypeCheck, typeCheck.getTime)
 
-    private val connectedIds: java.util.IdentityHashMap[Id, List[Opt[Id]]] =
-        new java.util.IdentityHashMap()
+    private val enforce = new StopClock
+    enforceFmOnCDeclUse(getFM, getASTEnv)
+    logger.info("Enforcing featuremodel on decluse in " + enforce.getTime + "ms.")
 
-    // determines reference information between identifier uses and declares and vice versa
+    override def getDeclUseMap = IdentityIdHashMap(enforcedFMDeclUse)
+
+    override def getUseDeclMap = IdentityIdHashMap(enforcedFMUseDecl)
+
+    // determines linkage information between identifier uses and declares and vice versa
     //
     // decl-use information in typesystem are determined without the feature model
     // solely on the basis of annotations in the source code
@@ -52,8 +59,8 @@ class Morpheus(tunit: TranslationUnit, fm: FeatureModel, moduleInterface: CModul
         }
 
         if (connectedIds.containsKey(id)
-            || isAlreadyConnected(getUseDeclMap)      // use -> decl
-            || isAlreadyConnected(getDeclUseMap))     // decl -> use
+            || isAlreadyConnected(getUseDeclMap) // use -> decl
+            || isAlreadyConnected(getDeclUseMap)) // decl -> use
             return connectedIds.get(id)
 
         val visited = Collections.newSetFromMap[Id](new java.util.IdentityHashMap())
@@ -63,14 +70,9 @@ class Morpheus(tunit: TranslationUnit, fm: FeatureModel, moduleInterface: CModul
 
             visited.add(conn)
             val fExpConn = astEnvCached.featureExpr(conn)
-
-            if (fExpId and fExpConn isSatisfiable fm) {
-                if (connectedIds.containsKey(id))
-                    connectedIds.put(id, Opt(fExpConn, conn) :: connectedIds.get(id))
-                else connectedIds.put(id, List(Opt(fExpConn, conn)))
-            } else {
-                connectedIds.get(id)
-            }
+            if (connectedIds.containsKey(id))
+                connectedIds.put(id, Opt(fExpConn, conn) :: connectedIds.get(id))
+            else connectedIds.put(id, List(Opt(fExpConn, conn)))
 
         }
 
@@ -89,7 +91,6 @@ class Morpheus(tunit: TranslationUnit, fm: FeatureModel, moduleInterface: CModul
                         if (getUseDeclMap.containsKey(use))
                             getUseDeclMap.get(use).foreach(addOccurrence)
                     })
-                    return
                 }
             }
         }
@@ -109,7 +110,8 @@ class Morpheus(tunit: TranslationUnit, fm: FeatureModel, moduleInterface: CModul
         astEnvCached = CASTEnv.createASTEnv(tunitCached)
         //ts = new CTypeSystemFrontend(astCached.asInstanceOf[TranslationUnit], fm)
         //ts.checkAST
-        typecheckTranslationUnit(tunit)
+        typecheckTranslationUnit(tunitCached)
+        enforceFmOnCDeclUse(getFM, getASTEnv)
         setChanged()
         notifyObservers()
     }
@@ -125,4 +127,23 @@ class Morpheus(tunit: TranslationUnit, fm: FeatureModel, moduleInterface: CModul
     def getFile = file
 
     def getModuleInterface = moduleInterface
+
+    // enforces the feature model on cDeclUse - at removes all invalid connections determined by the feature model
+    private def enforceFmOnCDeclUse(featureModel: FeatureModel, astEnv: ASTEnv) = {
+        def addToTargetMap(key: Id, entry: Id, targetMap: java.util.IdentityHashMap[Id, List[Id]]) = {
+            if (targetMap.containsKey(key)) targetMap.put(key, entry :: targetMap.get(key))
+            else targetMap.put(key, List(entry))
+        }
+
+        def fillMap(sourceMap: IdentityIdHashMap, targetMap: java.util.IdentityHashMap[Id, List[Id]]) = {
+            targetMap.clear()
+            sourceMap.keys.foreach(key =>
+                sourceMap.get(key).foreach(entry =>
+                    if ((astEnv.featureExpr(entry) and astEnv.featureExpr(key)) isSatisfiable (fm))
+                        addToTargetMap(key, entry, targetMap)))
+        }
+
+        fillMap(super.getDeclUseMap, enforcedFMDeclUse)
+        fillMap(super.getUseDeclMap, enforcedFMUseDecl)
+    }
 }

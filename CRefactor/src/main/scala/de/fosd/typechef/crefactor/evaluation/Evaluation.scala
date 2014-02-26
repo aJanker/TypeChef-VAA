@@ -5,7 +5,7 @@ import de.fosd.typechef.parser.c._
 import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr, SingleFeatureExpr, FeatureModel}
 import java.util.regex.Pattern
 import scala.io.Source
-import de.fosd.typechef.crefactor.Logging
+import de.fosd.typechef.crefactor.{Morpheus, Logging}
 import java.util.{TimerTask, Timer, IdentityHashMap}
 import scala.collection.immutable.HashMap
 import de.fosd.typechef.crefactor.evaluation.setup.BuildCondition
@@ -13,6 +13,7 @@ import de.fosd.typechef.parser.c.GnuAsmExpr
 import de.fosd.typechef.conditional.Choice
 import de.fosd.typechef.parser.c.Id
 import de.fosd.typechef.conditional.Opt
+import de.fosd.typechef.typesystem.linker.SystemLinker
 
 trait Evaluation extends Logging with BuildCondition with ASTNavigation with ConditionalNavigation {
 
@@ -284,12 +285,28 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
     }
 
 
-    def write(ast: AST, filePath: String, orgFile: String = null) = {
+    def writeRunResult(run: Int, morpheus: Morpheus, linkedFiles: List[(String, TranslationUnit)]) = {
+        val runDir = new File(getResultDir(morpheus.getFile).getCanonicalPath + File.separatorChar + run + File.separatorChar)
+        if (!runDir.exists) runDir.mkdirs()
+
+        val path = runDir.getCanonicalPath + File.separatorChar + getFileName(morpheus.getFile)
+        writePrettyPrintedTUnit(morpheus.getTranslationUnit, path)
+        writePlainTUnit(morpheus.getTranslationUnit, path + ".tunit_plain")
+
+        linkedFiles.foreach(file => {
+            val linkedPath = runDir.getCanonicalPath + File.separatorChar + getFileName(file._1)
+            writePrettyPrintedTUnit(file._2, linkedPath)
+            writePlainTUnit(file._2, linkedPath + ".tunit_plain")
+        })
+    }
+
+
+    def write(ast: AST, filePath: String, orgFile: String = null, overWriteOrgFile: Boolean = true) = {
         val refFile = if (orgFile != null) orgFile else filePath
-        printAndWriteTUnit(ast, filePath)
+        if (overWriteOrgFile) writePrettyPrintedTUnit(ast, filePath)
         val resultDir = getResultDir(refFile)
         val path = resultDir.getCanonicalPath + File.separatorChar + getFileName(filePath)
-        printAndWriteTUnit(ast, path)
+        writePrettyPrintedTUnit(ast, path)
         writePlainTUnit(ast, path + ".tunit_plain")
     }
 
@@ -303,7 +320,8 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
         out.close()
     }
 
-    def printAndWriteTUnit(ast: AST, filePath: String) {
+    def writePrettyPrintedTUnit(ast: AST, filePath: String) {
+        logger.info("Pretty printing to: " + filePath)
         val file = new File(filePath)
         val prettyPrinted = PrettyPrinter.print(ast).replace("definedEx", "defined")
         val writer = new FileWriter(file, false)
@@ -586,4 +604,6 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
 
         arg + " " + filterArgs + dFeatures.map(feature => "-D" + feature).mkString(" ")
     }
+
+    def isSystemLinkedName(name : String) = SystemLinker.allLibs.par.contains(name)
 }
