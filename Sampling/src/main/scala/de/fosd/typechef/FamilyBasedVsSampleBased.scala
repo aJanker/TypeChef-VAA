@@ -531,16 +531,6 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
                               existingConfigs: List[SimpleConfiguration] = List(), preferDisabledFeatures: Boolean,
                               includeVariabilityFromHeaderFiles: Boolean = false):
     (List[SimpleConfiguration], String) = {
-        val unsatCombinationsCacheFile = new File("unsatCombinationsCache.txt")
-        // using this is not correct when different files have different presence conditions
-        val useUnsatCombinationsCache = false
-        val unsatCombinationsCache: scala.collection.immutable.HashSet[String] =
-            if (useUnsatCombinationsCache && unsatCombinationsCacheFile.exists()) {
-                new scala.collection.immutable.HashSet[String] ++
-                    Source.fromFile(unsatCombinationsCacheFile).getLines().toSet
-            } else {
-                scala.collection.immutable.HashSet()
-            }
         var unsatCombinations = 0
         var alreadyCoveredCombinations = 0
         var complexNodes = 0
@@ -610,9 +600,7 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
 
         // inner function
         def handleFeatureExpression(fex: FeatureExpr) = {
-            if (!handledExpressions.contains(fex) &&
-                !(useUnsatCombinationsCache &&
-                    unsatCombinationsCache.contains(fex.toTextExpr))) {
+            if (!handledExpressions.contains(fex)) {
                 // search for configs that imply this node
                 var isCovered: Boolean = false
                 fex.getConfIfSimpleAndExpr() match {
@@ -648,11 +636,6 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
                     if (completeConfig != null) {
                         retList ::= completeConfig
                     } else {
-                        if (useUnsatCombinationsCache) {
-                            val fw = new FileWriter(unsatCombinationsCacheFile, true)
-                            fw.write(fex.toTextExpr + "\n")
-                            fw.close()
-                        }
                         unsatCombinations += 1
                     }
                 } else {
@@ -669,11 +652,6 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
             if (completeConfig != null) {
                 retList ::= completeConfig
             } else {
-                if (useUnsatCombinationsCache) {
-                    val fw = new FileWriter(unsatCombinationsCacheFile, true)
-                    fw.write(FeatureExprFactory.True + "\n")
-                    fw.close()
-                }
                 unsatCombinations += 1
             }
         } else {
