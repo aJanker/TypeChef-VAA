@@ -946,44 +946,6 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
     }
 
     /**
-     * Returns a sorted list of all features in this AST, including Opt and Choice Nodes
-     * @param root input element
-     * @return
-     */
-    def getAllFeatures(root: Product): List[SingleFeatureExpr] = {
-        var featuresSorted: List[SingleFeatureExpr] = getAllFeaturesRec(root).toList
-        // sort to eliminate any non-determinism caused by the set
-        featuresSorted = featuresSorted.sortWith({
-            (x: SingleFeatureExpr, y: SingleFeatureExpr) => x.feature.compare(y.feature) > 0
-        })
-        println("found " + featuresSorted.size + " features")
-        featuresSorted
-    }
-
-    private def getAllFeaturesRec(root: Any): Set[SingleFeatureExpr] = {
-        root match {
-            case x: Opt[_] => x.feature.collectDistinctFeatureObjects.toSet ++ getAllFeaturesRec(x.entry)
-            case x: Choice[_] => x.feature.collectDistinctFeatureObjects.toSet ++
-                getAllFeaturesRec(x.thenBranch) ++ getAllFeaturesRec(x.elseBranch)
-            case l: List[_] => {
-                var ret: Set[SingleFeatureExpr] = Set()
-                for (x <- l) {
-                    ret = ret ++ getAllFeaturesRec(x)
-                }
-                ret
-            }
-            case x: Product => {
-                var ret: Set[SingleFeatureExpr] = Set()
-                for (y <- x.productIterator.toList) {
-                    ret = ret ++ getAllFeaturesRec(y)
-                }
-                ret
-            }
-            case o => Set()
-        }
-    }
-
-    /**
      * This method generates and tests random configurations:
      * 1. load feature model fm
      * 2. create configuration based on selection/deselection of all features
