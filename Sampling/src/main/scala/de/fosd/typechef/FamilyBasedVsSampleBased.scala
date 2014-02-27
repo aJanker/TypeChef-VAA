@@ -158,7 +158,7 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
             currentPeriod = period
         }
 
-        def get(period: String): Long = times.filter(v => v._1._2 == period).headOption.map(_._2).getOrElse(0)
+        def get(period: String): Long = times.find(v => v._1._2 == period).map(_._2).getOrElse(0)
 
         override def toString = {
             var res = "timing "
