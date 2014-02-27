@@ -2,7 +2,6 @@ package de.fosd.typechef
 
 import java.io._
 import util.Random
-import java.util.Collections
 
 import de.fosd.typechef.crewrite._
 import de.fosd.typechef.featureexpr._
@@ -19,17 +18,15 @@ import de.fosd.typechef.typesystem._
  */
 object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation with CFGHelper {
 
-
-
     /**
      * returns: (log:String, configs: List[Pair[String,List[SimpleConfiguration] ] ])
      * log is a compilation of the log messages
      * the configs-list contains pairs of the name of the config-generation method and
      * the respective generated configs
      */
-    def buildConfigurations(tunit: TranslationUnit, ff: FileFeatures, fm: FeatureModel,
-                            opt: FamilyBasedVsSampleBasedOptions,
-                            configdir: File, caseStudy: String): (String, List[Task]) = {
+    private def buildConfigurations(tunit: TranslationUnit, ff: FileFeatures, fm: FeatureModel,
+                                    opt: FamilyBasedVsSampleBasedOptions,
+                                    configdir: File, caseStudy: String): (String, List[Task]) = {
         var msg: String = ""
         var log: String = ""
         println("generating configurations.")
@@ -96,8 +93,6 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
         (log, tasks)
     }
 
-
-
     private def countNumberOfASTElements(ast: AST): Long = {
         def countNumberOfASTElementsHelper(a: Any): Long = {
             a match {
@@ -110,8 +105,8 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
         countNumberOfASTElementsHelper(ast)
     }
 
-    def initSampling(fm_scanner: FeatureModel, fm: FeatureModel, ast: TranslationUnit, ff: FileFeatures,
-                     opt: FamilyBasedVsSampleBasedOptions, logMessage: String): (String, String, List[Task]) = {
+    private def initSampling(fm_scanner: FeatureModel, fm: FeatureModel, ast: TranslationUnit, ff: FileFeatures,
+                             opt: FamilyBasedVsSampleBasedOptions, logMessage: String): (String, String, List[Task]) = {
         var caseStudy = ""
         var thisFilePath: String = ""
         val fileAbsPath = new File(new File(".").getAbsolutePath, opt.getFile).toString
@@ -175,8 +170,7 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
     }
 
     def checkErrorsAgainstSamplingConfigs(fm_scanner: FeatureModel, fm: FeatureModel, ast: TranslationUnit,
-                                          opt: FamilyBasedVsSampleBasedOptions,
-                                          logMessage: String) {
+                                          opt: FamilyBasedVsSampleBasedOptions, logMessage: String) {
         val ff: FileFeatures = new FileFeatures(ast)
         val (log, fileID, samplingTasks) = initSampling(fm_scanner, fm, ast, ff, opt, logMessage)
         val samplingTastsWithoutFamily = samplingTasks.filterNot {x => x._1 == "family"}
@@ -250,13 +244,6 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
         analyzeTasks(typecheckingTasks, ast, ff, fm, opt, thisFilePath, startLog = configGenLog)
     }
 
-    def parseFile(stream: InputStream, file: String, dir: String): TranslationUnit = {
-        val ast: AST = new ParserMain(new CParser).parserMain(
-            () => CLexer.lexStream(stream, file, Collections.singletonList(dir), null),
-            new CTypeContext, SilentParserOptions)
-        ast.asInstanceOf[TranslationUnit]
-    }
-
     private def liveness(tunit: AST, udm: UseDeclMap, env: ASTEnv, fm: FeatureModel = FeatureExprFactory.empty) {
         val fdefs = filterAllASTElems[FunctionDef](tunit)
         fdefs.map(x => intraDataflowAnalysis(x, udm, env, fm))
@@ -275,7 +262,7 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
         }
     }
 
-    def analyzeTasks(tasks: List[Task], tunit: TranslationUnit, ff: FileFeatures, fm: FeatureModel,
+    private def analyzeTasks(tasks: List[Task], tunit: TranslationUnit, ff: FileFeatures, fm: FeatureModel,
                      opt: FamilyBasedVsSampleBasedOptions, fileID: String, startLog: String = "") {
         val log: String = startLog
         val nstoms = 1000000
@@ -366,18 +353,6 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
         fw.close()
 
     }
-
-    def configListContainsFeaturesAsEnabled(lst: List[SimpleConfiguration],
-                                            features: Set[SingleFeatureExpr]): Boolean = {
-        for (conf <- lst) {
-            if (conf.containsAllFeaturesAsEnabled(features))
-                return true
-        }
-        false
-    }
-
-
-
 
     /**
      * This method generates and tests random configurations:
