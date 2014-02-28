@@ -307,8 +307,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation {
             if (result.isInstanceOf[BDDFeatureExpr]) {
                 val sizeOld = optFeature.asInstanceOf[BDDFeatureExpr].countOpsInStringRep()
                 val sizeNew = result.asInstanceOf[BDDFeatureExpr].countOpsInStringRep()
-                val impr = if(sizeOld==0) 0 else ((sizeOld-sizeNew)*100)/sizeOld
-                println("simplified " + impr + "% old:\"" + optFeature + "context:\"" + context + "\" new:\""+ result + "\"")
+                val varsOld = optFeature.asInstanceOf[BDDFeatureExpr].countDistinctFeatures
+                val varsNew = result.asInstanceOf[BDDFeatureExpr].countDistinctFeatures
+                println("simplification varsOld:" + varsOld + " varsNew:" + varsNew + " opsOld:" + sizeOld + " opsNew:" + sizeNew + " old:\"" + optFeature + "context:\"" + context + "\" new:\""+ result + "\"")
             }
             result
         }
