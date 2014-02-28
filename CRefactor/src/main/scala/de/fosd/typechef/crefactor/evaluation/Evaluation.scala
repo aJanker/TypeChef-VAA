@@ -13,6 +13,7 @@ import de.fosd.typechef.parser.c.GnuAsmExpr
 import de.fosd.typechef.conditional.Choice
 import de.fosd.typechef.parser.c.Id
 import de.fosd.typechef.conditional.Opt
+import de.fosd.typechef.typesystem.linker.SystemLinker
 
 trait Evaluation extends Logging with BuildCondition with ASTNavigation with ConditionalNavigation {
 
@@ -285,13 +286,15 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
 
 
     def writeRunResult(run: Int, morpheus: Morpheus, linkedFiles: List[(String, TranslationUnit)]) = {
-        val resultDir = getResultDir(morpheus.getFile)
-        val path = resultDir.getCanonicalPath + File.separatorChar + run + File.separatorChar + getFileName(morpheus.getFile)
+        val runDir = new File(getResultDir(morpheus.getFile).getCanonicalPath + File.separatorChar + run + File.separatorChar)
+        if (!runDir.exists) runDir.mkdirs()
+
+        val path = runDir.getCanonicalPath + File.separatorChar + getFileName(morpheus.getFile)
         writePrettyPrintedTUnit(morpheus.getTranslationUnit, path)
         writePlainTUnit(morpheus.getTranslationUnit, path + ".tunit_plain")
 
         linkedFiles.foreach(file => {
-            val linkedPath = resultDir.getCanonicalPath + File.separatorChar + run + File.separatorChar + getFileName(file._1)
+            val linkedPath = runDir.getCanonicalPath + File.separatorChar + getFileName(file._1)
             writePrettyPrintedTUnit(file._2, linkedPath)
             writePlainTUnit(file._2, linkedPath + ".tunit_plain")
         })
@@ -318,6 +321,7 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
     }
 
     def writePrettyPrintedTUnit(ast: AST, filePath: String) {
+        logger.info("Pretty printing to: " + filePath)
         val file = new File(filePath)
         val prettyPrinted = PrettyPrinter.print(ast).replace("definedEx", "defined")
         val writer = new FileWriter(file, false)
@@ -600,4 +604,6 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
 
         arg + " " + filterArgs + dFeatures.map(feature => "-D" + feature).mkString(" ")
     }
+
+    def isSystemLinkedName(name : String) = SystemLinker.allLibs.par.contains(name)
 }

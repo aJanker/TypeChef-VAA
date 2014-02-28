@@ -9,7 +9,7 @@ import de.fosd.typechef.crefactor.Logging
 import de.fosd.typechef.conditional.Opt
 import de.fosd.typechef.featureexpr.FeatureModel
 
-class CLinking(linkPath: String) extends Logging {
+class CModuleInterface(linkPath: String) extends Logging {
 
     val reader = new InterfaceWriter {}
     val linkFile = new File(linkPath)
@@ -19,8 +19,8 @@ class CLinking(linkPath: String) extends Logging {
     }
     var blackList = new mutable.ParHashSet[String]()
 
-    val idLinkExpMap: util.IdentityHashMap[String, List[CSignature]] = new util.IdentityHashMap()
-    val idLinkPosMap: util.IdentityHashMap[String, List[Position]] = new util.IdentityHashMap()
+    val idLinkExpMap: util.HashMap[String, List[CSignature]] = new util.HashMap()
+    val idLinkPosMap: util.HashMap[String, List[Position]] = new util.HashMap()
 
     if (interface != null) {
         interface.exports.foreach(addToMaps)
@@ -46,8 +46,7 @@ class CLinking(linkPath: String) extends Logging {
     private def nameIsListed(name: String) = idLinkExpMap.containsKey(name) || idLinkPosMap.containsKey(name)
 
     def isListed(id: Opt[String], fm: FeatureModel): Boolean = {
-        if (idLinkExpMap.containsKey(id.entry))
-            idLinkExpMap.get(id.entry).exists(sig => sig.fexpr.and(id.feature).isTautology(fm))
+        if (idLinkExpMap.containsKey(id.entry))  idLinkExpMap.get(id.entry).exists(sig => sig.fexpr.implies(id.feature).isTautology(fm))
         else false
     }
 

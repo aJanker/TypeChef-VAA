@@ -1,6 +1,6 @@
 package de.fosd.typechef.crefactor.evaluation.defaultEngines
 
-import de.fosd.typechef.crefactor.evaluation.{Evaluation, StatsCan, Refactoring}
+import de.fosd.typechef.crefactor.evaluation._
 import de.fosd.typechef.crefactor.{CRefactorFrontend, Morpheus}
 import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr}
 import de.fosd.typechef.crefactor.backend.engine.CRenameIdentifier
@@ -9,7 +9,7 @@ import de.fosd.typechef.crefactor.evaluation.Stats._
 import scala.collection.mutable
 import de.fosd.typechef.error.Position
 import java.io.File
-import de.fosd.typechef.crefactor.backend.CLinking
+import de.fosd.typechef.crefactor.backend.CModuleInterface
 import de.fosd.typechef.typesystem._
 import scala.Some
 import de.fosd.typechef.conditional.Choice
@@ -19,6 +19,7 @@ import de.fosd.typechef.typesystem.CFunction
 import de.fosd.typechef.conditional.One
 import de.fosd.typechef.parser.c.Id
 import de.fosd.typechef.conditional.Opt
+import java.util
 
 
 trait DefaultRename extends Refactoring with Evaluation {
@@ -27,45 +28,50 @@ trait DefaultRename extends Refactoring with Evaluation {
 
     val REFACTOR_AMOUNT = 50
 
-    private val renameLink = Set[String]()
+    private val renameLink = new util.HashSet[String]()
 
     private val linkedRenamedFiles = mutable.HashMap[String, Morpheus]()
 
+    // refactor attempts to make REFACTOR_AMOUNT renamings in a file
     def refactor(morpheus: Morpheus): (Boolean, TranslationUnit, List[FeatureExpr], List[(String, TranslationUnit)]) = {
 
         var runMorpheus = morpheus
-        val affectedFeatures = Set[FeatureExpr]()
+        var affectedFeatures = List[FeatureExpr]()
 
         for (run <- 1 to REFACTOR_AMOUNT) {
             val refactoredRun = singleRefactor(runMorpheus, run)
             StatsCan.addStat(morpheus.getFile, run, AffectedFeatures, refactoredRun._3)
             if (!refactoredRun._1) return (false, null, List(), List())
-            refactoredRun._3.foreach(affectedFeatures + _)
-            runMorpheus = new Morpheus(refactoredRun._2, morpheus.getFM, morpheus.getLinkInterface, morpheus.getFile)
+            affectedFeatures = affectedFeatures ::: refactoredRun._3
+            runMorpheus = new Morpheus(refactoredRun._2, morpheus.getFM, morpheus.getModuleInterface, morpheus.getFile)
             writeRunResult(run, runMorpheus, refactoredRun._4)
+            logger.info("Run " + run + " affected features: " + refactoredRun._3)
         }
-
-        (true, runMorpheus.getTranslationUnit, affectedFeatures.toList, linkedRenamedFiles.toList.map(entry => (entry._1, entry._2.getTranslationUnit)))
+        (true, runMorpheus.getTranslationUnit, affectedFeatures.distinct, linkedRenamedFiles.toList.map(entry => (entry._1, entry._2.getTranslationUnit)))
     }
 
+    // this function applies a single renaming, after checking different predicates
+    // such as isValidId, ...
     private def singleRefactor(morpheus: Morpheus, run: Int): (Boolean, TranslationUnit, List[FeatureExpr], List[(String, TranslationUnit)]) = {
-        val linkInterface = morpheus.getLinkInterface
+        val moduleInterface = morpheus.getModuleInterface
         val name = REFACTOR_NAME + "_" + run
         logger.info("+++ Start run: " + run)
 
         def getVariableIdToRename: (Id, Int, List[FeatureExpr]) = {
-            def isValidId(id: Id): Boolean = !id.name.contains("_main") && {
-                if (linkInterface != null) !(linkInterface.isBlackListed(id.name) || renameLink.contains(id.name))
+            def isValidId(id: Id): Boolean = !id.name.contains("_main") && !isSystemLinkedName(id.name) && {
+                if (moduleInterface != null) !(moduleInterface.isBlackListed(id.name) || renameLink.contains(id.name))
                 else true
             }
 
             // TODO Fix Bug in OpenSSL for functions without body
             def isWritable(id: Id): Boolean =
-                morpheus.linkage(id).map(_.entry).forall(i =>
+                morpheus.getReferences(id).map(_.entry).forall(i =>
                     isValidId(i) && (i.getFile.get.replaceFirst("file ", "").equalsIgnoreCase(morpheus.getFile) || new File(i.getFile.get.replaceFirst("file ", "")).canWrite))
 
-            val allIds = morpheus.getUseDeclMap.keys
-            val linkedIds = if (FORCE_LINKING && linkInterface != null) allIds.par.filter(id => linkInterface.isListed(Opt(parentOpt(id, morpheus.getASTEnv).feature, id.name), morpheus.getFM)) else allIds
+            val allIds = morpheus.getAllUses
+            val linkedIds = if (FORCE_LINKING && moduleInterface != null)
+                allIds.par.filter(id => moduleInterface.isListed(Opt(parentOpt(id, morpheus.getASTEnv).feature, id.name), morpheus.getFM))
+            else allIds
             val ids = if (linkedIds.isEmpty) allIds else linkedIds
 
             logger.info("Run " + run + ": IDs found: " + ids.size)
@@ -75,19 +81,16 @@ trait DefaultRename extends Refactoring with Evaluation {
             logger.info("Run " + run + ": Variable IDs found: " + variableIds.size)
 
             def getRandomID: Id = {
-                val randID = if (!variableIds.isEmpty && FORCE_VARIABILITY) variableIds.apply((math.random * variableIds.size).toInt) else ids.apply((math.random * ids.size).toInt)
+                val randID = if ((variableIds.size > 25) && FORCE_VARIABILITY) variableIds.apply((math.random * variableIds.size).toInt) else ids.apply((math.random * ids.size).toInt)
                 if (isWritable(randID)) randID
                 else getRandomID
             }
 
             val id = getRandomID
-            val associatedIds = morpheus.linkage(id)
+            val associatedIds = morpheus.getReferences(id)
             addType(associatedIds, morpheus, run)
             logger.info("Run " + run + ": Found Id: " + id)
-            logger.info("Run " + run + ": Associated Ids: " + associatedIds.size)
-            associatedIds.foreach(id => logger.info(morpheus.getASTEnv.containsASTElem(id)))
-            associatedIds.foreach(id => logger.info(morpheus.getASTEnv.featureExpr(id.entry)))
-            (id, associatedIds.length, associatedIds.map(morpheus.getASTEnv.featureExpr).distinct)
+            (id, associatedIds.length, associatedIds.map(id => morpheus.getASTEnv.featureExpr(id.entry)).distinct)
         }
 
         val time = new StopClock
@@ -98,19 +101,24 @@ trait DefaultRename extends Refactoring with Evaluation {
         val id = toRename._1
         StatsCan.addStat(morpheus.getFile, run, RenamedId, id.name)
 
-        val refactorChain = if (linkInterface != null) getLinkedFilesToRefactor(linkInterface, id)
+        val refactorChain = if (moduleInterface != null) getLinkedFilesToRefactor(moduleInterface, id)
         else List()
 
         if (refactorChain == null) return (false, null, List(), List())
-        if (!refactorChain.isEmpty) renameLink + name
+        if (!refactorChain.isEmpty) {
+            renameLink + name
+            logger.info("Run " + run + ": Is linked.")
+        } else logger.info("Run " + run + ": Is not linked.")
 
         val features = toRename._3
         StatsCan.addStat(morpheus.getFile, run, AffectedFeatures, features)
 
         val startRenaming = new StopClock
         val refactored = CRenameIdentifier.rename(id, name, morpheus)
+        val renamingTime = startRenaming.getTime
+        logger.info("Run " + run + ": Renaming time : " + renamingTime)
 
-        StatsCan.addStat(morpheus.getFile, run, RefactorTime, startRenaming.getTime)
+        StatsCan.addStat(morpheus.getFile, run, RefactorTime, renamingTime)
 
         refactored match {
             case Right(ast) => {
@@ -121,26 +129,38 @@ trait DefaultRename extends Refactoring with Evaluation {
                     StatsCan.addStat(x._1.getFile, run, RefactorTime, time.getTime)
                     ref match {
                         case Right(refAST) => (x._1.getFile, refAST)
-                        case Left(s) => return (false, null, List(), List())
+                        case Left(s) =>
+                            logger.error("Run " + run + ": Refactoring failed at file " + x._1.getFile + " with " + s + ".")
+                            return (false, null, List(), List())
                     }
                 })
+                logger.info("Run " + run + ": Refactoring at file " + morpheus.getFile + " successful.")
                 (true, ast, features, linkedRefactored)
             }
             case Left(s) =>
-                logger.error("Refactoring faild in run " + run + " at file " + morpheus.getFile + " with " + s + ".")
+                logger.error("Run " + run + ": Refactoring failed at file " + morpheus.getFile + " with " + s + ".")
                 (false, null, List(), List())
         }
 
     }
 
-    private def findIdInAST(position: Position, id: Id, tUnit: TranslationUnit) =
-        filterASTElems[Id](tUnit).par.find(aId =>
-            (position.equals(aId.getPositionFrom) || position.equals(aId.getPositionTo)) // TODO Range Check
+    private def findIdInAST(position: Position, id: Id, tUnit: TranslationUnit) = {
+        logger.info("Looking for " + position + "of " + id.name + ".")
+        val found = filterASTElems[Id](tUnit).par.find(aId => {
+            if (aId.name.equalsIgnoreCase(id.name)) logger.info("Found matching names " + id.name + " at: " + aId.getPositionFrom + ", " + aId.getPositionTo)
+            // as positions in TypeChef are little bit buggy - we extend the search ranch.
+            ((position.getLine.equals(aId.getPositionFrom.getLine) || position.getLine.equals(aId.getPositionTo.getLine)
+                || position.getLine.equals(aId.getPositionFrom.getLine - 1) || position.getLine.equals(aId.getPositionTo.getLine - 1)
+                || position.getLine.equals(aId.getPositionFrom.getLine + 1) || position.getLine.equals(aId.getPositionTo.getLine + 1))
                 && aId.name.equalsIgnoreCase(id.name))
+        })
+        logger.info("Found the following linkedIds: " + found)
+        found
+    }
 
 
-    private def getLinkedFilesToRefactor(linkInterface: CLinking, id: Id): List[(Morpheus, Position)] = {
-        val linked = linkInterface.getPositions(id.name)
+    private def getLinkedFilesToRefactor(modulInterface: CModuleInterface, id: Id): List[(Morpheus, Position)] = {
+        val linked = modulInterface.getPositions(id.name)
         val affectedFiles = linked.foldLeft(new mutable.HashMap[String, Position])((map, pos) => map += (pos.getFile -> pos))
         val refactorChain = affectedFiles.foldLeft(List[(Morpheus, Position)]())((list, entry) => {
             if (blackListFiles.exists(getFileName(entry._1).equalsIgnoreCase)) {
@@ -188,7 +208,7 @@ trait DefaultRename extends Refactoring with Evaluation {
                     case o@One((CType(CFunction(_, _), _, _, _), _, _, _)) => foundTypes + "FunctionName"
                     case o@One((_, KEnumVar, _, _)) => foundTypes + "Enum"
                     case o@One((CType(_, _, _, _), _, _, _)) => foundTypes + "Variable"
-                    case o => logger.warn("Unknown Type " + id + " " + o)
+                    case _ => logger.warn("Unknown Type " + id + " " + o)
                 }
             }
         }
