@@ -250,7 +250,7 @@ object TypeChef extends Build {
         file("Sampling"),
         settings = buildSettings ++
             Seq(libraryDependencies <+= scalaVersion(kiamaDependency(_)))
-    ) dependsOn(cparser % "test->test;compile->compile", ctypechecker, crewrite, conditionallib, frontend, errorlib)
+    ) dependsOn(cparser % "test->test;compile->compile", ctypechecker, crewrite, conditionallib, frontend, errorlib, featureexpr)
 
 
     def kiamaDependency(scalaVersion: String, testOnly: Boolean = false) = {
