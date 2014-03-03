@@ -170,6 +170,7 @@ object TypeChef extends Build {
         javaparser,
         crewrite,
         frontend,
+        sampling,
         crefactor
         )
 
@@ -242,7 +243,7 @@ object TypeChef extends Build {
         "CRefactor",
         file("CRefactor"),
         settings = buildSettings
-    ) dependsOn(cparser % "test->test;compile->compile", ctypechecker, conditionallib, crewrite, frontend, errorlib)
+    ) dependsOn(cparser % "test->test;compile->compile", ctypechecker, conditionallib, crewrite, frontend, errorlib, sampling, featureexpr)
 
     lazy val sampling = Project(
         "Sampling",
