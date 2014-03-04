@@ -3,25 +3,25 @@ package de.fosd.typechef.crefactor.evaluation
 import de.fosd.typechef.featureexpr.{FeatureExpr, FeatureModel}
 import de.fosd.typechef.parser.c.{TranslationUnit, AST}
 import de.fosd.typechef.crefactor.Morpheus
-import de.fosd.typechef.crefactor.backend.CLinking
+import de.fosd.typechef.crefactor.backend.CModuleInterface
 
 trait Refactoring {
 
     def refactor(morpheus: Morpheus):
-    (Boolean, AST, List[FeatureExpr], List[(String, AST)])
+    (Boolean, TranslationUnit, List[List[FeatureExpr]], List[(String, TranslationUnit)])
 
 }
 
 trait Refactor {
 
     def rename(tunit: TranslationUnit, fm: FeatureModel,
-               file: String, linkInterface: CLinking = null)
+               file: String, linkInterface: CModuleInterface = null)
 
     def extract(tunit: TranslationUnit, fm: FeatureModel,
-                file: String, linkInterface: CLinking = null)
+                file: String, linkInterface: CModuleInterface = null)
 
     def inline(tunit: TranslationUnit, fm: FeatureModel,
-               file: String, linkInterface: CLinking = null)
+               file: String, linkInterface: CModuleInterface = null)
 }
 
 

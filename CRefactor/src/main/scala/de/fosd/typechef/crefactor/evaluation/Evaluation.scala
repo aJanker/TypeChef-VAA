@@ -5,7 +5,7 @@ import de.fosd.typechef.parser.c._
 import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr, SingleFeatureExpr, FeatureModel}
 import java.util.regex.Pattern
 import scala.io.Source
-import de.fosd.typechef.crefactor.Logging
+import de.fosd.typechef.crefactor.{Morpheus, Logging}
 import java.util.{TimerTask, Timer, IdentityHashMap}
 import scala.collection.immutable.HashMap
 import de.fosd.typechef.crefactor.evaluation.setup.BuildCondition
@@ -13,6 +13,7 @@ import de.fosd.typechef.parser.c.GnuAsmExpr
 import de.fosd.typechef.conditional.Choice
 import de.fosd.typechef.parser.c.Id
 import de.fosd.typechef.conditional.Opt
+import de.fosd.typechef.typesystem.linker.SystemLinker
 
 trait Evaluation extends Logging with BuildCondition with ASTNavigation with ConditionalNavigation {
 
@@ -30,6 +31,7 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
     val allFeaturesFile: String
     val allFeatures: (List[SingleFeatureExpr], IdentityHashMap[String, String])
     val pairWiseFeaturesFile: String
+    val existingConfigsDir: String
 
     val featureModel: String
     val featureModel_DIMACS: String
@@ -38,6 +40,8 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
 
     val FORCE_VARIABILITY: Boolean
     val FORCE_LINKING: Boolean
+
+    val maxConfigs: Int = 1000
 
 
     /**
@@ -284,12 +288,28 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
     }
 
 
-    def write(ast: AST, filePath: String, orgFile: String = null) = {
+    def writeRunResult(run: Int, morpheus: Morpheus, linkedFiles: List[(String, TranslationUnit)]) = {
+        val runDir = new File(getResultDir(morpheus.getFile).getCanonicalPath + File.separatorChar + run + File.separatorChar)
+        if (!runDir.exists) runDir.mkdirs()
+
+        val path = runDir.getCanonicalPath + File.separatorChar + getFileName(morpheus.getFile)
+        writePrettyPrintedTUnit(morpheus.getTranslationUnit, path)
+        writePlainTUnit(morpheus.getTranslationUnit, path + ".tunit_plain")
+
+        linkedFiles.foreach(file => {
+            val linkedPath = runDir.getCanonicalPath + File.separatorChar + getFileName(file._1)
+            writePrettyPrintedTUnit(file._2, linkedPath)
+            writePlainTUnit(file._2, linkedPath + ".tunit_plain")
+        })
+    }
+
+
+    def write(ast: AST, filePath: String, orgFile: String = null, overWriteOrgFile: Boolean = true) = {
         val refFile = if (orgFile != null) orgFile else filePath
-        printAndWriteTUnit(ast, filePath)
+        if (overWriteOrgFile) writePrettyPrintedTUnit(ast, filePath)
         val resultDir = getResultDir(refFile)
         val path = resultDir.getCanonicalPath + File.separatorChar + getFileName(filePath)
-        printAndWriteTUnit(ast, path)
+        writePrettyPrintedTUnit(ast, path)
         writePlainTUnit(ast, path + ".tunit_plain")
     }
 
@@ -303,11 +323,16 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
         out.close()
     }
 
-    def printAndWriteTUnit(ast: AST, filePath: String) {
-        val file = new File(filePath)
+    def writePrettyPrintedTUnit(ast: AST, filePath: String) {
+        val path = {
+            if (filePath.startsWith("file")) filePath.substring(5)
+            else filePath
+        }
+        logger.info("Pretty printing to: " + filePath)
+        val file = new File(path)
         val prettyPrinted = PrettyPrinter.print(ast).replace("definedEx", "defined")
         val writer = new FileWriter(file, false)
-        writer.write(addBuildCondition(filePath, prettyPrinted))
+        writer.write(addBuildCondition(path, prettyPrinted))
         writer.flush()
         writer.close()
     }
@@ -352,26 +377,6 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
         val out = new java.io.FileWriter(dir.getCanonicalPath + File.separatorChar + getFileName(originalFilePath) + ".stats")
         stats.foreach(stat => {
             out.write(stat.toString)
-            out.write("\n")
-        })
-        out.flush()
-        out.close()
-    }
-
-    def writeConfig(config: Set[SingleFeatureExpr], dir: File, name: String): Unit = writeConfig(config.toList, dir, name)
-
-    def writeConfig(config: List[SingleFeatureExpr], dir: File, name: String) {
-        val out = new java.io.FileWriter(dir.getCanonicalPath + File.separatorChar + name)
-        val disabledFeatures = allFeatures._1.diff(config)
-        config.foreach(feature => {
-            val ft = feature.feature
-            out.write(ft + "=y")
-            out.write("\n")
-        })
-        disabledFeatures.foreach(feature => {
-            val ft = feature.feature
-            if (allFeatures._2.containsKey(feature.feature)) out.write(ft + "=" + allFeatures._2.get(feature.feature))
-            else out.write("# " + ft + " is not set")
             out.write("\n")
         })
         out.flush()
@@ -586,4 +591,6 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
 
         arg + " " + filterArgs + dFeatures.map(feature => "-D" + feature).mkString(" ")
     }
+
+    def isSystemLinkedName(name : String) = SystemLinker.allLibs.par.contains(name)
 }

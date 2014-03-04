@@ -21,6 +21,7 @@ trait BusyBoxEvaluation extends Evaluation {
     val allFeaturesFile = getClass.getResource("/BusyBoxAllFeatures.config").getFile
     val allFeatures = getAllFeaturesFromConfigFile(null, new File(allFeaturesFile))
     val pairWiseFeaturesFile = getClass.getResource("/busyBox_pairwise.configs").getFile
+    val existingConfigsDir: String = completePath + "/existing_configs/"
 
     val featureModel: String = completePath + "/featureModel"
     val featureModel_DIMACS: String = completePath + "/BB_fm.dimacs"
@@ -30,9 +31,6 @@ trait BusyBoxEvaluation extends Evaluation {
 
     val FORCE_VARIABILITY = true
     val FORCE_LINKING = false
-    val MAX_DEPTH = 27
-    val amountOfRefactorings = 3
-    val MAX = 1
 
 }
 

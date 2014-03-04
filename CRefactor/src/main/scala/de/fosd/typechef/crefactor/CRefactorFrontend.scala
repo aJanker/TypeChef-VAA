@@ -10,7 +10,7 @@ import java.io._
 import de.fosd.typechef.parser.TokenReader
 import de.fosd.typechef.crefactor.evaluation.util.StopClock
 import de.fosd.typechef.typesystem.linker.InterfaceWriter
-import de.fosd.typechef.crefactor.evaluation.{Refactor, StatsJar}
+import de.fosd.typechef.crefactor.evaluation.{Refactor, StatsCan}
 import de.fosd.typechef.crefactor.evaluation.setup.{Building, BuildCondition}
 import java.util.zip.{GZIPOutputStream, GZIPInputStream}
 import de.fosd.typechef.parser.c.CTypeContext
@@ -20,7 +20,7 @@ import javax.swing.SwingUtilities
 import de.fosd.typechef.crefactor.evaluation.evalcases.sqlite.SQLiteRefactor
 import de.fosd.typechef.crefactor.evaluation.evalcases.busybox_1_18_5.BusyBoxRefactor
 import de.fosd.typechef.crefactor.evaluation.evalcases.openSSL.OpenSSLRefactor
-import de.fosd.typechef.crefactor.backend.CLinking
+import de.fosd.typechef.crefactor.backend.CModuleInterface
 
 object CRefactorFrontend extends App with InterfaceWriter with BuildCondition with Logging with EnforceTreeHelper {
 
@@ -28,11 +28,12 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
 
     private var runOpt: FrontendOptions = new FrontendOptions()
 
-    override def main(args: Array[String]): Unit = parseOrLoadASTandProcess(args, true)
+    override def main(args: Array[String]): Unit = parseOrLoadTUnitandProcess(args, true)
 
-    def parseOrLoadASTandProcess(args: Array[String], saveArg: Boolean = false) = {
+    def parseOrLoadTUnitandProcess(args: Array[String], saveArg: Boolean = false) = {
         // Parsing MorphFrontend is adapted by the original typechef frontend
         runOpt = new FrontendOptionsWithConfigFiles()
+
         try {
             runOpt.parseOptions(args)
         } catch {
@@ -52,7 +53,12 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         processFile(runOpt)
     }
 
-    def parseOrLoadAST(file: String): (TranslationUnit, FeatureModel) = {
+    def parseOrLoadTUnit(toLoad: String): (TranslationUnit, FeatureModel) = {
+        val file = {
+            if (toLoad.startsWith("file")) toLoad.substring(5)
+            else toLoad
+        }
+        logger.info("Loading file: " + file)
         val opt = new FrontendOptionsWithConfigFiles()
         opt.parseOptions(file +: command)
 
@@ -61,8 +67,8 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
 
         val tunit = {
             if (runOpt.reuseAST && new File(opt.getSerializedTUnitFilename).exists())
-                loadSerializedAST(opt.getSerializedTUnitFilename)
-            else parseAST(fm, opt)
+                loadSerializedTUnit(opt.getSerializedTUnitFilename)
+            else parseTUnit(fm, opt)
         }
 
         if (tunit == null) {
@@ -83,7 +89,7 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         if (opt.writeBuildCondition) writeBuildCondition(opt.getFile)
 
         val linkInf = {
-            if (opt.refLink) new CLinking(opt.getLinkingInterfaceFile)
+            if (opt.refLink) new CModuleInterface(opt.getLinkingInterfaceFile)
             else null
         }
 
@@ -91,8 +97,8 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
 
             val tunit = {
                 if (opt.reuseAST && new File(opt.getSerializedTUnitFilename).exists())
-                    loadSerializedAST(opt.getSerializedTUnitFilename)
-                else parseAST(fm, opt)
+                    loadSerializedTUnit(opt.getSerializedTUnitFilename)
+                else parseTUnit(fm, opt)
             }
 
             if (tunit == null) {
@@ -144,13 +150,13 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         if (opt.writeDebugInterface)
             ts.debugInterface(interface, new File(opt.getDebugInterfaceFilename))
     }
-    private def parseAST(fm: FeatureModel, opt: FrontendOptions): TranslationUnit = {
+    private def parseTUnit(fm: FeatureModel, opt: FrontendOptions): TranslationUnit = {
         val parsingTime = new StopClock
         val parserMain = new ParserMain(new CParser(fm))
-        val ast = parserMain.parserMain(lex(opt), opt)
-        StatsJar.addStat(opt.getFile, Parsing, parsingTime.getTime)
+        val tUnit = parserMain.parserMain(lex(opt), opt)
+        StatsCan.addStat(opt.getFile, Parsing, parsingTime.getTime)
 
-        ast
+        tUnit
     }
     private def testBuildingAndTesting(ast: AST, fm: FeatureModel, opt: FrontendOptions) {
         val builder: Building = {
@@ -164,7 +170,7 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         logger.info("Can build " + new File(opt.getFile).getName + " : " + canBuild)
     }
     private def refactorEval(opt: FrontendOptions, tunit: TranslationUnit,
-                             fm: FeatureModel, linkInf: CLinking) {
+                             fm: FeatureModel, linkInf: CModuleInterface) {
         val caseStudy: Refactor = {
             if (opt.getRefStudy.equalsIgnoreCase("busybox")) BusyBoxRefactor
             else if (opt.getRefStudy.equalsIgnoreCase("openssl")) OpenSSLRefactor
@@ -187,7 +193,7 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         fw.close()
     }
 
-    private def loadSerializedAST(filename: String): TranslationUnit = {
+    private def loadSerializedTUnit(filename: String): TranslationUnit = {
         val fr = new ObjectInputStream(new GZIPInputStream(new FileInputStream(filename))) {
             override protected def resolveClass(desc: ObjectStreamClass) = { /*println(desc);*/ super.resolveClass(desc) }
         }
@@ -196,18 +202,18 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         ast
     }
 
-    private def prettyPrint(ast: AST, options: FrontendOptions) = {
+    private def prettyPrint(tunit: TranslationUnit, options: FrontendOptions) = {
         val filePath = options.getFile ++ ".pp"
         val file = new File(filePath)
         logger.info("Pretty printing to: " + file.getCanonicalPath)
-        val prettyPrinted = PrettyPrinter.print(ast).replace("definedEx", "defined")
+        val prettyPrinted = PrettyPrinter.print(tunit).replace("definedEx", "defined")
         val writer = new FileWriter(file, false)
         writer.write(addBuildCondition(filePath, prettyPrinted))
         writer.flush()
         writer.close()
     }
 
-    private def createAndShowGui(tunit: TranslationUnit, fm: FeatureModel, opts: FrontendOptions, linkInf: CLinking) = {
+    private def createAndShowGui(tunit: TranslationUnit, fm: FeatureModel, opts: FrontendOptions, linkInf: CModuleInterface) = {
         val morpheus = new Morpheus(tunit, fm, linkInf, opts.getFile)
         SwingUtilities.invokeLater(new Runnable {
             def run() {

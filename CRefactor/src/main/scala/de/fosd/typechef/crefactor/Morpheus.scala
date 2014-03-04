@@ -8,68 +8,52 @@ import de.fosd.typechef.featureexpr.FeatureModel
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem._
 import de.fosd.typechef.crefactor.evaluation.util.StopClock
-import de.fosd.typechef.crefactor.evaluation.StatsJar
-import de.fosd.typechef.crefactor.backend.CLinking
+import de.fosd.typechef.crefactor.evaluation.StatsCan
 import de.fosd.typechef.conditional.Opt
+import de.fosd.typechef.crefactor.backend.CModuleInterface
 
-class Morpheus(tunit: TranslationUnit, fm: FeatureModel, linkInterface: CLinking, file: String) extends Observable
-with CDeclUse with CTypeEnv with CEnvCache with CTypeCache with CTypeSystem with Logging {
+class Morpheus(tunit: TranslationUnit, fm: FeatureModel, moduleInterface: CModuleInterface, file: String)
+    extends Observable with Logging {
 
-    def this(tunit: TranslationUnit) = this(tunit, null, null, null)
     def this(tunit: TranslationUnit, fm: FeatureModel) = this(tunit, fm, null, null)
-    def this(tunit: TranslationUnit, file: String) = this(tunit, null, null, file)
     def this(tunit: TranslationUnit, fm: FeatureModel, file: String) = this(tunit, fm, null, file)
 
     private var tunitCached: TranslationUnit = tunit
-    private var astEnvCached: ASTEnv = CASTEnv.createASTEnv(tunit)
+    private var astEnvCached: ASTEnv = CASTEnv.createASTEnv(getTranslationUnit)
+    private var ts = new CTypeSystemFrontend(getTranslationUnit, getFM) with CTypeCache with CDeclUse
+
+    private val connectedIdsCache: java.util.IdentityHashMap[Id, List[Opt[Id]]] = new java.util.IdentityHashMap()
+
     private val typeCheck = new StopClock
+    getTypeSystem.typecheckTranslationUnit(getTranslationUnit)
+    private val typeCheckTime = typeCheck.getTime
 
-    typecheckTranslationUnit(tunit.asInstanceOf[TranslationUnit])
     if (file != null)
-        StatsJar.addStat(file, TypeCheck, typeCheck.getTime)
+        StatsCan.addStat(file, TypeCheck, typeCheckTime)
 
-    private val connectedIds: java.util.IdentityHashMap[Id, List[Opt[Id]]] = new java.util.IdentityHashMap()
+    def getDecls(id: Id): List[Id] = getEnforcedFmEntriesFromMap(id, getTypeSystem.getUseDeclMap)
+
+    def getUses(id: Id): List[Id] = getEnforcedFmEntriesFromMap(id, getTypeSystem.getDeclUseMap)
+
+    def getAllUses: List[Id] = getUseDeclMap.keys
+
+    def isInDeclUseMap(id: Id) = getDeclUseMap.containsKey(id)
+
+    def isInUseDeclMap(id: Id) = getUseDeclMap.containsKey(id)
 
     // determines linkage information between identifier uses and declares and vice versa
-    //
-    // decl-use information in typesystem are determined without the feature model
-    // solely on the basis of annotations in the source code
-    def linkage(id: Id): List[Opt[Id]] = {
-
-        val fExpId = astEnvCached.featureExpr(id)
-
-        def isAlreadyConnected(map: IdentityIdHashMap): Boolean = {
-            if (!map.containsKey(id))
-                return false
-
-            val existingConnectedList = map.get(id).filter(connectedIds.containsKey)
-            val connected = !existingConnectedList.isEmpty
-            if (connected)
-                connectedIds.put(id, connectedIds.get(existingConnectedList.head))
-
-            connected
-        }
-
-        if (connectedIds.containsKey(id)
-            || isAlreadyConnected(getUseDeclMap)      // use -> decl
-            || isAlreadyConnected(getDeclUseMap))     // decl -> use
-            return connectedIds.get(id)
+    def getReferences(id: Id): List[Opt[Id]] = {
+        if (connectedIdsCache.containsKey(id))
+            return connectedIdsCache.get(id)
 
         val visited = Collections.newSetFromMap[Id](new java.util.IdentityHashMap())
 
-        // we connect conn only if the feature
         def addToConnectedIdMap(conn: Id) = {
-
             visited.add(conn)
             val fExpConn = astEnvCached.featureExpr(conn)
-
-            if (fExpId and fExpConn isSatisfiable fm) {
-                if (connectedIds.containsKey(id))
-                    connectedIds.put(id, Opt(fExpConn, conn) :: connectedIds.get(id))
-                else connectedIds.put(id, List(Opt(fExpConn, conn)))
-            } else {
-                connectedIds.get(id)
-            }
+            if (connectedIdsCache.containsKey(id))
+                connectedIdsCache.put(id, Opt(fExpConn, conn) :: connectedIdsCache.get(id))
+            else connectedIdsCache.put(id, List(Opt(fExpConn, conn)))
 
         }
 
@@ -77,36 +61,33 @@ with CDeclUse with CTypeEnv with CEnvCache with CTypeCache with CTypeSystem with
         def addOccurrence(curId: Id) {
             if (!visited.contains(curId)) {
                 addToConnectedIdMap(curId)
-                if (getDeclUseMap.containsKey(curId))
-                    return getDeclUseMap.get(curId).foreach(use => {
-                        addToConnectedIdMap(use)
-                        if (getUseDeclMap.containsKey(use))
-                            getUseDeclMap.get(use).foreach(entry => addOccurrence(entry))
-                    })
+                getUses(curId).foreach(use => {
+                    addToConnectedIdMap(use)
+                    getDecls(use).foreach(addOccurrence)
+                })
             }
         }
 
-        if (getUseDeclMap.containsKey(id))
-            getUseDeclMap.get(id).foreach(addOccurrence)
+
+        if (isInUseDeclMap(id))
+            getDecls(id).foreach(addOccurrence)
         else
             addOccurrence(id)
 
-        connectedIds.get(id)
+        connectedIdsCache.get(id)
     }
 
-    //private var ts = new CTypeSystemFrontend(tunit.asInstanceOf[TranslationUnit], fm)
-    //ts.checkAST
     def update(tunit: TranslationUnit) {
+        connectedIdsCache.clear()
         tunitCached = tunit
-        astEnvCached = CASTEnv.createASTEnv(tunitCached)
-        //ts = new CTypeSystemFrontend(astCached.asInstanceOf[TranslationUnit], fm)
-        //ts.checkAST
-        typecheckTranslationUnit(tunit)
+        astEnvCached = CASTEnv.createASTEnv(getTranslationUnit)
+        ts = new CTypeSystemFrontend(getTranslationUnit, getFM) with CTypeCache with CDeclUse
+        getTypeSystem.typecheckTranslationUnit(getTranslationUnit)
         setChanged()
         notifyObservers()
     }
 
-    def getEnv(ast: AST) = lookupEnv(ast)
+    def getEnv(ast: AST) = getTypeSystem.lookupEnv(ast)
 
     def getTranslationUnit = tunitCached
 
@@ -116,5 +97,26 @@ with CDeclUse with CTypeEnv with CEnvCache with CTypeCache with CTypeSystem with
 
     def getFile = file
 
-    def getLinkInterface = linkInterface
+    def getModuleInterface = moduleInterface
+
+    def getTypeSystem = ts
+
+    // TODO make private and replace all references
+    def getDeclUseMap = getTypeSystem.getDeclUseMap
+
+    // TODO make private and replace all references
+    def getUseDeclMap = getTypeSystem.getUseDeclMap
+
+    // decl-use information in typesystem are determined without the feature model
+    // solely on the basis of annotations in the source code
+    private def getEnforcedFmEntriesFromMap(key: Id, map: IdentityIdHashMap): List[Id] = {
+        if (!map.containsKey(key))
+            List()
+        else
+            map.get(key).flatMap(entry => {
+                if (getASTEnv.featureExpr(entry) and getASTEnv.featureExpr(key) isSatisfiable getFM) Some(entry)
+                else None
+            })
+    }
+
 }

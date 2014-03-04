@@ -1,18 +1,23 @@
 package de.fosd.typechef.crefactor.backend
 
 import de.fosd.typechef.typesystem.{CType, CEnvCache}
-import de.fosd.typechef.crefactor.Morpheus
+import de.fosd.typechef.crefactor.{Logging, Morpheus}
 import org.kiama.rewriting.Rewriter._
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.crefactor.frontend.util.Selection
 import de.fosd.typechef.conditional._
 import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr}
+import de.fosd.typechef.typesystem.linker.SystemLinker
 
-trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation {
+trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation with EnforceTreeHelper with Logging {
 
     private val VALID_NAME_PATTERN = "[a-zA-Z_][a-zA-Z0-9_]*"
 
-    private val LANGUAGE_KEYWORDS = List("auto", "break", "case", "char", "const", "continue", "default", "do", "double", "else", "enum", "extern", "float", "for", "goto", "if", "inline", "int", "long", "register", "restrict", "return", "short", "signed", "sizeof", "static", "struct", "switch", "typedef", "union", "unsigned", "void", "volatile", "while", "_Alignas", "_Alignof", "_Atomic", "_Bool", "_Complex", "_Generic", "_Imaginary", "_Noreturn", "_Static_assert", "_Thread_local")
+    private val LANGUAGE_KEYWORDS = List("auto", "break", "case", "char", "const", "continue", "default",
+        "do", "double", "else", "enum", "extern", "float", "for", "goto", "if", "inline", "int", "long",
+        "register", "restrict", "return", "short", "signed", "sizeof", "static", "struct", "switch",
+        "typedef", "union", "unsigned", "void", "volatile", "while", "_Alignas", "_Alignof", "_Atomic",
+        "_Bool", "_Complex", "_Generic", "_Imaginary", "_Noreturn", "_Static_assert", "_Thread_local")
 
     def isAvailable(morpheus: Morpheus, selection: Selection): Boolean
 
@@ -23,14 +28,19 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
      * @return <code>true</code> if valid, <code>false</code> if not
      */
     def isValidId(name: String): Boolean =
-        name.matches(VALID_NAME_PATTERN) && !name.startsWith("__") && !isReservedLanguageKeyword(name)
+        (name.matches(VALID_NAME_PATTERN)
+            && !name.startsWith("__")
+            && !isReservedLanguageKeyword(name)
+            && !isSystemLinkedName(name))
 
-    def isLinked(name: String, morpheus: Morpheus): Boolean =
-        (morpheus.getLinkInterface != null) && morpheus.getLinkInterface.isListed(name)
+    def isSystemLinkedName(name: String) = SystemLinker.allLibs.par.contains(name)
 
-    def generateValidNewName(id: Id, stmt: Opt[AST], morph: Morpheus, appendix: Int = 1): String = {
+    def isValidInProgram(name: Opt[String], morpheus: Morpheus): Boolean =
+        (morpheus.getModuleInterface != null) && morpheus.getModuleInterface.isListed(name, morpheus.getFM)
+
+    def generateValidNewName(id: Id, stmt: Opt[AST], morpheus: Morpheus, appendix: Int = 1): String = {
         val newName = id.name + "_" + appendix
-        if (isShadowed(newName, stmt.entry, morph)) generateValidNewName(id, stmt, morph, appendix + 1)
+        if (isValidInModule(newName, stmt.entry, morpheus)) generateValidNewName(id, stmt, morpheus, appendix + 1)
         else newName
     }
 
@@ -63,14 +73,15 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
     def buildVariableCompoundStatement(stmts: List[(CompoundStatementExpr, FeatureExpr)]): CompoundStatementExpr = {
         // move several compoundStatement into one and apply their feature.
         val innerstmts = stmts.foldLeft(List[Opt[Statement]]())((innerstmts, stmtEntry) => stmtEntry._1 match {
-            case CompoundStatementExpr(CompoundStatement(inner)) => innerstmts ::: inner.map(stmt => stmt.copy(feature = stmt.feature.and(stmtEntry._2)))
+            case CompoundStatementExpr(CompoundStatement(inner)) =>
+                innerstmts ::: inner.map(stmt => stmt.copy(feature = stmt.feature.and(stmtEntry._2)))
             case _ => innerstmts
         })
         CompoundStatementExpr(CompoundStatement(innerstmts))
     }
 
 
-    def isShadowed(name: String, element: AST, morpheus: Morpheus): Boolean = {
+    def isValidInModule(name: String, element: AST, morpheus: Morpheus): Boolean = {
         val lookupValue = findPriorASTElem[CompoundStatement](element, morpheus.getASTEnv) match {
             case Some(x) => x.innerStatements.last.entry
             case _ => morpheus.getTranslationUnit.defs.last.entry
@@ -100,7 +111,15 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
      */
     def replaceIds[T <: Product](t: T, ids: List[Id], newName: String): T = {
         val r = manybu(rule {
-            case id: Id => if (ids.exists(isPartOf(id, _))) id.copy(name = newName) else id
+            case id: Id => if (ids.exists(isPartOf(id, _))) {
+                val copiedId = id.copy(name = newName)
+                val orgPosRange = id.range
+                orgPosRange match {
+                    case Some(range) => copiedId.setPositionRange(range._1, range._2)
+                    case _ =>
+                }
+                copiedId
+            } else id
             case x => x
         })
         r(t).get.asInstanceOf[T]
@@ -164,7 +183,6 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
     // TODO toRemove; I'm not sure whether the function signature reflects its purpose!
     //                Second and third T should be different!
     def replaceInAST[T <: Product](t: T, e: T, n: T)(implicit m: Manifest[T]): T = {
-        println("start replace")
         val r = manybu(rule {
             case i: T => if (isPartOf(i, e)) n else i
         })
@@ -201,20 +219,23 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
         })
     }
 
-    def insertBefore(l: List[Opt[Statement]], mark: Opt[Statement], insert: Opt[Statement]) = l.foldLeft(List[Opt[Statement]]())((nl, s) => {
-        if (mark.eq(s)) insert :: s :: nl
-        else s :: nl
-    }).reverse
+    def insertBefore(l: List[Opt[Statement]], mark: Opt[Statement], insert: Opt[Statement]) =
+        l.foldLeft(List[Opt[Statement]]())((nl, s) => {
+            if (mark.eq(s)) insert :: s :: nl
+            else s :: nl
+        }).reverse
 
-    def insertRefactoredAST(morpheus: Morpheus, callCompStmt: CompoundStatement, workingCallCompStmt: CompoundStatement): TranslationUnit = {
+    def insertRefactoredAST(morpheus: Morpheus, callCompStmt: CompoundStatement,
+                            workingCallCompStmt: CompoundStatement): TranslationUnit = {
         val parent = parentOpt(callCompStmt, morpheus.getASTEnv)
         parent.entry match {
-            case f: FunctionDef => replaceInASTOnceTD(morpheus.getTranslationUnit, parent, parent.copy(entry = f.copy(stmt = workingCallCompStmt)))
+            case f: FunctionDef => replaceInASTOnceTD(morpheus.getTranslationUnit, parent,
+                parent.copy(entry = f.copy(stmt = workingCallCompStmt)))
             case c: CompoundStatement => replaceInAST(morpheus.getTranslationUnit, c,
                 c.copy(innerStatements = workingCallCompStmt.innerStatements))
                 .asInstanceOf[TranslationUnit]
             case x =>
-                assert(false, "Something bad happend - i am going to cry, i missed: " + x)
+                assert(false, "Something bad happened; missing: " + x)
                 morpheus.getTranslationUnit
         }
     }
