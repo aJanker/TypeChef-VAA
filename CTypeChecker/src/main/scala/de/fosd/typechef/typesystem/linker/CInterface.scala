@@ -64,6 +64,37 @@ case class CInterface(
         isPacked = true;
         this
     }
+
+    /**
+     * removes duplicates by joining the corresponding conditions
+     * removes False imports
+     *
+     * two elements are duplicate if they have the same name and type
+     *
+     * exports are not packed beyond removing False exports.
+     * duplicate exports are used for error detection
+     */
+    def packWithOutElimination: CInterface = if (isPacked) this
+    else
+        CInterface(featureModel, importedFeatures -- declaredFeatures, declaredFeatures,
+            eliminateImportDuplicates, packExports).setPacked
+
+
+    private def eliminateImportDuplicates = {
+        var importMap = Map[(String, CType, Set[CFlag]), (FeatureExpr, Seq[Position])]()
+
+        //eliminate duplicates with a map
+        for (imp <- imports if ((featureModel and imp.fexpr).isSatisfiable())) {
+            val key = (imp.name, imp.ctype, imp.extraFlags)
+            val old = importMap.getOrElse(key, (False, Seq()))
+            importMap = importMap + (key ->(old._1 or imp.fexpr, old._2 ++ imp.pos))
+        }
+        
+        val r = for ((k, v) <- importMap.iterator)
+        yield CSignature(k._1, k._2, v._1, v._2, k._3)
+        r.toSeq
+    }
+    
     private def packImports: Seq[CSignature] = {
         var importMap = Map[(String, CType, Set[CFlag]), (FeatureExpr, Seq[Position])]()
 
@@ -129,6 +160,15 @@ case class CInterface(
             this.imports ++ that.imports,
             this.exports ++ that.exports
         ).pack
+
+    def linkWithOutElimination(that: CInterface): CInterface =
+        CInterface(
+            this.featureModel and that.featureModel and inferConstraintsWith(that),
+            this.importedFeatures ++ that.importedFeatures,
+            this.declaredFeatures ++ that.declaredFeatures,
+            this.imports ++ that.imports,
+            this.exports ++ that.exports
+        ).packWithOutElimination
 
     /** links without proper checks and packing. only for debugging purposes **/
     def debug_join(that: CInterface): CInterface =
