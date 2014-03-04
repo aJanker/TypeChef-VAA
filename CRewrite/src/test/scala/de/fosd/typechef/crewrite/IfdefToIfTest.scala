@@ -41,7 +41,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     val busyBoxFmPath = "../Typechef-BusyboxAnalysis/"
     val linuxPath = "../TypeChef-LinuxAnalysis"
     val ifdeftoifTestPath = new File(".").getCanonicalPath() ++ "/CRewrite/src/test/resources/ifdeftoif_testfiles/"
-
+    val True = FeatureExprFactory.True
     /* val tb = java.lang.management.ManagementFactory.getThreadMXBean
   val time = tb.getCurrentThreadCpuTime // Type long; beware in nanoseconds */
 
@@ -1800,6 +1800,22 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     @Test def random_test() {
         val config = new File(busyBoxFmPath + "BusyBoxDefConfig.config")
         println(PrettyPrinter.print(i.getConfigStruct(config, FeatureExprLib.featureModelFactory().createFromDimacsFile_2Var(busyBoxFmPath + "BB_fm.dimacs"))))
+
+        val a = FeatureExprFactory.createDefinedExternal("A")
+        val b = FeatureExprFactory.createDefinedExternal("B")
+        val c = FeatureExprFactory.createDefinedExternal("C")
+        val ab = a.and(b)
+        val anb = a.and(b.not())
+        val nab = a.not().and(b)
+        val nanb = a.not().and(b.not())
+        val list = List(List(a, a.not()), List(a, nab, nanb.and(c), nanb.and(c.not())), List(c, c.not()), List(a, a.not()))
+        println(i.computeCarthesianProduct(list, True))
+    }
+
+    @Test def exponential_params() {
+        val paramDecl = Declaration(List(Opt(True, StaticSpecifier()), Opt(True, ConstSpecifier()), Opt(True, CharSpecifier())), List(Opt(True, InitDeclaratorI(AtomicNamedDeclarator(List(), Id("params"), List(Opt(True, DeclArrayAccess(None)))), List(Opt(True, GnuAttributeSpecifier(List(Opt(True, AttributeSequence(List(Opt(True, AtomicAttribute("aligned")), Opt(True, CompoundAttribute(List(Opt(True, AttributeSequence(List(Opt(True, AtomicAttribute("1"))))))))))))))), Some(Initializer(None, StringLit(List(Opt(True, "-a\0"), Opt(True, "-o\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_NOT"), "!\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_DESKTOP"), "-and\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_DESKTOP"), "-or\0"), Opt((FeatureExprFactory.createDefinedExternal("CONFIG_DESKTOP") & FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_NOT")), "-not\0"), Opt(True, "-print\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_PRINT0"), "-print0\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_DEPTH"), "-depth\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_PRUNE"), "-prune\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_DELETE"), "-delete\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_EXEC"), "-exec\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_PAREN"), "(\0"), Opt(True, "-name\0"), Opt(True, "-iname\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_PATH"), "-path\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_REGEX"), "-regex\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_TYPE"), "-type\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_PERM"), "-perm\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_MTIME"), "-mtime\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_MMIN"), "-mmin\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_NEWER"), "-newer\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_INUM"), "-inum\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_USER"), "-user\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_GROUP"), "-group\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_SIZE"), "-size\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_CONTEXT"), "-context\0"), Opt(FeatureExprFactory.createDefinedExternal("CONFIG_FEATURE_FIND_LINKS"), "-links\0")))))))))
+        val ast = TranslationUnit(List(Opt(True, paramDecl)))
+        println(testAst(ast))
     }
 
     @Test def test_statements() {
