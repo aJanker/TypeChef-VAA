@@ -74,14 +74,18 @@ trait DefaultRename extends Refactoring with Evaluation {
             }
 
             // TODO Fix Bug in OpenSSL for functions without body
+            // TODO @andreas: I don't get why isWritable is called here again? We check this property already in CRenameIdentifier!
             def isWritable(id: Id): Boolean =
                 morpheus.getReferences(id).map(_.entry).forall(i =>
-                    isValidId(i) && (i.getFile.get.replaceFirst("file ", "").equalsIgnoreCase(morpheus.getFile) || new File(i.getFile.get.replaceFirst("file ", "")).canWrite))
+                    isValidId(i) &&
+                        (i.getFile.get.replaceFirst("file ", "").equalsIgnoreCase(morpheus.getFile) ||
+                            new File(i.getFile.get.replaceFirst("file ", "")).canWrite))
 
             val allIds = morpheus.getAllUses
             val linkedIds = if (FORCE_LINKING && moduleInterface != null)
                 allIds.par.filter(id => moduleInterface.isListed(Opt(parentOpt(id, morpheus.getASTEnv).feature, id.name), morpheus.getFM))
             else allIds
+
             val ids = if (linkedIds.isEmpty) allIds else linkedIds
 
             logger.info("Run " + run + ": IDs found: " + ids.size)
@@ -95,9 +99,14 @@ trait DefaultRename extends Refactoring with Evaluation {
                 return null
             }
 
-            def getRandomID(depth : Int = 0) : Id = {
+            // TODO: @andreas: What is the purpose of depth? It is never used in the code apart from counting up!
+            def getRandomID(depth: Int = 0): Id = {
                 if (FORCE_VARIABILITY && variableIds.size < depth) return null
-                val randID = if (FORCE_VARIABILITY && variableIds.nonEmpty) variableIds.apply((math.random * variableIds.size).toInt) else nonRefactoredIds.apply((math.random * ids.size).toInt)
+                val randID = if (FORCE_VARIABILITY && variableIds.nonEmpty)
+                                 variableIds.apply((math.random * variableIds.size).toInt)
+                             else
+                                 nonRefactoredIds.apply((math.random * ids.size).toInt)
+
                 if (isWritable(randID)) randID
                 else getRandomID(depth + 1)
             }
@@ -114,21 +123,27 @@ trait DefaultRename extends Refactoring with Evaluation {
 
         val time = new StopClock
         val toRename = getVariableIdToRename
-        if (toRename == null) return (false, null, List(), List())
+        if (toRename == null)
+            return (false, null, List(), List())
+
         val determineTime = time.getTime
         logger.info("Run " + run + ": Time to determine id: " + time.getTime)
         StatsCan.addStat(morpheus.getFile, run, RandomRefactorDeterminationTime, determineTime)
         val id = toRename._1
         StatsCan.addStat(morpheus.getFile, run, RenamedId, id.name)
 
-        val refactorChain = if (moduleInterface != null) getLinkedFilesToRefactor(moduleInterface, id)
-        else List()
+        val refactorChain = if (moduleInterface != null)
+                                getLinkedFilesToRefactor(moduleInterface, id)
+                            else List()
 
-        if (refactorChain == null) return (false, null, List(), List())
+        if (refactorChain == null)
+            return (false, null, List(), List())
+
         if (!refactorChain.isEmpty) {
             renameLink + name
             logger.info("Run " + run + ": Is linked.")
-        } else logger.info("Run " + run + ": Is not linked.")
+        } else
+            logger.info("Run " + run + ": Is not linked.")
 
         val features = toRename._3
         StatsCan.addStat(morpheus.getFile, run, AffectedFeatures, features)
@@ -179,8 +194,8 @@ trait DefaultRename extends Refactoring with Evaluation {
     }
 
 
-    private def getLinkedFilesToRefactor(modulInterface: CModuleInterface, id: Id): List[(Morpheus, Position)] = {
-        val linked = modulInterface.getPositions(id.name)
+    private def getLinkedFilesToRefactor(cmif: CModuleInterface, id: Id): List[(Morpheus, Position)] = {
+        val linked = cmif.getPositions(id.name)
         val affectedFiles = linked.foldLeft(new mutable.HashMap[String, Position])((map, pos) => map += (pos.getFile -> pos))
         val refactorChain = affectedFiles.foldLeft(List[(Morpheus, Position)]())((list, entry) => {
             if (blackListFiles.exists(getFileName(entry._1).equalsIgnoreCase)) {
@@ -200,6 +215,8 @@ trait DefaultRename extends Refactoring with Evaluation {
     }
 
     private def addType(ids: List[Opt[Id]], morpheus: Morpheus, run: Int) = {
+
+        // TODO: @andreas What is foundTypes used for?
         val foundTypes = mutable.Set[String]()
 
         def addChoice(c: Choice[_], id: Id, ft: FeatureExpr = FeatureExprFactory.True): Unit = {
@@ -239,6 +256,7 @@ trait DefaultRename extends Refactoring with Evaluation {
                 morpheus.getEnv(id.entry).varEnv.lookup(id.entry.name) match {
                     case o@One(_) => addOne(o, id.entry)
                     case c@Choice(_, _, _) => addChoice(c, id.entry)
+                    // TODO: @andreas "case x" is never reached because lookup returns Conditionals only.
                     case x => logger.warn("Missed pattern choice? " + x)
                 }
             } catch {
