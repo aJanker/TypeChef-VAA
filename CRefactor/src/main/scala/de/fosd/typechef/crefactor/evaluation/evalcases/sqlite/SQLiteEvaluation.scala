@@ -11,6 +11,7 @@ trait SQLiteEvaluation extends Evaluation with ASTNavigation with ConditionalNav
     val caseStudyPath = "../cRefactor-SQLiteTH3Evaluation/"
     val completePath = new File(caseStudyPath).getCanonicalPath
     val filesToEval: String = completePath + "/sqlite_files"
+    val evalFiles = getEvaluationFiles
     val blackListFiles: List[String] = List()
     val blackListIds: List[String] = List()
     val sourcePath = completePath + "/" + evalName + "/"
@@ -21,6 +22,7 @@ trait SQLiteEvaluation extends Evaluation with ASTNavigation with ConditionalNav
     val allFeaturesFile = null
     val allFeatures = null
     val pairWiseFeaturesFile = null
+    val existingConfigsDir: String = completePath + "/existing_configs/"
 
     val featureModel: String = completePath + "/fm.txt"
     val featureModel_DIMACS: String = completePath + "/sqlite.dimacs"

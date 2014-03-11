@@ -11,6 +11,7 @@ trait OpenSSLEvaluation extends Evaluation with ASTNavigation with ConditionalNa
     val caseStudyPath = "../cRefactor-OpenSSLEvaluation/"
     val completePath = new File(caseStudyPath).getCanonicalPath
     val filesToEval: String = completePath + "/openssl_files"
+    val evalFiles = getEvaluationFiles
     val blackListFiles: List[String] = List()
     val blackListIds: List[String] = List()
     //Source.fromFile(getClass.getResource("/openssl_id_blacklist").getFile).getLines().toList
@@ -23,6 +24,7 @@ trait OpenSSLEvaluation extends Evaluation with ASTNavigation with ConditionalNa
     val allFeaturesFile = null
     val allFeatures = null
     val pairWiseFeaturesFile = sourcePath + "/openssl_pairwise_configs.csv"
+    val existingConfigsDir: String = completePath + "/existing_configs/"
 
     val featureModel: String = sourcePath + "/featuremodel"
     val featureModel_DIMACS: String = sourcePath + "/OpenSSL.dimacs"

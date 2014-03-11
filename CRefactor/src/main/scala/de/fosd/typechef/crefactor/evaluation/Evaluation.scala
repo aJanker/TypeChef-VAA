@@ -14,6 +14,7 @@ import de.fosd.typechef.conditional.Choice
 import de.fosd.typechef.parser.c.Id
 import de.fosd.typechef.conditional.Opt
 import de.fosd.typechef.typesystem.linker.SystemLinker
+import java.util
 
 trait Evaluation extends Logging with BuildCondition with ASTNavigation with ConditionalNavigation {
 
@@ -21,6 +22,7 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
     val caseStudyPath: String
     val completePath: String
     val filesToEval: String
+    val evalFiles: List[String]
     val blackListFiles: List[String]
     val blackListIds: List[String]
     val sourcePath: String
@@ -31,6 +33,7 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
     val allFeaturesFile: String
     val allFeatures: (List[SingleFeatureExpr], IdentityHashMap[String, String])
     val pairWiseFeaturesFile: String
+    val existingConfigsDir: String
 
     val featureModel: String
     val featureModel_DIMACS: String
@@ -39,6 +42,8 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
 
     val FORCE_VARIABILITY: Boolean
     val FORCE_LINKING: Boolean
+
+    val maxConfigs: Int = 100
 
 
     /**
@@ -321,11 +326,12 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
     }
 
     def writePrettyPrintedTUnit(ast: AST, filePath: String) {
+        val path = removeFilePrefix(filePath)
         logger.info("Pretty printing to: " + filePath)
-        val file = new File(filePath)
+        val file = new File(path)
         val prettyPrinted = PrettyPrinter.print(ast).replace("definedEx", "defined")
         val writer = new FileWriter(file, false)
-        writer.write(addBuildCondition(filePath, prettyPrinted))
+        writer.write(addBuildCondition(path, prettyPrinted))
         writer.flush()
         writer.close()
     }
@@ -376,25 +382,9 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
         out.close()
     }
 
-    def writeConfig(config: Set[SingleFeatureExpr], dir: File, name: String): Unit = writeConfig(config.toList, dir, name)
-
-    def writeConfig(config: List[SingleFeatureExpr], dir: File, name: String) {
-        val out = new java.io.FileWriter(dir.getCanonicalPath + File.separatorChar + name)
-        val disabledFeatures = allFeatures._1.diff(config)
-        config.foreach(feature => {
-            val ft = feature.feature
-            out.write(ft + "=y")
-            out.write("\n")
-        })
-        disabledFeatures.foreach(feature => {
-            val ft = feature.feature
-            if (allFeatures._2.containsKey(feature.feature)) out.write(ft + "=" + allFeatures._2.get(feature.feature))
-            else out.write("# " + ft + " is not set")
-            out.write("\n")
-        })
-        out.flush()
-        out.close()
-    }
+    def removeFilePrefix(originalFilePath: String) =
+        if (originalFilePath.startsWith("file")) originalFilePath.substring(5)
+        else originalFilePath
 
     def getFileName(originalFilePath: String) = originalFilePath.substring(originalFilePath.lastIndexOf(File.separatorChar), originalFilePath.length).replace("/", "")
 
@@ -412,23 +402,11 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
         result
     }
 
-    def getAllRelevantIds(a: Any): List[Id] = {
-        a match {
-            case id: Id => if (!(id.name.startsWith("__builtin"))) List(id) else List()
-            case gae: GnuAsmExpr => List()
-            case l: List[_] => l.flatMap(x => getAllRelevantIds(x))
-            case p: Product => p.productIterator.toList.flatMap(x => getAllRelevantIds(x))
-            case k => List()
-        }
-    }
-
-    def analsyeDeclUse(map: IdentityHashMap[Id, List[Id]]): List[Int] = map.keySet().toArray(Array[Id]()).map(key => map.get(key).length).toList
-
-    def getBusyBoxFiles: List[String] = {
+    def getEvaluationFiles: List[String] = {
         def readIn(reader: BufferedReader): List[String] = {
             reader.readLine() match {
                 case null => List()
-                case x => List(x + ".c").:::(readIn(reader))
+                case x => List(getFileName(x + ".c")).:::(readIn(reader))
             }
         }
         val reader = new BufferedReader(new FileReader(filesToEval))
