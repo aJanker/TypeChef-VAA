@@ -94,7 +94,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         print("--Parsed--")
 
         val startTransformation = System.currentTimeMillis()
-        val new_ast = i.transformAst(prepareAST(source_ast), defUseMap, useDefMap, timeToParseAndTypeCheck)
+        val new_ast = i.transformAst(source_ast, defUseMap, useDefMap, timeToParseAndTypeCheck)
         val timeToTransform = System.currentTimeMillis() - startTransformation
         print("\t--Transformed--")
 
