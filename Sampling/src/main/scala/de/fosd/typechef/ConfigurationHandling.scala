@@ -11,7 +11,7 @@ import de.fosd.typechef.conditional._
 
 object ConfigurationHandling {
     def loadConfigurationsFromCSVFile(csvFile: File, dimacsFile: File,
-                                              ff: FileFeatures, fm: FeatureModel, fnamePrefix: String = ""):
+                                              ff: KnownFeatures, fm: FeatureModel, fnamePrefix: String = ""):
     (List[SimpleConfiguration], String) = {
         var retList: List[SimpleConfiguration] = List()
 
@@ -92,7 +92,7 @@ object ConfigurationHandling {
         (retList, "Generated Configs: " + retList.size + "\n")
     }
 
-    def loadConfigurationFromKconfigFile(ff: FileFeatures, fm: FeatureModel,
+    def loadConfigurationFromKconfigFile(ff: KnownFeatures, fm: FeatureModel,
                                          file: File): (List[SimpleConfiguration], String) = {
         val features = ff.features
         val correctFeatureModelIncompatibility = false
@@ -242,7 +242,7 @@ object ConfigurationHandling {
 
 
 
-    def buildConfigurationsSingleConf(tunit: TranslationUnit, ff: FileFeatures, fm: FeatureModel,
+    def buildConfigurationsSingleConf(tunit: TranslationUnit, ff: KnownFeatures, fm: FeatureModel,
                                       opt: FamilyBasedVsSampleBasedOptions, configDir: File,
                                       caseStudy: String, extasks: List[Task]): (String, List[Task]) = {
         var tasks: List[Task] = List()
@@ -275,7 +275,7 @@ object ConfigurationHandling {
         (log, tasks)
     }
 
-    def buildConfigurationsPairwise(tunit: TranslationUnit, ff: FileFeatures, fm: FeatureModel,
+    def buildConfigurationsPairwise(tunit: TranslationUnit, ff: KnownFeatures, fm: FeatureModel,
                                     opt: FamilyBasedVsSampleBasedOptions, configDir: File,
                                     caseStudy: String, extasks: List[Task]): (String, List[Task]) = {
         var tasks: List[Task] = List()
@@ -323,7 +323,7 @@ object ConfigurationHandling {
         (log, tasks)
     }
 
-    def buildConfigurationsCodecoverageNH(tunit: TranslationUnit, ff: FileFeatures, fm: FeatureModel,
+    def buildConfigurationsCodecoverageNH(tunit: TranslationUnit, ff: KnownFeatures, fm: FeatureModel,
                                           configDir: File, caseStudy: String, extasks: List[Task])
     : (String, List[Task]) = {
         var tasks: List[Task] = List()
@@ -346,7 +346,7 @@ object ConfigurationHandling {
         (log, tasks)
     }
 
-    def buildConfigurationsCodecoverage(tunit: TranslationUnit, ff: FileFeatures, fm: FeatureModel,
+    def buildConfigurationsCodecoverage(tunit: TranslationUnit, ff: KnownFeatures, fm: FeatureModel,
                                                 configDir: File, caseStudy: String, extasks: List[Task])
     : (String, List[Task]) = {
         var tasks: List[Task] = List()
@@ -390,7 +390,7 @@ object ConfigurationHandling {
      *                                          This corresponds to the view of the developer of a ".c" file.
      * @return
      */
-    def configurationCoverage(astRoot: TranslationUnit, fm: FeatureModel, ff: FileFeatures,
+    def configurationCoverage(astRoot: TranslationUnit, fm: FeatureModel, ff: KnownFeatures,
                               existingConfigs: List[SimpleConfiguration] = List(), preferDisabledFeatures: Boolean,
                               includeVariabilityFromHeaderFiles: Boolean = false):
     (List[SimpleConfiguration], String) = {
@@ -555,7 +555,7 @@ object ConfigurationHandling {
      * @param model input feature model
      * @return
      */
-    private def completeConfiguration(expr: FeatureExpr, ff: FileFeatures, model: FeatureModel,
+    private def completeConfiguration(expr: FeatureExpr, ff: KnownFeatures, model: FeatureModel,
                               preferDisabledFeatures: Boolean = false):
     SimpleConfiguration = {
         expr.getSatisfiableAssignment(model, ff.features.toSet, preferDisabledFeatures) match {
