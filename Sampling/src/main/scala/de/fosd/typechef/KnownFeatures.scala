@@ -7,7 +7,7 @@ import de.fosd.typechef.featureexpr.SingleFeatureExpr
 import de.fosd.typechef.parser.c.TranslationUnit
 import de.fosd.typechef.conditional.{Choice, Opt}
 
-trait FileFeatures extends scala.Serializable {
+trait KnownFeatures extends scala.Serializable {
 
     /** List of all features found in the currently processed file (tunit) or config */
     val features: List[SingleFeatureExpr]
@@ -17,11 +17,11 @@ trait FileFeatures extends scala.Serializable {
         new HashMap[SingleFeatureExpr, Int]().++(features.zipWithIndex)
 }
 
-class ConfigFeatures(val features: List[SingleFeatureExpr]) extends scala.Serializable with FileFeatures {
+class ConfigFeatures(val features: List[SingleFeatureExpr]) extends scala.Serializable with KnownFeatures {
 
 }
 
-class TUnitFeatures(@transient val tunit: TranslationUnit) extends scala.Serializable with FileFeatures {
+class TUnitFeatures(@transient val tunit: TranslationUnit) extends scala.Serializable with KnownFeatures {
 
     /** List of all features found in the currently processed file (tunit) */
     val features: List[SingleFeatureExpr] = getAllFeatures
