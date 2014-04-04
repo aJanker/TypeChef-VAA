@@ -2,7 +2,7 @@ package de.fosd.typechef.crefactor.evaluation.defaultEngines
 
 import de.fosd.typechef.crefactor.evaluation._
 import de.fosd.typechef.crefactor.{CRefactorFrontend, Morpheus}
-import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr}
+import de.fosd.typechef.featureexpr.FeatureExpr
 import de.fosd.typechef.crefactor.backend.engine.CRenameIdentifier
 import de.fosd.typechef.crefactor.evaluation.util.StopClock
 import de.fosd.typechef.crefactor.evaluation.Stats._
@@ -13,13 +13,13 @@ import de.fosd.typechef.typesystem._
 import de.fosd.typechef.conditional._
 import java.util
 import scala.Some
-import de.fosd.typechef.conditional.Choice
 import de.fosd.typechef.parser.c.TranslationUnit
 import de.fosd.typechef.typesystem.CUnknown
 import de.fosd.typechef.typesystem.CFunction
 import de.fosd.typechef.conditional.One
 import de.fosd.typechef.parser.c.Id
 import de.fosd.typechef.conditional.Opt
+import scala.util.Random
 
 
 trait DefaultRename extends Refactoring with Evaluation {
@@ -73,7 +73,7 @@ trait DefaultRename extends Refactoring with Evaluation {
             def isValidId(id: Id): Boolean = !id.name.contains("_main") && !isSystemLinkedName(id.name) && {
                 if (moduleInterface != null) !(moduleInterface.isBlackListed(id.name) || renameLink.contains(id.name))
                 else true
-            }
+            }  && !isExternalDeclWithNoLinkingInformation(id, morpheus)
 
             // TODO Fix Bug in OpenSSL for functions without body
             // We check the writable property here already in order to maximize the number of possible refactorings.
@@ -101,27 +101,20 @@ trait DefaultRename extends Refactoring with Evaluation {
                 return null
             }
 
-            // TODO: @andreas: What is the purpose of depth? It is never used in the code apart from counting up!
-            // @jl It is used in line 107: it makes sure that in case of forced variability the id determination ends after
-            // the amount of variable ids retries is reached and no valid id is found - otherwise it would run forever
-            // @andreas: Ok missed that one. In the worst ase, we always get the same randID and check that it is not
-            // writable. I'd rather see that we shuffle the list upfront and then only take elements one-by-one from it,
-            // until the list is empty and then resort to nonRefactoredIds. Maybe use function shuffle of the random class
-            // http://www.scala-lang.org/api/2.10.3/index.html#scala.util.Random$
-            // @jl i will rewrite this function.
-            def getRandomID(depth: Int = 0): Id = {
-                if (FORCE_VARIABILITY && variableIds.size < depth)
-                    return null
-                val randID = if (FORCE_VARIABILITY && variableIds.nonEmpty)
-                                 variableIds.apply((math.random * variableIds.size).toInt)
-                             else
-                                 nonRefactoredIds.apply((math.random * ids.size).toInt)
+            val randomIDs =
+                if (FORCE_VARIABILITY) Random.shuffle(variableIds.toList)
+                else Random.shuffle(nonRefactoredIds.toList)
 
-                if (isWritable(randID)) randID
-                else getRandomID(depth + 1)
+            def getRandomID(randomIds : List[Id]) : Id = {
+                randomIDs match {
+                    case Nil => null
+                    case headId :: tail =>
+                        if (isWritable(headId)) headId
+                        else getRandomID(tail)
+                }
             }
 
-            val id = getRandomID()
+            val id = getRandomID(randomIDs)
 
             if (id == null)
                 return null
@@ -237,75 +230,27 @@ trait DefaultRename extends Refactoring with Evaluation {
     }
 
     private def addType(ids: List[Opt[Id]], morpheus: Morpheus, run: Int) = {
-
-        // TODO @andreas: I do not have the experience, but using a set here does not allow us to count the number of
-        // occurrences right? Is it possible that more than one Function is affected at a time?
-        val foundTypes = mutable.Set[String]()
-
-        // TODO @andreas: There is a lot of duplicated code here
-        // @JL i will rewrite this code.
-        // Maybe rewrite the code to
-        // def addConditional(c: Conditional[_], id: Id, ft: FeatureExpr = FeatureExprFactory.True): Unit = {
-        //  c match {
-        //     case Choice(cft, tb, eb) => addConditional(tb, id); addConditional(eb, id, cft.not())
-        //     case One => // code from below.
-        // Alternatively, use ConditionalLib.items to get a list of featureExpr/type and reason about it afterwards.
-        // Anyhow, the could would be a lot easier afterwards.
-
-        // determine types of affected AST elems
-        // replaces addChoice and addOne
-        def traverseTypesAndCount(c: Conditional[_], id: Id): Unit = {
+        def traverseTypesAndCount(c: Conditional[_], id: Id) = {
             val tautTypes = ConditionalLib.items(c).filter { entry => entry._1.isTautology(morpheus.getFM) }
-            tautTypes.map(_._2).foreach {
-                case o@One((CUnknown(_), _, _)) => logger.warn("Unknown Type " + id + " " + o)
-                case One((CFunction(_, _), _, _)) => foundTypes + "FunctionName"
-                case One((CType(CFunction(_, _), _, _, _), _, _, _)) => foundTypes + "FunctionName"
-                case One((_, KEnumVar, _, _)) => foundTypes + "Enum"
-                case One((CType(_, _, _, _), _, _, _)) => foundTypes + "Variable"
-                case o => logger.warn("Unknown Type " + id + " " + o)
-            }
+            tautTypes.map(_._2).flatMap({
+                case o@One((CUnknown(_), _, _)) =>
+                    logger.warn("Unknown Type " + id + " " + o)
+                    None
+                case One((CFunction(_, _), _, _)) => Some("FunctionName")
+                case One((CType(CFunction(_, _), _, _, _), _, _, _)) => Some("FunctionName")
+                case One((_, KEnumVar, _, _)) => Some("Enum")
+                case One((CType(_, _, _, _), _, _, _)) => Some("Variable")
+                case o =>
+                    logger.warn("Unknown Type " + id + " " + o)
+                    None
+            })
         }
-
-        def addChoice(c: Choice[_], id: Id, ft: FeatureExpr = FeatureExprFactory.True): Unit = {
-            c match {
-                case Choice(cft, o1@One(_), o2@One(_)) =>
-                    addOne(o1, id)
-                    addOne(o2, id, cft.not())
-                case Choice(cft, c1@Choice(_, _, _), o2@One(_)) =>
-                    addChoice(c1, id)
-                    addOne(o2, id, cft.not())
-                case Choice(cft, o1@One(_), c1@Choice(_, _, _)) =>
-                    addChoice(c1, id, cft.not())
-                    addOne(o1, id)
-                case Choice(cft, c1@Choice(_, _, _), c2@Choice(_, _, _)) =>
-                    addChoice(c1, id)
-                    addChoice(c2, id, cft.not())
-            }
-        }
-
-        def addOne(o: One[_], id: Id, ft: FeatureExpr = FeatureExprFactory.True) = {
-            if (ft.isTautology(morpheus.getFM)) {
-                o match {
-                    // only variables are interesting
-                    case o@One((CUnknown(_), _, _)) => logger.warn("Unknown Type " + id + " " + o)
-                    case o@One((CFunction(_, _), _, _)) => foundTypes + "FunctionName"
-                    case o@One((CType(CFunction(_, _), _, _, _), _, _, _)) => foundTypes + "FunctionName"
-                    case o@One((_, KEnumVar, _, _)) => foundTypes + "Enum"
-                    case o@One((CType(_, _, _, _), _, _, _)) => foundTypes + "Variable"
-                    case _ => logger.warn("Unknown Type " + id + " " + o)
-                }
-            }
-        }
-
-        ids.map(id => {
+        val foundTypes = ids.flatMap(id => {
             try {
                 // only lookup variables
-                morpheus.getEnv(id.entry).varEnv.lookup(id.entry.name) match {
-                    case o@One(_) => addOne(o, id.entry)
-                    case c@Choice(_, _, _) => addChoice(c, id.entry)
-                }
+                traverseTypesAndCount(morpheus.getEnv(id.entry).varEnv.lookup(id.entry.name), id.entry)
             } catch {
-                case _: Throwable => foundTypes + "TypeDef"
+                case _: Throwable => Some("TypeDef")
             }
         })
 
