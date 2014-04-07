@@ -21,7 +21,15 @@ object Frontend extends EnforceTreeHelper {
             try {
                 opt.parseOptions(args)
             } catch {
-                case o: OptionException => if (!opt.isPrintVersion) throw o
+                case o: OptionException => if (!opt.isPrintVersion || !opt.featureConfig) throw o
+            }
+
+            if (opt.featureConfig) {
+                val i = new IfdefToIf
+                val configPath = opt.getFeatureConfigFilename()
+                i.writeExternIfdeftoIfStruct(configPath)
+                println("Created extern struct file from configuration at: " + configPath)
+                return
             }
 
             if (opt.isPrintVersion) {
@@ -170,13 +178,18 @@ object Frontend extends EnforceTreeHelper {
                             //ProductGeneration.typecheckProducts(fm,fm_ts,ast,opt,
                             //logMessage=("Time for lexing(ms): " + (t2-t1) + "\nTime for parsing(ms): " + (t3-t2) + "\n"))
                             //ProductGeneration.estimateNumberOfVariants(ast, fm_ts)
-                            val featureConfigurationPath = opt.getFeatureConfig
-                            val i = new IfdefToIf
+                            //val includeStructFilename = opt.getincludeStructFilename()
+                            var i: IfdefToIf = null
+                            if (opt.ifdeftoifstatistics) {
+                                i = new IfdefToIf with IfdefToIfStatistics
+                            } else {
+                                i = new IfdefToIf
+                            }
                             val defUseMap = ts.getDeclUseMap
                             val useDefMap = ts.getUseDeclMap
                             val fileName = i.outputStemToFileName(opt.getOutputStem())
                             val checkIfdefToIfResult = !opt.ifdeftoifnocheck
-                            val tuple = i.ifdeftoif(ast, defUseMap, useDefMap, fm, opt.getOutputStem(), stopWatch.get("lexing") + stopWatch.get("parsing"), opt.ifdeftoifstatistics, "", typecheckResult = checkIfdefToIfResult, featureConfigurationPath)
+                            val tuple = i.ifdeftoif(ast, defUseMap, useDefMap, fm, opt.getOutputStem(), stopWatch.get("lexing") + stopWatch.get("parsing"), opt.ifdeftoifstatistics, "", typecheckResult = checkIfdefToIfResult, true)
                             tuple._1 match {
                                 case None =>
                                     println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")

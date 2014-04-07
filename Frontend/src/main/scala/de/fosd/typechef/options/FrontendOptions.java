@@ -35,6 +35,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_IFDEFTOIF = Options.genOptionId();
     private final static char F_IFDEFTOIFSTATISTICS = Options.genOptionId();
     private final static char F_IFDEFTOIFNOCHECK = Options.genOptionId();
+    private final static char F_FEATURECONFIG = Options.genOptionId();
     private final static char F_DECLUSE = Options.genOptionId();
     private final static char F_REFEVAL = Options.genOptionId();
     private final static char F_REFLINk = Options.genOptionId();
@@ -50,6 +51,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             ifdeftoifstatistics = false,
             ifdeftoifnocheck = false,
             decluse = false,
+            featureConfig = false,
             refEval = false,
             refLink = false,
             canBuild = false,
@@ -73,6 +75,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     protected File errorXMLFile = null;
     String outputStem = "";
     private String filePresenceConditionFile = "";
+    private String featureConfigFile = "";
+    private String includeStructFile = "";
     private String refStudy = "";
     private RefactorType refEvalType = RefactorType.NONE;
     private Function3<FeatureExpr, String, Position, Object> _renderParserError;
@@ -105,12 +109,15 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                 new Option("xfree", LongOpt.NO_ARGUMENT, F_XFREE, null,
                         "Lex, parse, and check for usages of freeing statically allocated memory."),
 
-                new Option("ifdeftoif", LongOpt.NO_ARGUMENT, F_IFDEFTOIF, null,
+                new Option("ifdeftoif", LongOpt.REQUIRED_ARGUMENT, F_IFDEFTOIF, "file",
                         "Make #ifdef to if transformation."),
-                new Option("ifdeftoifstatistics", LongOpt.NO_ARGUMENT, F_IFDEFTOIFSTATISTICS, null,
+                new Option("ifdeftoifstatistics", LongOpt.REQUIRED_ARGUMENT, F_IFDEFTOIFSTATISTICS, "file",
                         "Make #ifdef to if transformation."),
-                new Option("ifdeftoifnocheck", LongOpt.NO_ARGUMENT, F_IFDEFTOIFNOCHECK, null,
+                new Option("ifdeftoifnocheck", LongOpt.NO_ARGUMENT, F_IFDEFTOIFNOCHECK, "file",
                         "Do not typecheck the result of #ifdef to if transformation."),
+                new Option("featureConfig", LongOpt.REQUIRED_ARGUMENT, F_FEATURECONFIG, null,
+                        "Make #ifdef to if transformation."),
+
                 new Option("refEval", LongOpt.REQUIRED_ARGUMENT, F_REFEVAL, null, "Apply and verfiy random refactoring"),
                 new Option("refLink", LongOpt.REQUIRED_ARGUMENT, F_REFLINk, null, "Apply refactorings also on all linked files."),
                 new Option("canBuild", LongOpt.NO_ARGUMENT, F_CANBUILD, null, "Tests the possibility of building the pretty printed File"),
@@ -177,8 +184,22 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             parse = dumpcfg = true;
         } else if (c == F_IFDEFTOIFSTATISTICS) {
             parse = typecheck = ifdeftoif = ifdeftoifstatistics = true;
+            if (g.getOptarg() == null)
+                includeStructFile = "";
+            else {
+                includeStructFile = g.getOptarg();
+            }
         } else if (c == F_IFDEFTOIF) {
             parse = typecheck = ifdeftoif = true;
+            if (g.getOptarg() == null)
+                includeStructFile = "";
+            else {
+                includeStructFile = g.getOptarg();
+            }
+        } else if (c == F_FEATURECONFIG) {
+            checkFileExists(g.getOptarg());
+            featureConfigFile = g.getOptarg();
+            featureConfig = true;
         } else if (c == F_IFDEFTOIFNOCHECK) {
             parse = typecheck = ifdeftoif = ifdeftoifnocheck = true;
         } else if (c == F_DECLUSE) {
@@ -256,15 +277,17 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
 
     protected void afterParsing() throws OptionException {
         super.afterParsing();
-        if (getFiles().size() <= 0)
-            throw new OptionException("No file specified.");
-        if (getFiles().size() > 1)
-            throw new OptionException("Multiple files specified. Only one supported.");
+        if (!featureConfig) {
+            if (getFiles().size() <= 0)
+                throw new OptionException("No file specified.");
+            if (getFiles().size() > 1)
+                throw new OptionException("Multiple files specified. Only one supported.");
 
-        if (outputStem.length() == 0)
-            outputStem = getFile().replace(".c", "");
-        if (writePI && (lexOutputFile == null || lexOutputFile.length() == 0))
-            lexOutputFile = outputStem + ".pi";
+            if (outputStem.length() == 0)
+                outputStem = getFile().replace(".c", "");
+            if (writePI && (lexOutputFile == null || lexOutputFile.length() == 0))
+                lexOutputFile = outputStem + ".pi";
+        }
     }
 
     public String getFile() {
@@ -284,6 +307,14 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             return filePresenceConditionFile;
         else
             return outputStem + ".pc";
+    }
+
+    public String getFeatureConfigFilename() {
+        return featureConfigFile;
+    }
+
+    public String getincludeStructFilename() {
+        return includeStructFile;
     }
 
     public FeatureExpr getFilePresenceCondition() {
