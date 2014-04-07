@@ -7,14 +7,24 @@ import de.fosd.typechef.featureexpr.SingleFeatureExpr
 import de.fosd.typechef.parser.c.TranslationUnit
 import de.fosd.typechef.conditional.{Choice, Opt}
 
-class FileFeatures(@transient val tunit: TranslationUnit) extends scala.Serializable {
+trait KnownFeatures extends scala.Serializable {
 
-    /** List of all features found in the currently processed file (tunit) */
-    val features: List[SingleFeatureExpr] = getAllFeatures
+    /** List of all features found in the currently processed file (tunit) or config */
+    val features: List[SingleFeatureExpr]
 
     /** Maps SingleFeatureExpr Objects to IDs (IDs only known/used in this file) */
     @transient lazy val featureIDHashmap: Map[SingleFeatureExpr, Int] =
         new HashMap[SingleFeatureExpr, Int]().++(features.zipWithIndex)
+}
+
+class ConfigFeatures(val features: List[SingleFeatureExpr]) extends scala.Serializable with KnownFeatures {
+
+}
+
+class TUnitFeatures(@transient val tunit: TranslationUnit) extends scala.Serializable with KnownFeatures {
+
+    /** List of all features found in the currently processed file (tunit) */
+    val features: List[SingleFeatureExpr] = getAllFeatures
 
     /**
      * Returns a sorted list of all features in this AST, including Opt and Choice Nodes
@@ -33,7 +43,7 @@ class FileFeatures(@transient val tunit: TranslationUnit) extends scala.Serializ
             (x: SingleFeatureExpr, y: SingleFeatureExpr) => x.feature.compare(y.feature) > 0
         })
 
-        assert(! featureList.isEmpty)
+        assert(!featureList.isEmpty)
 
         featureList
     }

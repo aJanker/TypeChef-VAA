@@ -2,7 +2,7 @@ package de.fosd.typechef.crefactor.evaluation.evalcases.openSSL
 
 import de.fosd.typechef.crefactor.evaluation.{StatsCan, Refactoring, Refactor}
 import de.fosd.typechef.parser.c.TranslationUnit
-import de.fosd.typechef.featureexpr.FeatureModel
+import de.fosd.typechef.featureexpr.{FeatureExpr, FeatureModel}
 import java.io.{FileWriter, File}
 import de.fosd.typechef.crefactor.Morpheus
 import de.fosd.typechef.crefactor.evaluation.evalcases.openSSL.refactor.{Inline, Extract, Rename}
@@ -24,7 +24,7 @@ object OpenSSLRefactor extends OpenSSLEvaluation with Refactor {
         val path = resultDir.getCanonicalPath + File.separatorChar
         val resDir = new File(path)
         resDir.mkdirs()
-        if (tunit == null) println("+++ AST is null! +++")
+        if (tunit == null) println("+++ TUNIT is null! +++")
         else if (blackListFiles.exists(getFileName(file).equalsIgnoreCase)) println("+++ File is blacklisted and cannot be build +++")
         else {
             try {
@@ -35,8 +35,11 @@ object OpenSSLRefactor extends OpenSSLEvaluation with Refactor {
                 if (result._1) {
                     write(result._2, morpheus.getFile.replace(".pi", ".c"))
                     val time = new StopClock
-                    StatsCan.addStat(file, AffectedFeatures, result._2)
-                    OpenSSLVerification.verify(morpheus.getFile, morpheus.getFM, "first")
+                    StatsCan.addStat(file, AffectedFeatures, result._3)
+                    val affectedFeatureExpr = result._3.foldRight(List[FeatureExpr]()) {(l, c) => l ::: c}.distinct
+                    OpenSSLVerification.verify(morpheus.getFile, morpheus.getFM, "_ref", affectedFeatureExpr)
+                    runScript("./clean.sh", sourcePath)
+                    OpenSSLVerification.verify(morpheus.getFile, morpheus.getFM, "_org", affectedFeatureExpr)
                     runScript("./clean.sh", sourcePath)
                     StatsCan.addStat(file, TestingTime, time.getTime)
                 } else writeError("Could not engine file.", path)
