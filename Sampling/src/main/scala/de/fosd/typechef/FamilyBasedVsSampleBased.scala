@@ -24,7 +24,7 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
      * the configs-list contains pairs of the name of the config-generation method and
      * the respective generated configs
      */
-    private def buildConfigurations(tunit: TranslationUnit, ff: FileFeatures, fm: FeatureModel,
+    private def buildConfigurations(tunit: TranslationUnit, ff: KnownFeatures, fm: FeatureModel,
                                     opt: FamilyBasedVsSampleBasedOptions,
                                     configdir: File, caseStudy: String): (String, List[Task]) = {
         var msg: String = ""
@@ -78,7 +78,7 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
             log = log + flog
             tasks ++= ftasks
         } else {
-            tasks = tasks.filterNot(_._1 == "fileconfig")
+            tasks = tasks.filterNot(_._1 == "singleconf")
         }
 
         /** family */
@@ -105,7 +105,7 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
         countNumberOfASTElementsHelper(ast)
     }
 
-    private def initSampling(fm_scanner: FeatureModel, fm: FeatureModel, ast: TranslationUnit, ff: FileFeatures,
+    private def initSampling(fm_scanner: FeatureModel, fm: FeatureModel, ast: TranslationUnit, ff: KnownFeatures,
                              opt: FamilyBasedVsSampleBasedOptions, logMessage: String): (String, String, List[Task]) = {
         var caseStudy = ""
         var thisFilePath: String = ""
@@ -171,7 +171,7 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
 
     def checkErrorsAgainstSamplingConfigs(fm_scanner: FeatureModel, fm: FeatureModel, ast: TranslationUnit,
                                           opt: FamilyBasedVsSampleBasedOptions, logMessage: String) {
-        val ff: FileFeatures = new FileFeatures(ast)
+        val ff: KnownFeatures = new TUnitFeatures(ast)
         val (log, fileID, samplingTasks) = initSampling(fm_scanner, fm, ast, ff, opt, logMessage)
         val samplingTastsWithoutFamily = samplingTasks.filterNot {x => x._1 == "family"}
         println("starting error checking.")
@@ -239,7 +239,7 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
 
     def typecheckProducts(fm_scanner: FeatureModel, fm: FeatureModel, ast: TranslationUnit,
                           opt: FamilyBasedVsSampleBasedOptions, logMessage: String) {
-        val ff: FileFeatures = new FileFeatures(ast)
+        val ff: KnownFeatures = new TUnitFeatures(ast)
         val (configGenLog, thisFilePath, typecheckingTasks) = initSampling(fm_scanner, fm, ast, ff, opt, logMessage)
         analyzeTasks(typecheckingTasks, ast, ff, fm, opt, thisFilePath, startLog = configGenLog)
     }
@@ -262,7 +262,7 @@ object FamilyBasedVsSampleBased extends EnforceTreeHelper with ASTNavigation wit
         }
     }
 
-    private def analyzeTasks(tasks: List[Task], tunit: TranslationUnit, ff: FileFeatures, fm: FeatureModel,
+    private def analyzeTasks(tasks: List[Task], tunit: TranslationUnit, ff: KnownFeatures, fm: FeatureModel,
                      opt: FamilyBasedVsSampleBasedOptions, fileID: String, startLog: String = "") {
         val log: String = startLog
         val nstoms = 1000000

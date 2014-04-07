@@ -5,7 +5,7 @@ import de.fosd.typechef.crefactor.evaluation.Stats._
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.featureexpr.FeatureModel
 import de.fosd.typechef.options.{RefactorType, FrontendOptions, OptionException, FrontendOptionsWithConfigFiles}
-import de.fosd.typechef.{lexer, ErrorXML}
+import de.fosd.typechef.lexer
 import java.io._
 import de.fosd.typechef.parser.TokenReader
 import de.fosd.typechef.crefactor.evaluation.util.StopClock
@@ -50,7 +50,21 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
             else args :+ arg
         }).toArray
 
-        processFile(runOpt)
+        val fm = getFM(runOpt)
+        runOpt.setFeatureModel(fm)
+
+        val tunit = {
+            if (runOpt.reuseAST && new File(runOpt.getSerializedTUnitFilename).exists())
+                loadSerializedTUnit(runOpt.getSerializedTUnitFilename)
+            else parseTUnit(fm, runOpt)
+        }
+
+        if (tunit == null) {
+            logger.error("... failed reading AST " + runOpt.getFile + "\nExiting.")
+            System.exit(-1)
+        }
+
+        processFile(tunit, fm, runOpt)
     }
 
     def parseOrLoadTUnit(toLoad: String): (TranslationUnit, FeatureModel) = {
@@ -59,8 +73,8 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
             else toLoad
         }
         logger.info("Loading file: " + file)
-        val opt = new FrontendOptionsWithConfigFiles()
-        opt.parseOptions(file +: command)
+        val opt = new FrontendOptions()
+        opt.parseOptions(file +: command.clone())
 
         val fm = getFM(opt)
         opt.setFeatureModel(fm) //otherwise the lexer does not get the updated feature model with file presence conditions
@@ -79,48 +93,27 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         (tunit, fm)
     }
 
-    private def processFile(opt: FrontendOptions) = {
-        val errorXML = new ErrorXML(opt.getErrorXMLFile)
-        opt.setRenderParserError(errorXML.renderParserError)
-
-        val fm = getFM(opt)
-        opt.setFeatureModel(fm) //otherwise the lexer does not get the updated feature model with file presence conditions
-
-        if (opt.writeBuildCondition) writeBuildCondition(opt.getFile)
-
+    private def processFile(tunit: TranslationUnit, fm: FeatureModel, opt: FrontendOptions) = {
         val linkInf = {
             if (opt.refLink) new CModuleInterface(opt.getLinkingInterfaceFile)
             else null
         }
 
-        if (opt.parse) {
+        // val preparedTunit = prepareAST(tunit)
+        if (opt.writeBuildCondition) writeBuildCondition(opt.getFile)
 
-            val tunit = {
-                if (opt.reuseAST && new File(opt.getSerializedTUnitFilename).exists())
-                    loadSerializedTUnit(opt.getSerializedTUnitFilename)
-                else parseTUnit(fm, opt)
-            }
+        if (opt.serializeAST) serializeTUnit(tunit, opt.getSerializedTUnitFilename)
 
-            if (tunit == null) {
-                errorXML.write()
-                logger.error("... failed reading AST " + opt.getFile + "\nExiting.")
-                System.exit(-1)
-            }
+        if (opt.writeInterface) writeInterface(tunit, fm, opt)
 
-            // val preparedTunit = prepareAST(tunit)
+        if (opt.refEval) refactorEval(opt, tunit, fm, linkInf)
 
-            if (opt.serializeAST) serializeTUnit(tunit, opt.getSerializedTUnitFilename)
+        if (opt.prettyPrint) prettyPrint(tunit, opt)
 
-            if (opt.writeInterface) writeInterface(tunit, fm, opt, errorXML)
+        if (opt.canBuild) testBuildingAndTesting(tunit, fm, opt)
 
-            if (opt.refEval) refactorEval(opt, tunit, fm, linkInf)
+        if (opt.showGui) createAndShowGui(tunit, fm, opt, linkInf)
 
-            if (opt.prettyPrint) prettyPrint(tunit, opt)
-
-            if (opt.canBuild) testBuildingAndTesting(tunit, fm, opt)
-
-            if (opt.showGui) createAndShowGui(tunit, fm, opt, linkInf)
-        }
     }
 
     private def getFM(opt: FrontendOptions): FeatureModel = {
@@ -137,10 +130,9 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         fm
     }
 
-    private def writeInterface(ast: AST, fm: FeatureModel, opt: FrontendOptions, errorXML: ErrorXML) {
+    private def writeInterface(ast: AST, fm: FeatureModel, opt: FrontendOptions) {
         val ts = new CTypeSystemFrontend(ast.asInstanceOf[TranslationUnit], fm, opt) with CTypeCache with CDeclUse
         ts.checkAST()
-        ts.errors.map(errorXML.renderTypeError)
 
         val interface = {
             if (opt.getUseDefaultPC) ts.getInferredInterface().and(opt.getFilePresenceCondition)
@@ -154,11 +146,12 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         val parsingTime = new StopClock
         val parserMain = new ParserMain(new CParser(fm))
         val tUnit = parserMain.parserMain(lex(opt), opt)
+
         StatsCan.addStat(opt.getFile, Parsing, parsingTime.getTime)
 
         tUnit
     }
-    private def testBuildingAndTesting(ast: AST, fm: FeatureModel, opt: FrontendOptions) {
+    private def testBuildingAndTesting(tunit: TranslationUnit, fm: FeatureModel, opt: FrontendOptions) {
         val builder: Building = {
             if (opt.getRefStudy.equalsIgnoreCase("busybox")) de.fosd.typechef.crefactor.evaluation.evalcases.busybox_1_18_5.setup.building.Builder
             else if (opt.getRefStudy.equalsIgnoreCase("openssl")) de.fosd.typechef.crefactor.evaluation.evalcases.openSSL.setup.Builder
@@ -166,7 +159,7 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
             else null
         }
 
-        val canBuild = builder.canBuild(ast, fm, opt.getFile)
+        val canBuild = builder.canBuild(tunit, fm, opt.getFile)
         logger.info("Can build " + new File(opt.getFile).getName + " : " + canBuild)
     }
     private def refactorEval(opt: FrontendOptions, tunit: TranslationUnit,

@@ -243,14 +243,14 @@ object TypeChef extends Build {
         "CRefactor",
         file("CRefactor"),
         settings = buildSettings
-    ) dependsOn(cparser % "test->test;compile->compile", ctypechecker, conditionallib, crewrite, frontend, errorlib, sampling, featureexpr)
+    ) dependsOn(frontend, sampling)
 
     lazy val sampling = Project(
         "Sampling",
         file("Sampling"),
         settings = buildSettings ++
             Seq(libraryDependencies <+= scalaVersion(kiamaDependency(_)))
-    ) dependsOn(cparser % "test->test;compile->compile", ctypechecker, crewrite, conditionallib, frontend, errorlib, featureexpr)
+    ) dependsOn(frontend)
 
 
     def kiamaDependency(scalaVersion: String, testOnly: Boolean = false) = {

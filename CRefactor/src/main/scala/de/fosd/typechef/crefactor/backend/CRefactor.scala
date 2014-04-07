@@ -126,6 +126,17 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
     }
 
     /**
+     * Replace a list of ids in AST with copied instance with as pointer.
+     */
+    def replaceIdsWithPointers[T <: Product](t: T, ids: List[Id]): T = {
+        val r = manybu(rule {
+            case id: Id => if (ids.exists(isPartOf(id, _))) PointerDerefExpr(id) else id
+            case x => x
+        })
+        r(t).get.asInstanceOf[T]
+    }
+
+    /**
      * Replaces the innerstatements of compoundstatements of a translation unit.
      */
     def replaceCompoundStmt[T <: Product](t: T, cStmt: CompoundStatement,
@@ -219,6 +230,7 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
         })
     }
 
+    // -TODO: @andreas use foldRight without the reverse??
     def insertBefore(l: List[Opt[Statement]], mark: Opt[Statement], insert: Opt[Statement]) =
         l.foldLeft(List[Opt[Statement]]())((nl, s) => {
             if (mark.eq(s)) insert :: s :: nl
