@@ -29,6 +29,7 @@ tokenstream.txt
 *.dbgSrc
 *.interface
 *.dbginterface
+*.id2i
 .idea
 linux-2.6.33.3
 busybox

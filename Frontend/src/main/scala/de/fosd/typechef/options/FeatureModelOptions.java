@@ -23,7 +23,6 @@ public abstract class FeatureModelOptions extends LexerOptions implements ILexer
     protected FeatureModel featureModel = null;
     protected FeatureModel featureModel_typeSystem = null;
     protected PartialConfiguration partialConfig = null;
-    protected String featureConfig = "";
 
 
     @Override
@@ -42,13 +41,8 @@ public abstract class FeatureModelOptions extends LexerOptions implements ILexer
         return featureModel;
     }
 
-    public String getFeatureConfig() {
-        return featureConfig;
-    }
-
     private static final char FM_DIMACS = Options.genOptionId();
     private static final char FM_FEXPR = Options.genOptionId();
-    private static final char FM_CONFIG = Options.genOptionId();
     private static final char FM_TSDIMACS = Options.genOptionId();
     private static final char FM_PARTIALCONFIG = Options.genOptionId();
 
@@ -61,8 +55,6 @@ public abstract class FeatureModelOptions extends LexerOptions implements ILexer
                         "Dimacs file describing a feature model."),
                 new Option("featureModelFExpr", LongOpt.REQUIRED_ARGUMENT, FM_FEXPR, "file",
                         "File in FExpr format describing a feature model."),
-                new Option("featureConfiguration", LongOpt.REQUIRED_ARGUMENT, FM_CONFIG, "file",
-                        "File describing a feature model configuration."),
                 new Option("typeSystemFeatureModelDimacs", LongOpt.REQUIRED_ARGUMENT, FM_TSDIMACS, "file",
                         "Distinct feature model for the type system."),
                 new Option("partialConfiguration", LongOpt.REQUIRED_ARGUMENT, FM_PARTIALCONFIG, "file",
@@ -92,11 +84,6 @@ public abstract class FeatureModelOptions extends LexerOptions implements ILexer
             if (featureModel == null)
                 featureModel = FeatureExprLib.featureModelFactory().create(f);
             else featureModel = featureModel.and(f);
-        } else if (c == FM_CONFIG) {//--featureConfiguration
-            checkFileExists(g.getOptarg());
-            if (featureConfig != "")
-                throw new OptionException("cannot load a second feature configuration");
-            featureConfig = g.getOptarg();
         } else if (c == FM_TSDIMACS) {
             checkFileExists(g.getOptarg());
             featureModel_typeSystem = FeatureExprLib.featureModelFactory().createFromDimacsFile_2Var(g.getOptarg());
