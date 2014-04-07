@@ -91,9 +91,9 @@ object PrettyPrinter {
         writer
     }
 
-    def printF(ast: AST, path: String, newLines: Boolean = true) = {
-        newLineForIfdefs = newLines
+    def printF(ast: AST, path: String, prefix: String = "") = {
         val writer = new FileWriter(path)
+        writer.write(prefix)
         layoutW(prettyPrint(ast), writer)
         writer.close()
     }
