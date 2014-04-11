@@ -20,6 +20,9 @@ object FeatureExprHelper {
       * We use BDD here, because in contrast to BDDFeatureExpr BDD is never freed by GC and so we avoid redundant SAT checks.
       */
     val cacheIsSatisfiable: WeakHashMap[(BDD, FeatureModel), Boolean] = WeakHashMap()
+
+    var cachedSatCalls = 0
+    var uniqueSatCalls = 0
 }
 
 
@@ -257,9 +260,18 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
         //combination with a small FeatureExpr feature model
         else if (fm.clauses.isEmpty) (bdd and fm.extraConstraints.bdd and fm.assumptions.bdd).satOne() != FExprBuilder.FALSE
         //combination with SAT
-        else FeatureExprHelper.cacheIsSatisfiable.getOrElseUpdate((this.bdd, fm),
-            SatSolver.isSatisfiable(fm, toDnfClauses(toScalaAllSat((bdd and fm.extraConstraints.bdd).not().allsat())), FExprBuilder.lookupFeatureName)
-        )
+        else {
+            if (FeatureExprHelper.cacheIsSatisfiable.contains((this.bdd, fm)))
+                FeatureExprHelper.cachedSatCalls += 1
+            else
+                FeatureExprHelper.uniqueSatCalls += 1
+
+            FeatureExprHelper.cacheIsSatisfiable.getOrElseUpdate((this.bdd, fm),
+                SatSolver.isSatisfiable(fm,
+                    toDnfClauses(toScalaAllSat((bdd and fm.extraConstraints.bdd).not().allsat())),
+                    FExprBuilder.lookupFeatureName)
+            )
+        }
     }
 
     /**
