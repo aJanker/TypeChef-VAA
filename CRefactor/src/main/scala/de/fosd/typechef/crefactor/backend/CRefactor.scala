@@ -4,7 +4,7 @@ import de.fosd.typechef.typesystem.{CType, CEnvCache}
 import de.fosd.typechef.crefactor.{Logging, Morpheus}
 import org.kiama.rewriting.Rewriter._
 import de.fosd.typechef.parser.c._
-import de.fosd.typechef.crefactor.frontend.util.Selection
+import de.fosd.typechef.crefactor.frontend.util.CodeSelection
 import de.fosd.typechef.conditional._
 import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr}
 import de.fosd.typechef.typesystem.linker.SystemLinker
@@ -19,7 +19,7 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
         "typedef", "union", "unsigned", "void", "volatile", "while", "_Alignas", "_Alignof", "_Atomic",
         "_Bool", "_Complex", "_Generic", "_Imaginary", "_Noreturn", "_Static_assert", "_Thread_local")
 
-    def isAvailable(morpheus: Morpheus, selection: Selection): Boolean
+    def isAvailable(morpheus: Morpheus, selection: CodeSelection): Boolean
 
     /**
      * Checks if the name of a variable is compatible to the iso c standard. See 6.4.2 of the iso standard
@@ -130,7 +130,7 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
      */
     def replaceIdsWithPointers[T <: Product](t: T, ids: List[Id]): T = {
         val r = manybu(rule {
-            case id: Id => if (ids.exists(isPartOf(id, _))) PointerDerefExpr(id) else id
+            case id: Id => if (ids.exists(_ eq id)) PointerDerefExpr(id) else id
             case x => x
         })
         r(t).get.asInstanceOf[T]
@@ -142,8 +142,19 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
     def replaceCompoundStmt[T <: Product](t: T, cStmt: CompoundStatement,
                                           newInnerStmt: List[Opt[Statement]]): T = {
         val r = manybu(rule {
-            case cc: CompoundStatement => if (isPartOf(cStmt, cc)) cc.copy(innerStatements = newInnerStmt) else cc
+            case cc: CompoundStatement => if (cc eq cStmt) cc.copy(innerStatements = newInnerStmt) else cc
             case x => x
+        })
+        r(t).get.asInstanceOf[T]
+    }
+
+    /**
+     * Inserts one opt statement before and the after a mark in a translation unit.
+     */
+    def insertInOptBeforeAndAfter[T <: Product](t: T, mark: Opt[_], insertBefore: Opt[_], insertAfter: Opt[_])
+                                               (implicit m: Manifest[T]): T = {
+        val r = oncetd(rule {
+            case l: List[Opt[_]] => l.flatMap(x => if (x.eq(mark)) insertBefore :: x :: insertAfter :: Nil else x :: Nil)
         })
         r(t).get.asInstanceOf[T]
     }
@@ -184,10 +195,20 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
         r(t).get.asInstanceOf[T]
     }
 
+    def replaceStmtInCompoundStatement(ccStmt: CompoundStatement,mark: Opt[Statement], replace: Opt[Statement]) = {
+        val newInnerStmts = ccStmt.innerStatements.map { innerStmt =>
+            if (innerStmt.eq(mark)) replace
+            else innerStmt
+        }
+        ccStmt.copy(innerStatements = newInnerStmts)
+    }
+
     def replaceInASTOnceTD[T <: Product](t: T, mark: Opt[_], replace: Opt[_])(implicit m: Manifest[T]): T = {
         val r = oncetd(rule {
             case l: List[Opt[_]] => l.flatMap(x => if (x.eq(mark)) replace :: Nil else x :: Nil)
         })
+        println(mark)
+        println(replace)
         r(t).get.asInstanceOf[T]
     }
 
@@ -196,6 +217,13 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
     def replaceInAST[T <: Product](t: T, e: T, n: T)(implicit m: Manifest[T]): T = {
         val r = manybu(rule {
             case i: T => if (isPartOf(i, e)) n else i
+        })
+        r(t).get.asInstanceOf[T]
+    }
+
+    def replaceCompoundStatementInTUnit[T <: Product](t: T, mark: CompoundStatement, replace: CompoundStatement)(implicit m: Manifest[T]): T = {
+        val r = manybu(rule {
+            case c: CompoundStatement => if (c eq mark) replace else c
         })
         r(t).get.asInstanceOf[T]
     }
@@ -243,7 +271,7 @@ trait CRefactor extends CEnvCache with ASTNavigation with ConditionalNavigation 
         parent.entry match {
             case f: FunctionDef => replaceInASTOnceTD(morpheus.getTranslationUnit, parent,
                 parent.copy(entry = f.copy(stmt = workingCallCompStmt)))
-            case c: CompoundStatement => replaceInAST(morpheus.getTranslationUnit, c,
+            case c: CompoundStatement => replaceCompoundStatementInTUnit(morpheus.getTranslationUnit, c,
                 c.copy(innerStatements = workingCallCompStmt.innerStatements))
                 .asInstanceOf[TranslationUnit]
             case x =>

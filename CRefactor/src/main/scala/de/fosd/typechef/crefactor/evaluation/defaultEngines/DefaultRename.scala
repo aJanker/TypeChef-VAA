@@ -74,15 +74,19 @@ trait DefaultRename extends Refactoring with Evaluation {
                 else true
             } && !isExternalDeclWithNoLinkingInformation(id, morpheus)
 
+            def hasSameFileName(id : Id) : Boolean = {
+                val entry = id.getFile.get.replaceFirst("file ", "")
+                (entry.equalsIgnoreCase(morpheus.getFile) || getFileName(entry).equalsIgnoreCase(getFileName(morpheus.getFile)))
+            }
+
             // TODO Fix Bug in OpenSSL for functions without body
             // We check the writable property here already in order to maximize the number of possible refactorings.
             def isWritable(id: Id): Boolean =
                 morpheus.getReferences(id).map(_.entry).forall(i =>
                     isValidId(i) &&
-                        (i.getFile.get.replaceFirst("file ", "").equalsIgnoreCase(morpheus.getFile) ||
-                            new File(i.getFile.get.replaceFirst("file ", "")).canWrite))
+                        (hasSameFileName(i) || new File(i.getFile.get.replaceFirst("file ", "")).canWrite))
+            val allIds = morpheus.getAllUses.par.filter(hasSameFileName)
 
-            val allIds = morpheus.getAllUses.par.filter(_.getFile.get.replaceFirst("file ", "").equalsIgnoreCase(morpheus.getFile))
             val linkedIds = if (FORCE_LINKING && moduleInterface != null)
                 allIds.par.filter(id => moduleInterface.isListed(Opt(parentOpt(id, morpheus.getASTEnv).feature, id.name), morpheus.getFM))
             else allIds
@@ -149,12 +153,10 @@ trait DefaultRename extends Refactoring with Evaluation {
             logger.info("Run " + run + ": Is not linked.")
 
         val features = toRename._3
-        StatsCan.addStat(morpheus.getFile, run, AffectedFeatures, features)
 
         val startRenaming = new StopClock
         val refactored = CRenameIdentifier.rename(id, name, morpheus)
         val renamingTime = startRenaming.getTime
-        logger.info("Run " + run + ": Renaming time : " + renamingTime)
 
         StatsCan.addStat(morpheus.getFile, run, RefactorTime, renamingTime)
 
@@ -164,14 +166,26 @@ trait DefaultRename extends Refactoring with Evaluation {
                     val linkedId = findIdInAST(x._2, id, x._1.getTranslationUnit)
                     val time = new StopClock
                     val ref = CRenameIdentifier.rename(linkedId.get, name, x._1)
-                    StatsCan.addStat(x._1.getFile, run, RefactorTime, time.getTime)
+                    val refTime = time.getTime
                     ref match {
-                        case Right(refAST) => (x._1.getFile, refAST)
+                        case Right(refAST) => {
+                            val references = x._1.getReferences(linkedId.get).length
+                            StatsCan.addStat(x._1.getFile, run, RefactorTime, refTime)
+                            StatsCan.addStat(x._1.getFile, run, RenamedId, id.name)
+                            StatsCan.addStat(x._1.getFile, run, Amount, references)
+                            logger.info("Run " + run + ": Renaming time : " + renamingTime + "for linked file: " + x._1.getFile)
+                            logger.info("Run " + run + ": Id : " + id.name + "for linked file: " + x._1.getFile)
+                            logger.info("Run " + run + ": References : " + references + "for linked file: " + x._1.getFile)
+                            (x._1.getFile, refAST)
+                        }
                         case Left(s) =>
                             logger.error("Run " + run + ": Refactoring failed at file " + x._1.getFile + " with " + s + ".")
                             return (false, null, List(), List())
                     }
                 })
+                StatsCan.addStat(morpheus.getFile, run, AffectedFeatures, features)
+                StatsCan.addStat(morpheus.getFile, run, Amount, toRename._2)
+                logger.info("Run " + run + ": Renaming time : " + renamingTime)
                 logger.info("Run " + run + ": Refactoring at file " + morpheus.getFile + " successful.")
                 (true, ast, features, linkedRefactored)
             }
@@ -208,6 +222,11 @@ trait DefaultRename extends Refactoring with Evaluation {
             if (getFileName(pos.getFile).equalsIgnoreCase(getFileName(morpheus.getFile))) map
             else map += (pos.getFile -> pos))
 
+        if (affectedFiles.isEmpty && linked.nonEmpty) {
+            logger.info("Id is recognized as to be linked, but no corresponding file was found.")
+            return null
+        }
+
         if (affectedFiles.keySet.exists(file => blackListFiles.exists(getFileName(file).equalsIgnoreCase)
             || (!evalFiles.exists(getFileName(file).equalsIgnoreCase)))) {
             logger.info("One or more file is blacklisted or is not a member of the valid files list and cannot be build.")
@@ -240,7 +259,7 @@ trait DefaultRename extends Refactoring with Evaluation {
                 case (CType(_, _, _, _), _, _, _) => Some("Variable")
                 case o =>
                     logger.warn("Unknown Type " + id + " " + o)
-                    None
+                    Some(o.toString)
             })
         }
         val foundTypes = ids.flatMap(id => {

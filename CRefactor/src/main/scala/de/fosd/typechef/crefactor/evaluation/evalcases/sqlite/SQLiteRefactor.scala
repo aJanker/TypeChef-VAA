@@ -1,12 +1,11 @@
 package de.fosd.typechef.crefactor.evaluation.evalcases.sqlite
 
-import de.fosd.typechef.crefactor.evaluation.sqlite.SQLiteEvaluation
 import de.fosd.typechef.crefactor.evaluation.{StatsCan, Refactoring, Refactor}
 import de.fosd.typechef.parser.c.TranslationUnit
-import de.fosd.typechef.featureexpr.FeatureModel
+import de.fosd.typechef.featureexpr.{FeatureExpr, FeatureModel}
 import java.io.{FileWriter, File}
 import de.fosd.typechef.crefactor.Morpheus
-import de.fosd.typechef.crefactor.evaluation.evalcases.sqlite.refactor.{Extract, Inline, Rename}
+import de.fosd.typechef.crefactor.evaluation.evalcases.sqlite.refactor.{Inline, Extract, Rename}
 import de.fosd.typechef.crefactor.evaluation.util.StopClock
 import de.fosd.typechef.crefactor.evaluation.Stats._
 import de.fosd.typechef.crefactor.backend.CModuleInterface
@@ -38,9 +37,9 @@ object SQLiteRefactor extends SQLiteEvaluation with Refactor {
                     write(result._2, morpheus.getFile)
                     val time = new StopClock
                     StatsCan.addStat(file, AffectedFeatures, result._2)
-                    SQLiteVerification.verify(morpheus.getFile, morpheus.getFM, "_ref")
-                    runScript("./clean.sh", sourcePath)
-                    SQLiteVerification.verify(morpheus.getFile, morpheus.getFM, "_org")
+                    val affectedFeatureExpr = result._3.foldRight(List[FeatureExpr]()) {(l, c) => l ::: c}.distinct
+                    logger.info("Starting verification.")
+                    SQLiteVerification.completeVerify(morpheus.getFile, morpheus.getFM, affectedFeatureExpr)
                     runScript("./clean.sh", sourcePath)
                     StatsCan.addStat(file, TestingTime, time.getTime)
                 } else writeError("Could not engine file.", path)

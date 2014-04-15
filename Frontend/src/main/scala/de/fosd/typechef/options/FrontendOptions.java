@@ -43,6 +43,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_REFSTUDY = Options.genOptionId();
     private final static char F_SHOWGUI = Options.genOptionId();
     private final static char F_WRITEBUILDCONDITION = Options.genOptionId();
+    private final static char F_PROJECTINTERFACE = Options.genOptionId();
     private final static char F_PRETTYPRINT = Options.genOptionId();
     private final File _autoErrorXMLFile = new File(".");
     public boolean parse = true,
@@ -57,6 +58,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             canBuild = false,
             showGui = false,
             writeBuildCondition = false,
+            writeProjectInterface = false,
             prettyPrint = false,
             writeInterface = false,
             dumpcfg = false,
@@ -118,10 +120,11 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                 new Option("featureConfig", LongOpt.REQUIRED_ARGUMENT, F_FEATURECONFIG, null,
                         "Make #ifdef to if transformation."),
 
-                new Option("refEval", LongOpt.REQUIRED_ARGUMENT, F_REFEVAL, null, "Apply and verfiy random refactoring"),
+                new Option("refEval", LongOpt.REQUIRED_ARGUMENT, F_REFEVAL, null, "Apply and verify random refactoring"),
                 new Option("refLink", LongOpt.REQUIRED_ARGUMENT, F_REFLINk, null, "Apply refactorings also on all linked files."),
                 new Option("canBuild", LongOpt.NO_ARGUMENT, F_CANBUILD, null, "Tests the possibility of building the pretty printed File"),
-                new Option("study", LongOpt.REQUIRED_ARGUMENT, F_REFSTUDY, null, "Defines the used casestudy environment"),
+                new Option("study", LongOpt.REQUIRED_ARGUMENT, F_REFSTUDY, null, "Defines the used case-study environment"),
+                new Option("writeProjectInterface", LongOpt.REQUIRED_ARGUMENT, F_PROJECTINTERFACE, null, "Writes interface for a complete case study." ),
                 new Option("writeBuildCondition", LongOpt.NO_ARGUMENT, F_WRITEBUILDCONDITION, null, "Writes out a .bc file containing the extracted custom build properties of the analyzed file."),
                 new Option("prettyPrint", LongOpt.NO_ARGUMENT, F_PRETTYPRINT, null, "Pretty prints the parsed ast as .pp file."),
                 new Option("showGui", LongOpt.NO_ARGUMENT, F_SHOWGUI, null, "Shows the cRefactor GUI"),
@@ -220,6 +223,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             refLink = true;
             checkFileExists(g.getOptarg());
             linkingInterfaceFile = g.getOptarg();
+        } else if (c == F_PROJECTINTERFACE) {
+            writeProjectInterface = true;
         } else if (c == F_REFSTUDY) {
             refStudy = g.getOptarg();
         } else if (c == F_CANBUILD) {

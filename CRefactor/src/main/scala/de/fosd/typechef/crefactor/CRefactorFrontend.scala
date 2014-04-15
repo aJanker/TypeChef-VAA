@@ -11,7 +11,7 @@ import de.fosd.typechef.parser.TokenReader
 import de.fosd.typechef.crefactor.evaluation.util.StopClock
 import de.fosd.typechef.typesystem.linker.InterfaceWriter
 import de.fosd.typechef.crefactor.evaluation.{Refactor, StatsCan}
-import de.fosd.typechef.crefactor.evaluation.setup.{Building, BuildCondition}
+import de.fosd.typechef.crefactor.evaluation.setup.{CLinkingInterfaceGenerator, Building, BuildCondition}
 import java.util.zip.{GZIPOutputStream, GZIPInputStream}
 import de.fosd.typechef.parser.c.CTypeContext
 import de.fosd.typechef.typesystem.{CDeclUse, CTypeCache, CTypeSystemFrontend}
@@ -21,6 +21,7 @@ import de.fosd.typechef.crefactor.evaluation.evalcases.sqlite.SQLiteRefactor
 import de.fosd.typechef.crefactor.evaluation.evalcases.busybox_1_18_5.BusyBoxRefactor
 import de.fosd.typechef.crefactor.evaluation.evalcases.openSSL.OpenSSLRefactor
 import de.fosd.typechef.crefactor.backend.CModuleInterface
+import de.fosd.typechef.featureexpr.bdd.FeatureExprHelper
 
 object CRefactorFrontend extends App with InterfaceWriter with BuildCondition with Logging with EnforceTreeHelper {
 
@@ -28,21 +29,26 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
 
     private var runOpt: FrontendOptions = new FrontendOptions()
 
-    override def main(args: Array[String]): Unit = parseOrLoadTUnitandProcess(args, true)
-
-    def parseOrLoadTUnitandProcess(args: Array[String], saveArg: Boolean = false) = {
-        // Parsing MorphFrontend is adapted by the original typechef frontend
+    override def main(args: Array[String]): Unit = {
         runOpt = new FrontendOptionsWithConfigFiles()
 
         try {
             runOpt.parseOptions(args)
         } catch {
-            case o: OptionException =>
-                println("Invocation error: " + o.getMessage)
-                println("use parameter --help for more information.")
-                System.exit(-1)
+            case o: OptionException => printInvokationErrorAndExit(o.getMessage)
         }
 
+        if (runOpt.writeProjectInterface) writeProjectInterface(runOpt)
+
+        if (runOpt.parse) parseOrLoadTUnitandProcess(args, true)
+
+
+        println("# unique Sat calls: " + FeatureExprHelper.uniqueSatCalls)
+        println("# cached Sat calls: " + FeatureExprHelper.cachedSatCalls)
+        println("# all Sat calls: " + (FeatureExprHelper.uniqueSatCalls + FeatureExprHelper.cachedSatCalls))
+    }
+
+    def parseOrLoadTUnitandProcess(args: Array[String], saveArg: Boolean = false) = {
         // Current re-run hack - storing the initial arguments for parsing further files then the initial with the same arguments
         if (saveArg) command = args.foldLeft(List[String]())((args, arg) => {
             if (arg.equalsIgnoreCase(runOpt.getFile)) args
@@ -53,11 +59,7 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         val fm = getFM(runOpt)
         runOpt.setFeatureModel(fm)
 
-        val tunit = {
-            if (runOpt.reuseAST && new File(runOpt.getSerializedTUnitFilename).exists())
-                loadSerializedTUnit(runOpt.getSerializedTUnitFilename)
-            else parseTUnit(fm, runOpt)
-        }
+        val tunit = getTunit(runOpt, fm)
 
         if (tunit == null) {
             logger.error("... failed reading AST " + runOpt.getFile + "\nExiting.")
@@ -79,11 +81,7 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         val fm = getFM(opt)
         opt.setFeatureModel(fm) //otherwise the lexer does not get the updated feature model with file presence conditions
 
-        val tunit = {
-            if (runOpt.reuseAST && new File(opt.getSerializedTUnitFilename).exists())
-                loadSerializedTUnit(opt.getSerializedTUnitFilename)
-            else parseTUnit(fm, opt)
-        }
+        val tunit = getTunit(opt, fm)
 
         if (tunit == null) {
             logger.error("... failed reading AST " + opt.getFile + "\nExiting.")
@@ -93,13 +91,34 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         (tunit, fm)
     }
 
+
+    private def getTunit(opt: FrontendOptions, fm: FeatureModel): TranslationUnit = {
+        val tunit =
+            if (runOpt.reuseAST && new File(opt.getSerializedTUnitFilename).exists())
+                loadSerializedTUnit(opt.getSerializedTUnitFilename)
+            else parseTUnit(fm, opt)
+        prepareAST[TranslationUnit](tunit)
+    }
+    private def writeProjectInterface(options: FrontendOptions) = {
+        val linker: CLinkingInterfaceGenerator = {
+            if (options.getRefStudy.equalsIgnoreCase("busybox"))
+                de.fosd.typechef.crefactor.evaluation.evalcases.busybox_1_18_5.setup.linking.BusyBoxLinkInterfaceGenerator
+            else if (options.getRefStudy.equalsIgnoreCase("openssl"))
+                de.fosd.typechef.crefactor.evaluation.evalcases.openSSL.setup.OpenSSLLinkInterfaceGenerator
+            else if (options.getRefStudy.equalsIgnoreCase("sqlite"))
+                de.fosd.typechef.crefactor.evaluation.evalcases.sqlite.setup.SQLiteInterfaceGenerator
+            else null
+        }
+
+        linker.main(Array())
+    }
+
     private def processFile(tunit: TranslationUnit, fm: FeatureModel, opt: FrontendOptions) = {
         val linkInf = {
             if (opt.refLink) new CModuleInterface(opt.getLinkingInterfaceFile)
             else null
         }
 
-        // val preparedTunit = prepareAST(tunit)
         if (opt.writeBuildCondition) writeBuildCondition(opt.getFile)
 
         if (opt.serializeAST) serializeTUnit(tunit, opt.getSerializedTUnitFilename)
@@ -216,5 +235,11 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
                 editor.setVisible(true)
             }
         })
+    }
+
+    private def printInvokationErrorAndExit(message : String) = {
+        println("Invocation error: " + message)
+        println("use parameter --help for more information.")
+        System.exit(-1)
     }
 }

@@ -50,10 +50,9 @@ class CModuleInterface(linkPath: String) extends Logging {
     private def nameIsListed(name: String) = idLinkExpMap.containsKey(name) || idLinkPosMap.containsKey(name)
 
     def isListed(id: Opt[String], fm: FeatureModel): Boolean = {
-        if (idLinkExpMap.containsKey(id.entry))
-            idLinkExpMap.get(id.entry).exists(_.fexpr.implies(id.feature).isTautology(fm))
+        if (idLinkExpMap.containsKey(id.entry)) idLinkExpMap.get(id.entry).exists(_.fexpr.implies(id.feature).isTautology(fm))
         else
-            false
+          false
     }
 
     def isBlackListed(id: String) = blackList.contains(id)
