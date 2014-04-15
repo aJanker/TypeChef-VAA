@@ -50,7 +50,7 @@ trait IfdefToIfStatisticsInterface {
     def updateIfdeftoifStatistics(source_ast: TranslationUnit, new_ast: TranslationUnit, fileName: String, lexAndParseTime: Long, transformTime: Long, noOfFeatures: Int, statisticsPath: String, topLevelStatisticsPath: String): (List[(String, String)], List[(String, String)]) = { (List(), List()) }
 }
 
-trait IfdefToIfStatistics extends IfdefToIfStatisticsInterface {
+trait IfdefToIfStatistics extends IfdefToIfStatisticsInterface with IOUtilities {
     val trueF2 = FeatureExprFactory.True
     var fm2: FeatureModel = FeatureExprFactory.empty
 
@@ -113,41 +113,6 @@ trait IfdefToIfStatistics extends IfdefToIfStatisticsInterface {
      */
     private def createCommaSeparatedString(input: List[Any]): String = {
         input.map(x => x.toString) mkString ","
-    }
-
-    /**
-     * Used for reading/writing to database, files, etc.
-     * Code From the book "Beginning Scala"
-     * http://www.amazon.com/Beginning-Scala-David-Pollak/dp/1430219890
-     */
-    def using2[A <: {def close()}, B](param: A)(f: A => B): B =
-        try {
-            f(param)
-        } finally {
-            param.close()
-        }
-    /**
-     * Creates a new file with name fileName and content data.
-     * @param fileName
-     * @param data
-     */
-    def writeToFile2(fileName: String, data: String) {
-        using2(new FileWriter(fileName)) {
-            fileWriter => fileWriter.write(data)
-        }
-    }
-
-    /**
-     * Appends textData to the file fileName.
-     * @param fileName
-     * @param textData
-     */
-    def appendToFile2(fileName: String, textData: String) {
-        using2(new FileWriter(fileName, true)) {
-            fileWriter => using2(new PrintWriter(fileWriter)) {
-                printWriter => printWriter.print(textData)
-            }
-        }
     }
 
     /**
@@ -373,8 +338,8 @@ trait IfdefToIfStatistics extends IfdefToIfStatisticsInterface {
      * the content of t2._2 into the file at path t2._1
      */
     override def exportStatistics(tuple: (List[(String, String)], List[(String, String)])) = {
-        tuple._1.foreach(x => writeToFile2(x._1, x._2))
-        tuple._2.foreach(x => appendToFile2(x._1, x._2))
+        tuple._1.foreach(x => writeToFile(x._1, x._2))
+        tuple._2.foreach(x => appendToFile(x._1, x._2))
     }
 
     /**

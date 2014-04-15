@@ -109,7 +109,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                 new Option("xfree", LongOpt.NO_ARGUMENT, F_XFREE, null,
                         "Lex, parse, and check for usages of freeing statically allocated memory."),
 
-                new Option("ifdeftoif", LongOpt.REQUIRED_ARGUMENT, F_IFDEFTOIF, "file",
+                new Option("ifdeftoif", LongOpt.NO_ARGUMENT, F_IFDEFTOIF, "file",
                         "Make #ifdef to if transformation."),
                 new Option("ifdeftoifstatistics", LongOpt.REQUIRED_ARGUMENT, F_IFDEFTOIFSTATISTICS, "file",
                         "Make #ifdef to if transformation."),
