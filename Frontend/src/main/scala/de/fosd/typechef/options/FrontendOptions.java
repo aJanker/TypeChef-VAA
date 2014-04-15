@@ -113,7 +113,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
 
                 new Option("ifdeftoif", LongOpt.NO_ARGUMENT, F_IFDEFTOIF, "file",
                         "Make #ifdef to if transformation."),
-                new Option("ifdeftoifstatistics", LongOpt.REQUIRED_ARGUMENT, F_IFDEFTOIFSTATISTICS, "file",
+                new Option("ifdeftoifstatistics", LongOpt.NO_ARGUMENT, F_IFDEFTOIFSTATISTICS, "file",
                         "Make #ifdef to if transformation."),
                 new Option("ifdeftoifnocheck", LongOpt.NO_ARGUMENT, F_IFDEFTOIFNOCHECK, "file",
                         "Do not typecheck the result of #ifdef to if transformation."),
