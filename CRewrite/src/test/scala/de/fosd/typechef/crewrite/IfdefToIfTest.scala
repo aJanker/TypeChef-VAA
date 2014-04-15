@@ -138,7 +138,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             val wellTypedFile = i.checkAst(result_ast)
             assert(wellTypedFile, "generated file is not well typed or could not be parsed")
             // 3. does it still contain #if statements?
-            val containsIfdef = i.containsIfdef(result_ast)
+            val containsIfdef = i.hasVariableNodes(result_ast)
             val fileContent = Source.fromFile(resultFile).getLines().mkString("\n")
             assert(!containsIfdef,
                 "generated file contains #if statements")
@@ -1890,7 +1890,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val c = FeatureExprFactory.createDefinedExternal("C")
         val context = a.and(b)
         val typeChefMistake = a.or(b).or(c)
-        val fix = i.getRealFeatureForContext(typeChefMistake, context)
+        val fix = i.getFeatureForContext(typeChefMistake, context)
         println("Wrong: " + typeChefMistake.implies(context).isTautology)
         println("Right: " + fix.implies(context).isTautology)
         println("Right: " + fix.implies(FeatureExprFactory.True).isTautology)
