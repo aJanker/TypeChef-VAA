@@ -494,12 +494,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
 
         if (new File(path ++ "featureMap.csv").exists) {
             val featureMap = scala.io.Source.fromFile(path ++ "featureMap.csv").mkString.split("\n")
-            featureMap.foreach(x => {
-                val tuple = x.split(",")
-                val feature = new FeatureExprParser().parse(tuple.head)
-                val number = tuple.tail.head.toInt
-                featureNumberMap += (feature -> number)
-            })
+            if (!featureMap.isEmpty) {
+                featureMap.foreach(x => {
+                    val tuple = x.split(",")
+                    val feature = new FeatureExprParser().parse(tuple.head)
+                    val number = tuple.tail.head.toInt
+                    featureNumberMap += (feature -> number)
+                })
+            }
         }
     }
 
