@@ -125,7 +125,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             // new_ast._1 is the generated ast
             // result_ast is the ast parsed from the generated file
             // 1. is the generated ast ok?
-            val wellTypedAST = i.getTypeSystem(new_ast._1).checkAST()
+            val wellTypedAST = i.checkAst(new_ast._1)
             if (wellTypedAST) {
                 println("\t--TypeCheck: " + true + "--\n")
             } else {
@@ -135,10 +135,10 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
 
             // 2. is the generated file well typed?
             println(PrettyPrinter.print(result_ast))
-            val wellTypedFile = i.getTypeSystem(result_ast).checkAST()
+            val wellTypedFile = i.checkAst(result_ast)
             assert(wellTypedFile, "generated file is not well typed or could not be parsed")
             // 3. does it still contain #if statements?
-            val containsIfdef = i.containsIfdef(result_ast)
+            val containsIfdef = i.hasVariableNodes(result_ast)
             val fileContent = Source.fromFile(resultFile).getLines().mkString("\n")
             assert(!containsIfdef,
                 "generated file contains #if statements")
@@ -1720,15 +1720,15 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val mixedVariableContradiction = FunctionDef(List(Opt(fa, StaticSpecifier()), Opt(fa.not().and(fb.not()), VoidSpecifier()), Opt(fc.and(fa.not()).and(fb).and(fb.or(fa)), IntSpecifier()), Opt(fa.not().and(fb).and(fc.not().or(fa).or(fb.not())).and(fb.or(fa)), DoubleSpecifier()), Opt(fx, StaticSpecifier())), AtomicNamedDeclarator(List(), Id("main"), List()), List(), CompoundStatement(List()))
 
 
-        val oneContradictionResult = i.computeNextRelevantFeatures(oneVariableContradiction, FeatureExprFactory.True)
-        val twoContradictionResult = i.computeNextRelevantFeatures(twoVariableContradiction, FeatureExprFactory.True)
-        val threeContradictionResult = i.computeNextRelevantFeatures(threeVariableContradiction, FeatureExprFactory.True)
+        val oneContradictionResult = i.computeFeaturesForDuplication(oneVariableContradiction, FeatureExprFactory.True)
+        val twoContradictionResult = i.computeFeaturesForDuplication(twoVariableContradiction, FeatureExprFactory.True)
+        val threeContradictionResult = i.computeFeaturesForDuplication(threeVariableContradiction, FeatureExprFactory.True)
 
-        val oneComputationResult = i.computeNextRelevantFeatures(oneVariableComputation, FeatureExprFactory.True)
-        val twoComputationResult = i.computeNextRelevantFeatures(twoVariableComputation, FeatureExprFactory.True)
-        val threeComputationResult = i.computeNextRelevantFeatures(threeVariableComputation, FeatureExprFactory.True)
+        val oneComputationResult = i.computeFeaturesForDuplication(oneVariableComputation, FeatureExprFactory.True)
+        val twoComputationResult = i.computeFeaturesForDuplication(twoVariableComputation, FeatureExprFactory.True)
+        val threeComputationResult = i.computeFeaturesForDuplication(threeVariableComputation, FeatureExprFactory.True)
 
-        val mixedComputationResult = i.computeNextRelevantFeatures(mixedVariableContradiction, FeatureExprFactory.True)
+        val mixedComputationResult = i.computeFeaturesForDuplication(mixedVariableContradiction, FeatureExprFactory.True)
 
         println("Amount of feature expressions: " + oneContradictionResult.size + ", in: " + oneContradictionResult)
         println("Amount of feature expressions: " + twoContradictionResult.size + ", in: " + twoContradictionResult)
@@ -1890,7 +1890,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val c = FeatureExprFactory.createDefinedExternal("C")
         val context = a.and(b)
         val typeChefMistake = a.or(b).or(c)
-        val fix = i.getRealFeatureForContext(typeChefMistake, context)
+        val fix = i.getFeatureForContext(typeChefMistake, context)
         println("Wrong: " + typeChefMistake.implies(context).isTautology)
         println("Right: " + fix.implies(context).isTautology)
         println("Right: " + fix.implies(FeatureExprFactory.True).isTautology)

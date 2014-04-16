@@ -10,6 +10,7 @@ import java.util.{TimerTask, Timer, IdentityHashMap}
 import de.fosd.typechef.crefactor.evaluation.setup.BuildCondition
 import de.fosd.typechef.typesystem.linker.SystemLinker
 import de.fosd.typechef.conditional.Opt
+import java.util
 
 trait Evaluation extends Logging with BuildCondition with ASTNavigation with ConditionalNavigation {
 
@@ -165,7 +166,10 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
         if (originalFilePath.startsWith("file")) originalFilePath.substring(5)
         else originalFilePath
 
-    def getFileName(originalFilePath: String) = originalFilePath.substring(originalFilePath.lastIndexOf(File.separatorChar), originalFilePath.length).replace("/", "")
+    def getFileName(originalFilePath: String) =
+        if (originalFilePath.contains(File.separatorChar))
+            originalFilePath.substring(originalFilePath.lastIndexOf(File.separatorChar), originalFilePath.length).replace("/", "")
+        else originalFilePath
 
     def getResultDir(originalFilePath: String, run: Int): File = {
         val outputFilePath = originalFilePath.replace(evalName, "result")
@@ -380,4 +384,7 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
                     case _ => false
                 })
     }
+
+    def getAllFeaturesFromUniqueFeatureFile =
+        (Source.fromFile(allFeaturesFile).getLines().map(FeatureExprFactory.createDefinedExternal).toList, new java.util.IdentityHashMap[String, String]())
 }

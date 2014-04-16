@@ -154,11 +154,29 @@ object PrettyPrinter {
 
     }
 
+    private def optConditionalStr(e: Opt[String], list_feature_expr: List[FeatureExpr]): Doc = {
+        if (e.feature == FeatureExprFactory.True ||
+            list_feature_expr.foldLeft(FeatureExprFactory.True)(_ and _).implies(e.feature).isTautology())
+            e.entry
+        else if (newLineForIfdefs) {
+            line ~
+                "#if" ~~ e.feature.toTextExpr *
+                e.entry *
+                "#endif" ~
+                    line
+        } else {
+            "#if" ~~ e.feature.toTextExpr *
+                e.entry *
+                "#endif"
+        }
+
+    }
+
     def prettyPrint(ast: AST, list_feature_expr: List[FeatureExpr] = List(FeatureExprFactory.True)): Doc = {
         implicit def pretty(a: AST): Doc = prettyPrint(a, list_feature_expr)
         implicit def prettyOpt(a: Opt[AST]): Doc = optConditional(a, list_feature_expr)
         implicit def prettyCond(a: Conditional[_]): Doc = ppConditional(a, list_feature_expr)
-        implicit def prettyOptStr(a: Opt[String]): Doc = string(a.entry)
+        implicit def prettyOptStr(a: Opt[String]): Doc = optConditionalStr(a, list_feature_expr)
 
         // this method separates Opt elements of an input list variability-aware
         // problem is that when having for instance a function with one mandatory and one optional
@@ -323,7 +341,8 @@ object PrettyPrinter {
             case TranslationUnit(ext) => sep(ext, _ * _)
             case Id(name) => name
             case Constant(v) => v
-            case StringLit(v) => sepsVaware(v, "")
+            case StringLit(v) =>
+                sepsVaware(v, "")
             case SimplePostfixSuffix(t) => t
             case PointerPostfixSuffix(kind, id) => kind ~ id
             case FunctionCall(params) => "(" ~ params ~ ")"
