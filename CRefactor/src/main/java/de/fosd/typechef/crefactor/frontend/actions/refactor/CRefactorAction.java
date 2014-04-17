@@ -6,8 +6,8 @@ import de.fosd.typechef.crefactor.backend.engine.CExtractFunction;
 import de.fosd.typechef.crefactor.backend.engine.CInlineFunction;
 import de.fosd.typechef.crefactor.backend.engine.CRenameIdentifier;
 import de.fosd.typechef.crefactor.evaluation_utils.Configuration;
-import de.fosd.typechef.crefactor.frontend.util.RefactorNameInputBox;
-import de.fosd.typechef.crefactor.frontend.util.Test2000;
+import de.fosd.typechef.crefactor.frontend.util.CInlineDialog;
+import de.fosd.typechef.crefactor.frontend.util.CNameDialog;
 import de.fosd.typechef.parser.c.AST;
 import de.fosd.typechef.parser.c.Id;
 import de.fosd.typechef.parser.c.TranslationUnit;
@@ -21,9 +21,9 @@ import java.awt.event.ActionEvent;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 
-public class RefactorAction {
+public class CRefactorAction {
 
-    private static Logger logger = LogManager.getLogger(RefactorAction.class);
+    private static Logger logger = LogManager.getLogger(CRefactorAction.class);
 
     public static Action getExtractFunction(final Morpheus morpheus, final List<AST> selection) {
 
@@ -35,7 +35,7 @@ public class RefactorAction {
 
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
-                final RefactorNameInputBox box = new RefactorNameInputBox();
+                final CNameDialog box = new CNameDialog();
                 box.createAndShowInputBox(Configuration.getInstance().getConfig("refactor.extractFunction"),
                         Configuration.getInstance().getConfig("refactor.extractFunction.name"),
                         Configuration.getInstance().getConfig("refactor.extractFunction.defaultFuncName"));
@@ -85,10 +85,7 @@ public class RefactorAction {
 
             @Override
             public void actionPerformed(final ActionEvent actionEvent) {
-                if (CInlineFunction.isFunctionCall(morpheus, id)) {
-                    logger.info("InlineOnce");
-                }
-                final Test2000 dialog = new Test2000();
+                final CInlineDialog dialog = new CInlineDialog();
                 dialog.pack();
                 dialog.setVisible(true);
 
@@ -99,8 +96,8 @@ public class RefactorAction {
                 try {
                     final ThreadMXBean tb = ManagementFactory.getThreadMXBean();
                     final long startTime = tb.getCurrentThreadCpuTime();
-                    final Either<String, TranslationUnit> inlineResult = CInlineFunction.inline(morpheus, id,
-                            dialog.isRename(), dialog.isOnce());
+                    final Either<String, TranslationUnit> inlineResult = CInlineFunction.inline(morpheus, id
+                            , dialog.isKeepDeclarations());
                     logger.info("Duration for transforming: "
                             + ((tb.getCurrentThreadCpuTime() - startTime) / 1000000) + "ms");
 
@@ -138,7 +135,7 @@ public class RefactorAction {
 
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
-                final RefactorNameInputBox box = new RefactorNameInputBox();
+                final CNameDialog box = new CNameDialog();
                 box.createAndShowInputBox(Configuration.getInstance().getConfig("refactor.rename.name"),
                         Configuration.getInstance().getConfig("engine.rename.newName"), id.name());
                 if (box.getInput() == null) {

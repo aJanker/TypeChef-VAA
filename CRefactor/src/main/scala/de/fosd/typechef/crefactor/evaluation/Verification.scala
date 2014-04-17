@@ -1,7 +1,7 @@
 package de.fosd.typechef.crefactor.evaluation
 
 import de.fosd.typechef.featureexpr.{FeatureExprFactory, SingleFeatureExpr, FeatureExpr, FeatureModel}
-import java.io.File
+import java.io.{Writer, File}
 import de.fosd.typechef.crefactor.evaluation.util.StopClock
 import de.fosd.typechef._
 import scala.Some
@@ -11,22 +11,45 @@ trait Verification extends Evaluation {
 
     val buildScript: String = "./build.sh"
     val testScript: String = "./runtest.sh"
+    val confScript: String = "./genConfig.sh"
     val cleanScript: String = "./clean.sh"
+    val configFlags: String = "configFlags"
 
-    def verify(evalFile: String, fm: FeatureModel, mode: String) = {
+    def singleVerify(evalFile: String, fm: FeatureModel, mode: String, affectedFeatures : List[FeatureExpr] = List()) = {
         val resultDir = new File(evalFile.replaceAll(evalName, "result") + "/" + mode + "/")
         if (!resultDir.exists) resultDir.mkdirs
 
         val buildResult = build
         val testResult = test
 
-        writeResult(buildResult._2, resultDir.getCanonicalPath + "/" + "build")
-        if (!buildResult._1) writeResult(buildResult._3, resultDir.getCanonicalPath + "/" + "buildErr")
+        writeResult(buildResult._2, resultDir.getCanonicalPath + "/mode" + ".build")
+        if (!buildResult._1) writeResult(buildResult._3, resultDir.getCanonicalPath + "/mode" + ".buildErr")
 
-        writeResult(testResult._2, resultDir.getCanonicalPath + "/" + "test")
-        if (!testResult._1) writeResult(testResult._3, resultDir.getCanonicalPath + "/" + "testError")
+        writeResult(testResult._2, resultDir.getCanonicalPath + "/mode" + ".test")
+        if (!testResult._1) writeResult(testResult._3, resultDir.getCanonicalPath + "/mode" + ".testError")
 
-        writeResult((testResult._1 && buildResult._1).toString, resultDir.getCanonicalPath + "/" + "result")
+        writeResult((testResult._1 && buildResult._1).toString, resultDir.getCanonicalPath + "/mode" + ".result")
+    }
+
+    def completeVerify(evalFile: String, fm: FeatureModel, affectedFeatures: List[FeatureExpr] = List()) = {
+        val resultDir = new File(evalFile.replaceAll(evalName, "result") + "/")
+        if (!resultDir.exists)
+            resultDir.mkdirs
+
+        val confFeatures = new ConfigFeatures(allFeatures._1)
+
+        // get features
+        val featureCombinations = getFeatureCombinations(confFeatures, affectedFeatures)
+
+        val fw = new java.io.FileWriter(new File(completePath + "/" + configFlags))
+        // addDefconfig
+        fw.write(" \n")
+
+        // addAllOtherConfigs
+        featureCombinations.foreach(config => writeConfigFlags(config, fw))
+
+        fw.flush
+        fw.close
     }
 
     def test: (Boolean, String, String) = {
@@ -39,11 +62,37 @@ trait Verification extends Evaluation {
         evaluateScriptResult(result)
     }
 
+    def buildAndTest(resultDir: File, run: Int, mode: String): Boolean = {
+        val result = runScript(buildScript, sourcePath, runTimeout)
+        val buildResult = evaluateScriptResult(result)
+        val testResult = test
+
+        writeResult(buildResult._2, resultDir.getCanonicalPath + "/" + run + mode + ".build")
+        if (!buildResult._1)
+            writeResult(buildResult._3, resultDir.getCanonicalPath + "/" + run + mode + ".buildErr")
+
+        writeResult(testResult._2, resultDir.getCanonicalPath + "/" + run + mode + ".test")
+        if (!testResult._1)
+            writeResult(testResult._3, resultDir.getCanonicalPath + "/" + run + mode + ".testError")
+
+        logger.info("Pass build: " + buildResult._1)
+        logger.info("Pass test: " + testResult._1)
+
+        writeResult((testResult._1 && buildResult._1).toString, resultDir.getCanonicalPath + "/" + run + mode + ".result")
+        testResult._1 && buildResult._1
+    }
+
+    def writeConfigFlags(configuration : SimpleConfiguration, writer : Writer) = {
+       val features = configuration.getTrueSet.map(_.feature).mkString("-D", " -D", "")
+       writer.write(features)
+       writer.write("\n")
+    }
+
     def writeConfig(config: SimpleConfiguration, dir: File, name: String): Unit = writeConfig(config.getTrueSet, dir, name)
 
-    def writeConfig(config: Set[SingleFeatureExpr], dir: File, name: String): Unit = writeConfig(config.toList, dir, name)
+    def writeConfig(config: Set[SingleFeatureExpr], dir: File, name: String): Unit = writeKConfig(config.toList, dir, name)
 
-    def writeConfig(config: List[SingleFeatureExpr], dir: File, name: String) {
+    def writeKConfig(config: List[SingleFeatureExpr], dir: File, name: String) {
         val out = new java.io.FileWriter(dir.getCanonicalPath + File.separatorChar + name)
         val disabledFeatures = allFeatures._1.diff(config)
         config.foreach(feature => {
@@ -70,7 +119,7 @@ trait Verification extends Evaluation {
 
         val generatedConfigs = variabilityCoverage(existingConfigs, fm, affectedFeatures)
 
-        if (generatedConfigs.size > maxConfigs) {
+        if (generatedConfigs.size > maxConfigs - 1) {
             val codeCoverage =
                 ConfigurationHandling.codeCoverage(tunit, fm, tUnitFeatures, List(), preferDisabledFeatures = false)
             codeCoverage._1.foldLeft(0)((counter, coverageConf) => {
@@ -109,7 +158,7 @@ trait Verification extends Evaluation {
             if (genCounter > maxConfigs) None
             else {
                 val enabledFeatures = getEnabledFeaturesFromConfigFile(fm, config)
-                val confFeatures = new ConfigFeatures(enabledFeatures)
+                val confFeatures = new ConfigFeatures(allFeatures._1)
                 val genConfigs =
                     affectedFeatures.foldLeft(List[SimpleConfiguration]())((genConfigs, singleAffectedFeatures) => {
                         if (genCounter > maxConfigs) genConfigs
@@ -181,5 +230,21 @@ trait Verification extends Evaluation {
                 }
             }).distinct
         })
+    }
+
+    def getFeatureCombinations(ff: KnownFeatures, affectedFeatures: List[FeatureExpr]): List[SimpleConfiguration] = {
+        affectedFeatures.flatMap(affectedFeature => {
+            affectedFeature.collectDistinctFeatureObjects.foldRight(List[SimpleConfiguration]())((feature, genConfigs) => {
+                if (genConfigs.isEmpty) List(new SimpleConfiguration(ff, List(feature), List()))
+                else {
+                    genConfigs ::: genConfigs.flatMap(config => {
+                        val genTrueSet: List[SingleFeatureExpr] =
+                            if (config.trueSet.contains(feature)) config.trueSet.diff(List(feature))
+                            else feature :: config.trueSet
+                        Some(new SimpleConfiguration(ff, genTrueSet, List()))
+                    })
+                }
+            })
+        }).distinct
     }
 }

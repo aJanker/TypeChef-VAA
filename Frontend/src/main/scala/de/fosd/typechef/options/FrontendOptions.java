@@ -35,6 +35,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_IFDEFTOIF = Options.genOptionId();
     private final static char F_IFDEFTOIFSTATISTICS = Options.genOptionId();
     private final static char F_IFDEFTOIFNOCHECK = Options.genOptionId();
+    private final static char F_FEATURECONFIG = Options.genOptionId();
     private final static char F_DECLUSE = Options.genOptionId();
     private final static char F_REFEVAL = Options.genOptionId();
     private final static char F_REFLINk = Options.genOptionId();
@@ -42,6 +43,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_REFSTUDY = Options.genOptionId();
     private final static char F_SHOWGUI = Options.genOptionId();
     private final static char F_WRITEBUILDCONDITION = Options.genOptionId();
+    private final static char F_PROJECTINTERFACE = Options.genOptionId();
     private final static char F_PRETTYPRINT = Options.genOptionId();
     private final File _autoErrorXMLFile = new File(".");
     public boolean parse = true,
@@ -50,11 +52,13 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             ifdeftoifstatistics = false,
             ifdeftoifnocheck = false,
             decluse = false,
+            featureConfig = false,
             refEval = false,
             refLink = false,
             canBuild = false,
             showGui = false,
             writeBuildCondition = false,
+            writeProjectInterface = false,
             prettyPrint = false,
             writeInterface = false,
             dumpcfg = false,
@@ -73,6 +77,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     protected File errorXMLFile = null;
     String outputStem = "";
     private String filePresenceConditionFile = "";
+    private String featureConfigFile = "";
+    private String includeStructFile = "";
     private String refStudy = "";
     private RefactorType refEvalType = RefactorType.NONE;
     private Function3<FeatureExpr, String, Position, Object> _renderParserError;
@@ -105,16 +111,20 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                 new Option("xfree", LongOpt.NO_ARGUMENT, F_XFREE, null,
                         "Lex, parse, and check for usages of freeing statically allocated memory."),
 
-                new Option("ifdeftoif", LongOpt.NO_ARGUMENT, F_IFDEFTOIF, null,
+                new Option("ifdeftoif", LongOpt.NO_ARGUMENT, F_IFDEFTOIF, "file",
                         "Make #ifdef to if transformation."),
-                new Option("ifdeftoifstatistics", LongOpt.NO_ARGUMENT, F_IFDEFTOIFSTATISTICS, null,
+                new Option("ifdeftoifstatistics", LongOpt.NO_ARGUMENT, F_IFDEFTOIFSTATISTICS, "file",
                         "Make #ifdef to if transformation."),
-                new Option("ifdeftoifnocheck", LongOpt.NO_ARGUMENT, F_IFDEFTOIFNOCHECK, null,
+                new Option("ifdeftoifnocheck", LongOpt.NO_ARGUMENT, F_IFDEFTOIFNOCHECK, "file",
                         "Do not typecheck the result of #ifdef to if transformation."),
-                new Option("refEval", LongOpt.REQUIRED_ARGUMENT, F_REFEVAL, null, "Apply and verfiy random refactoring"),
+                new Option("featureConfig", LongOpt.REQUIRED_ARGUMENT, F_FEATURECONFIG, null,
+                        "Make #ifdef to if transformation."),
+
+                new Option("refEval", LongOpt.REQUIRED_ARGUMENT, F_REFEVAL, null, "Apply and verify random refactoring"),
                 new Option("refLink", LongOpt.REQUIRED_ARGUMENT, F_REFLINk, null, "Apply refactorings also on all linked files."),
                 new Option("canBuild", LongOpt.NO_ARGUMENT, F_CANBUILD, null, "Tests the possibility of building the pretty printed File"),
-                new Option("study", LongOpt.REQUIRED_ARGUMENT, F_REFSTUDY, null, "Defines the used casestudy environment"),
+                new Option("study", LongOpt.REQUIRED_ARGUMENT, F_REFSTUDY, null, "Defines the used case-study environment"),
+                new Option("writeProjectInterface", LongOpt.REQUIRED_ARGUMENT, F_PROJECTINTERFACE, null, "Writes interface for a complete case study." ),
                 new Option("writeBuildCondition", LongOpt.NO_ARGUMENT, F_WRITEBUILDCONDITION, null, "Writes out a .bc file containing the extracted custom build properties of the analyzed file."),
                 new Option("prettyPrint", LongOpt.NO_ARGUMENT, F_PRETTYPRINT, null, "Pretty prints the parsed ast as .pp file."),
                 new Option("showGui", LongOpt.NO_ARGUMENT, F_SHOWGUI, null, "Shows the cRefactor GUI"),
@@ -177,8 +187,22 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             parse = dumpcfg = true;
         } else if (c == F_IFDEFTOIFSTATISTICS) {
             parse = typecheck = ifdeftoif = ifdeftoifstatistics = true;
+            if (g.getOptarg() == null)
+                includeStructFile = "";
+            else {
+                includeStructFile = g.getOptarg();
+            }
         } else if (c == F_IFDEFTOIF) {
             parse = typecheck = ifdeftoif = true;
+            if (g.getOptarg() == null)
+                includeStructFile = "";
+            else {
+                includeStructFile = g.getOptarg();
+            }
+        } else if (c == F_FEATURECONFIG) {
+            checkFileExists(g.getOptarg());
+            featureConfigFile = g.getOptarg();
+            featureConfig = true;
         } else if (c == F_IFDEFTOIFNOCHECK) {
             parse = typecheck = ifdeftoif = ifdeftoifnocheck = true;
         } else if (c == F_DECLUSE) {
@@ -199,6 +223,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             refLink = true;
             checkFileExists(g.getOptarg());
             linkingInterfaceFile = g.getOptarg();
+        } else if (c == F_PROJECTINTERFACE) {
+            writeProjectInterface = true;
         } else if (c == F_REFSTUDY) {
             refStudy = g.getOptarg();
         } else if (c == F_CANBUILD) {
@@ -256,15 +282,17 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
 
     protected void afterParsing() throws OptionException {
         super.afterParsing();
-        if (getFiles().size() <= 0)
-            throw new OptionException("No file specified.");
-        if (getFiles().size() > 1)
-            throw new OptionException("Multiple files specified. Only one supported.");
+        if (!featureConfig) {
+            if (getFiles().size() <= 0)
+                throw new OptionException("No file specified.");
+            if (getFiles().size() > 1)
+                throw new OptionException("Multiple files specified. Only one supported.");
 
-        if (outputStem.length() == 0)
-            outputStem = getFile().replace(".c", "");
-        if (writePI && (lexOutputFile == null || lexOutputFile.length() == 0))
-            lexOutputFile = outputStem + ".pi";
+            if (outputStem.length() == 0)
+                outputStem = getFile().replace(".c", "");
+            if (writePI && (lexOutputFile == null || lexOutputFile.length() == 0))
+                lexOutputFile = outputStem + ".pi";
+        }
     }
 
     public String getFile() {
@@ -284,6 +312,14 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             return filePresenceConditionFile;
         else
             return outputStem + ".pc";
+    }
+
+    public String getFeatureConfigFilename() {
+        return featureConfigFile;
+    }
+
+    public String getincludeStructFilename() {
+        return includeStructFile;
     }
 
     public FeatureExpr getFilePresenceCondition() {
