@@ -24,7 +24,7 @@ trait OpenSSLEvaluation extends Evaluation with ASTNavigation with ConditionalNa
     val testPath = completePath + "/" + evalName + "/"
     val result = "/result/"
 
-    val filterFeatures = List()
+    val filterFeatures = Source.fromFile(new File(completePath + "/buildAbleNoFeatures")).getLines().toList
     val allFeaturesFile = completePath + "/allFeatures"
     val allFeatures = getAllFeaturesFromUniqueFeatureFile
     val pairWiseFeaturesFile = sourcePath + "/openssl_pairwise_configs.csv"

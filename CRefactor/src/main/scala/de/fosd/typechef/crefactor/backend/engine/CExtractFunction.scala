@@ -292,7 +292,7 @@ object CExtractFunction extends ASTSelection with CRefactor with IntraCFG {
     }
 
     private def hasInvisibleStructOrTypeDefSpecifier(selection: CExtractSelection, morpheus: Morpheus): Boolean =
-        selection.liveIds.exists(id => {
+        selection.selectedIds.exists(id => {
             morpheus.getDecls(id).::(id).exists({
                 declId => {
                     // We can only look at look declaration as parameter typedef are forced to be visible to the
@@ -303,13 +303,15 @@ object CExtractFunction extends ASTSelection with CRefactor with IntraCFG {
                         case Some(entry) => entry.declSpecs.exists(spec => {
                             spec.entry match {
                                 case TypeDefTypeSpecifier(i: Id) =>
-                                    morpheus.getDecls(i).exists(findPriorASTElem[CompoundStatement](_, morpheus.getASTEnv) match {
+                                    val invisible = morpheus.getDecls(i).exists(findPriorASTElem[CompoundStatement](_, morpheus.getASTEnv) match {
                                         case None => false
                                         case _ => true
                                     })
+                                    val funcCall = morpheus.getReferences(declId).exists(ref => morpheus.isPartOfFuncCall(ref.entry))
+                                    invisible || funcCall
                                 case s: StructOrUnionSpecifier => {
                                     val idIsInvisible = s.id match {
-                                        case None => throw new RefactorException("Anonymous struct declaration are not supported")
+                                        case None => true
                                         case Some(id) => morpheus.getDecls(id).exists(findPriorASTElem[CompoundStatement](_, morpheus.getASTEnv) match {
                                             case None => false
                                             case _ => true
@@ -485,7 +487,10 @@ object CExtractFunction extends ASTSelection with CRefactor with IntraCFG {
                 if (noPointer) List[Opt[Pointer]]()
                 else decl.declSpecs.foldLeft((List[Opt[Pointer]](), List[FeatureExpr]())) {(entries, declSpec) => genPointer(entries, declSpec)}._1
 
-            val resPointers = decl.init.foldLeft(genPointers) {(currentPointers, declInit) => declInit.entry.declarator.pointers ::: currentPointers}
+            val resPointers = decl.init.foldLeft(genPointers) {(currentPointers, declInit) => {
+                if(declInit.entry.getName.eq(param.name)) declInit.entry.declarator.pointers ::: currentPointers
+                else currentPointers
+            }}
 
             AtomicNamedDeclarator(resPointers, Id(param.name), List[Opt[DeclaratorExtension]]())
         }
@@ -613,7 +618,7 @@ object CExtractFunction extends ASTSelection with CRefactor with IntraCFG {
                 spec.entry match {
                     case TypeDefTypeSpecifier(i: Id) =>
                         if (morpheus.getDecls(i).exists(findPriorASTElem[CompoundStatement](_, morpheus.getASTEnv) match {
-                            case None => true
+                            case None => false
                             case _ => true
                         })) throw new RefactorException("Type Declaration for " + i +
                             " would be invisible after extraction!")

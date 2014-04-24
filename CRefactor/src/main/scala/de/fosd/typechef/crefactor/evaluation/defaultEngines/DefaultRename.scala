@@ -70,9 +70,13 @@ trait DefaultRename extends Refactoring with Evaluation {
 
         def getVariableIdToRename: (Id, Int, List[FeatureExpr]) = {
             def isValidId(id: Id): Boolean = !id.name.contains("_main") && !isSystemLinkedName(id.name) && {
-                if (moduleInterface != null) !(moduleInterface.isBlackListed(id.name) || renameLink.contains(id.name))
+                if (moduleInterface != null)
+                    !(moduleInterface.isBlackListed(id.name) || renameLink.contains(id.name))
                 else true
-            } && !isExternalDeclWithNoLinkingInformation(id, morpheus)
+            } && !isExternalDeclWithNoLinkingInformation(id, morpheus) &&
+                id.hasPosition && !hasLocalLinkingInformation(id, morpheus)
+
+            morpheus.getTypeSystem.getInferredInterface().exports.exists(sig => sig.name.equals())
 
             def hasSameFileName(id : Id) : Boolean = {
                 val entry = id.getFile.get.replaceFirst("file ", "")
@@ -272,5 +276,14 @@ trait DefaultRename extends Refactoring with Evaluation {
         })
 
         StatsCan.addStat(morpheus.getFile, run, Type, foundTypes)
+    }
+
+    def hasLocalLinkingInformation(id : Id, morpheus : Morpheus) = {
+        val local = morpheus.getTypeSystem.getInferredInterface().exports.exists(sig => sig.name.equals(id.name)) ||
+            morpheus.getTypeSystem.getInferredInterface().imports.exists(sig => sig.name.equals(id.name))
+        val global = if (morpheus.getModuleInterface == null) false
+        else morpheus.getModuleInterface.nameIsListed(id.name)
+
+        local && !global
     }
 }
