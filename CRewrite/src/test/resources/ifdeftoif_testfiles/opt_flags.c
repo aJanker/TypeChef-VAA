@@ -3,7 +3,7 @@ extern char bb_common_bufsiz1[COMMON_BUFSIZE];
 int index_in_substrings(const  char *strings , const  char *key );
 struct globals {
   #if definedEx(CONFIG_FEATURE_LS_COLOR)
-  smallint show_color ;
+  int show_color ;
   #endif
 	unsigned all_fmt;
 } __attribute__((__may_alias__));
