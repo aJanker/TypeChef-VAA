@@ -615,10 +615,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                 }
         })
 
-        r(t) match {
-            case None => t
-            case k => k.get.asInstanceOf[T]
-        }
+        r(t).getOrElse(t).asInstanceOf[T]
     }
 
     /**
@@ -832,10 +829,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                         i
                     }
             })
-            r(t) match {
-                case None => t
-                case k => k.get.asInstanceOf[T]
-            }
+            r(t).getOrElse(t).asInstanceOf[T]
         }
         if (feature.equivalentTo(trueF, fm)) {
             current
@@ -1194,12 +1188,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                     }
                 })
         })
-        // TODO: geht nicht:
-        //r(t).getOrElse[T](t)
-        r(t) match {
-            case None => t
-            case k => k.get.asInstanceOf[T]
-        }
+        r(t).getOrElse(t).asInstanceOf[T]
     }
 
     /**
