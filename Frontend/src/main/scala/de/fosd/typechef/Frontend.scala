@@ -179,6 +179,7 @@ object Frontend extends EnforceTreeHelper {
                             //logMessage=("Time for lexing(ms): " + (t2-t1) + "\nTime for parsing(ms): " + (t3-t2) + "\n"))
                             //ProductGeneration.estimateNumberOfVariants(ast, fm_ts)
                             //val includeStructFilename = opt.getincludeStructFilename()
+                            stopWatch.start("ifdeftoif")
                             var i: IfdefToIf = null
                             if (opt.ifdeftoifstatistics) {
                                 i = new IfdefToIf with IfdefToIfStatistics

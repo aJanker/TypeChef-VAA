@@ -27,6 +27,7 @@
     <orderEntry type="module" module-name="ConditionalLib" />
     <orderEntry type="module" module-name="ParserFramework" />
     <orderEntry type="module" module-name="CParser" />
+    <orderEntry type="module" module-name="Frontend" exported="" />
     <orderEntry type="module" module-name="CTypeChecker" />
   </component>
 </module>

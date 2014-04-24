@@ -85,7 +85,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     // Suffix under which the ifdeftoif file is saved
     private val ifdeftoifFileSuffix = "_ifdeftoif.c"
     // Threshold for a list size for computation of carthesian product
-    private val duplicationThreshold = 100000
+    private val duplicationThreshold = 200
     // Data structure which maps definitions of variables to their usages
     private var defuse: IdentityIdHashMap = new IdentityIdHashMap(new IdentityHashMap())
     // Data structure which maps usages of variables to their definition(s)
@@ -1432,6 +1432,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                 val result = handleLists(featureLists, curCtx)
                 result
             case d@Declaration(declSpecs, init) =>
+                // Handled by handleDeclarations
                 val featureLists = List(computationHelper(declSpecs, curCtx), computationHelper(init, curCtx))
                 val result = handleLists(featureLists, curCtx)
                 result
@@ -1439,6 +1440,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                 val featureLists = List(computationHelper(nfd.specifiers, curCtx), computationHelper(nfd.declarator, curCtx), computationHelper(nfd.parameters, curCtx))
                 val result = handleLists(featureLists, curCtx)
                 result
+            case Enumerator(id, Some(expr: Expr)) =>
+                computationHelper(id, curCtx)
             case k =>
                 computationHelper(k, curCtx)
         }
