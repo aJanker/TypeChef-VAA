@@ -1,9 +1,12 @@
+
 package de.fosd.typechef.crewrite
 
+/*
 
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.featureexpr.FeatureModel
 import de.fosd.typechef.options._
+
 import de.fosd.typechef.{ErrorXML, lexer}
 import java.io._
 import de.fosd.typechef.parser.TokenReader
@@ -275,3 +278,4 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
         case e: ObjectStreamException => System.err.println("failed loading serialized AST: " + e.getMessage); null
     }
 }
+*/

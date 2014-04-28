@@ -45,8 +45,17 @@ trait Verification extends Evaluation {
         // addDefconfig
         fw.write(" \n")
 
+        val noFiltering =
+            if (evalName.equals("sqlite")) true
+            else false
+
         // addAllOtherConfigs
-        featureCombinations.foreach(config => writeConfigFlags(config, fw))
+        var writtenConfigs = 0
+        featureCombinations.foreach(config => {
+            if (writeConfigFlags(config, fw, noFiltering)) writtenConfigs += 1
+        })
+
+        StatsCan.addStat(evalFile, Stats.Variants, writtenConfigs)
 
         fw.flush
         fw.close
@@ -82,9 +91,9 @@ trait Verification extends Evaluation {
         testResult._1 && buildResult._1
     }
 
-    def writeConfigFlags(configuration : SimpleConfiguration, writer : Writer) = {
+    def writeConfigFlags(configuration : SimpleConfiguration, writer : Writer, noFiltering : Boolean = false) : Boolean = {
        val features = configuration.getTrueSet.flatMap(x => {
-           if (filterFeatures.contains(x.feature)) Some(x.feature)
+           if (noFiltering || filterFeatures.contains(x.feature)) Some(x.feature)
            else None
         }).mkString("-D", " -D", "")
 
@@ -92,6 +101,8 @@ trait Verification extends Evaluation {
            writer.write(features)
            writer.write("\n")
        }
+
+       features.nonEmpty
     }
 
     def writeConfig(config: SimpleConfiguration, dir: File, name: String): Unit = writeConfig(config.getTrueSet, dir, name)
