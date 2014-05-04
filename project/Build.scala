@@ -171,7 +171,8 @@ object TypeChef extends Build {
         crewrite,
         frontend,
         sampling,
-        crefactor
+        crefactor,
+        cifdeftoif
         )
 
     lazy val featureexpr = Project(
@@ -245,12 +246,18 @@ object TypeChef extends Build {
         settings = buildSettings
     ) dependsOn(frontend, sampling)
 
+    lazy val cifdeftoif = Project(
+        "CIfdeftoif",
+        file("CIfdeftoif"),
+        settings = buildSettings
+    ) dependsOn(frontend, sampling, cparser, crewrite)
+
     lazy val sampling = Project(
         "Sampling",
         file("Sampling"),
         settings = buildSettings ++
             Seq(libraryDependencies <+= scalaVersion(kiamaDependency(_)))
-    ) dependsOn(frontend)
+    ) dependsOn (frontend)
 
 
     def kiamaDependency(scalaVersion: String, testOnly: Boolean = false) = {
