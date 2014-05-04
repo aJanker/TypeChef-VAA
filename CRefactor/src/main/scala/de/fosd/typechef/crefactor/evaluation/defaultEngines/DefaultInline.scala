@@ -20,11 +20,11 @@ trait DefaultInline extends Refactoring with Evaluation {
 
     def refactor(morpheus: Morpheus): (Boolean, TranslationUnit, List[List[FeatureExpr]], List[(String, TranslationUnit)]) = {
         val psExpr = filterAllASTElems[PostfixExpr](morpheus.getTranslationUnit)
-        val funcCalls = psExpr.par.filter(isFunctionCall)
+        val funcCalls = psExpr.filter(isFunctionCall)
         val availableFuncCalls = funcCalls.flatMap(p => {
             p.p match {
                 case i: Id =>
-                    if (CInlineFunction.isAvailable(morpheus, i)) Some(i)
+                    if (hasSameFileName(i, morpheus) && CInlineFunction.isAvailable(morpheus, i)) Some(i)
                     else None
                 case _ => None
             }
@@ -42,11 +42,12 @@ trait DefaultInline extends Refactoring with Evaluation {
             val varDecls = callsDeclDef._2.exists(isVariable)
             val varDefs = callsDeclDef._3.exists(isVariable)
             val varExpr = callsDeclDef._4.exists(isVariable)
+
             if (varCalls || varDecls || varDefs || varExpr) Some(call)
             else None
         })
 
-        logger.info("Function calls found to inline: " + variableFuncCalls.size)
+        logger.info("Variable function calls found to inline: " + variableFuncCalls.size)
 
         val callIdToInline =
             if (variableFuncCalls.isEmpty) availableFuncCalls(Random.nextInt(availableFuncCalls.size))

@@ -90,6 +90,7 @@ object CExtractFunction extends ASTSelection with CRefactor with IntraCFG {
             parent match {
                 case null =>
                 case s: Some[Statement] =>
+                    s.get.setPositionRange(id)
                     uniqueSelectedStatements.add(s.get)
                     uniqueSelectedStatements.add(lookupControlStatements(s.get))
                 case x => // logger.info("There may have been an expression! " + x)
@@ -146,10 +147,12 @@ object CExtractFunction extends ASTSelection with CRefactor with IntraCFG {
     def isAvailable(morpheus: Morpheus, selection: CodeSelection): Boolean =
         isAvailable(morpheus, getSelectedElements(morpheus, selection))
 
-    def extract(morpheus: Morpheus, selection: List[AST], funName: String): Either[String, TranslationUnit] = {
+    def extract(morpheus: Morpheus, selectedElements: List[AST], funName: String): Either[String, TranslationUnit] = {
 
         if (!isValidId(funName))
             return Left(Configuration.getInstance().getConfig("default.error.invalidName"))
+
+        val selection = selectedElements.sortWith(comparePosition)
 
         // Reference check is performed as soon as we know the featureExpr the new function is going to have!
 
@@ -246,8 +249,8 @@ object CExtractFunction extends ASTSelection with CRefactor with IntraCFG {
             // TODO: Check with single compound statements.
             val tunitWithFCall = insertBefore(compStmt.innerStatements,
                 selectedOptStatements.head, functionCall)
-            val ccStmtWithRemovedStmts = eqRemove(tunitWithFCall, selectedOptStatements)
-            val tunitWithFDef = insertInOptBeforeAndAfter(morpheus.getTranslationUnit,
+            val ccStmtWithRemovedStmts = removeStatementInTUnit(tunitWithFCall, selectedOptStatements)
+            val tunitWithFDef = insertBeforeAndAfter(morpheus.getTranslationUnit,
                 parentFunctionOpt, newFDefForwardOpt, newFDefOpt)
 
             val refAST = replaceCompoundStmt(tunitWithFDef, compStmt, ccStmtWithRemovedStmts)
