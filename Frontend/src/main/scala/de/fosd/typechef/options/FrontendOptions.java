@@ -411,4 +411,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     public String getRefStudy() {
         return refStudy;
     }
+
+    public String getPreparedRefactoringsFileName() {
+        return outputStem + ".pr";
+    }
 }
