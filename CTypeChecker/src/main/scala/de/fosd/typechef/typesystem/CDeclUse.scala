@@ -688,13 +688,15 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
         entry match {
             case use@Id(name) => {
                 if (env.structEnv.someDefinition(name, isUnion)) {
+                    println(env.structEnv.getId(name, isUnion))
+                    print("")
                     env.structEnv.getId(name, isUnion) match {
                         case o@One(key: Id) =>
                             addOne(o, use)
                         case c@Choice(_, _, _) =>
                             val condTuple = c.toList
                             // TODO
-                            val tuple = condTuple.filter(x => x._1.equivalentTo(FeatureExprFactory.True) || feature.implies(x._1).isTautology)
+                            val tuple = condTuple.filter(x => x._1.equivalentTo(FeatureExprFactory.True) || feature.and(x._1).isSatisfiable())
                             val tupleVariableDef = condTuple.filter(x => x._1.implies(feature).isTautology).diff(tuple)
                             if (feature.implies(tupleVariableDef.foldLeft(FeatureExprFactory.False)((a, b) => a.or(b._1))).isTautology) {
                                 tupleVariableDef.foreach(x => {
