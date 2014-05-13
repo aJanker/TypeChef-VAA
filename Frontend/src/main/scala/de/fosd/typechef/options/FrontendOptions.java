@@ -123,7 +123,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                         "Make #ifdef to if transformation."),
 
                 new Option("refEval", LongOpt.REQUIRED_ARGUMENT, F_REFEVAL, null, "Apply and verify random refactoring"),
-                new Option("refEval", LongOpt.NO_ARGUMENT, F_REFEVAL, null, "Writes out a .ref file containing all found and possible refactorings for this file"),
+                new Option("refPrep", LongOpt.NO_ARGUMENT, F_PREPAREREF, null, "Writes out a .ref file containing all found and possible refactorings for this file"),
                 new Option("refLink", LongOpt.REQUIRED_ARGUMENT, F_REFLINk, null, "Apply refactorings also on all linked files."),
                 new Option("canBuild", LongOpt.NO_ARGUMENT, F_CANBUILD, null, "Tests the possibility of building the pretty printed File"),
                 new Option("study", LongOpt.REQUIRED_ARGUMENT, F_REFSTUDY, null, "Defines the used case-study environment"),
