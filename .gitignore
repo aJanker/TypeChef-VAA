@@ -50,3 +50,8 @@ typechef.sh
 TypeChef-*.jar
 casestudies
 pages
+ifdeftoif.sh
+cRefactor.sh
+ifdeftoif_progress.txt
+renamings_Functions.txt
+renamings_StructsAndVars.txt

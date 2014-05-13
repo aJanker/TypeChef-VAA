@@ -70,22 +70,21 @@ trait DefaultRename extends Refactoring with Evaluation {
 
         def getVariableIdToRename: (Id, Int, List[FeatureExpr]) = {
             def isValidId(id: Id): Boolean = !id.name.contains("_main") && !isSystemLinkedName(id.name) && {
-                if (moduleInterface != null) !(moduleInterface.isBlackListed(id.name) || renameLink.contains(id.name))
+                if (moduleInterface != null)
+                    !(moduleInterface.isBlackListed(id.name) || renameLink.contains(id.name))
                 else true
-            } && !isExternalDeclWithNoLinkingInformation(id, morpheus)
+            } && !isExternalDeclWithNoLinkingInformation(id, morpheus) &&
+                id.hasPosition && !hasLocalLinkingInformation(id, morpheus)
 
-            def hasSameFileName(id : Id) : Boolean = {
-                val entry = id.getFile.get.replaceFirst("file ", "")
-                (entry.equalsIgnoreCase(morpheus.getFile) || getFileName(entry).equalsIgnoreCase(getFileName(morpheus.getFile)))
-            }
+            morpheus.getTypeSystem.getInferredInterface().exports.exists(sig => sig.name.equals())
 
             // TODO Fix Bug in OpenSSL for functions without body
             // We check the writable property here already in order to maximize the number of possible refactorings.
             def isWritable(id: Id): Boolean =
                 morpheus.getReferences(id).map(_.entry).forall(i =>
                     isValidId(i) &&
-                        (hasSameFileName(i) || new File(i.getFile.get.replaceFirst("file ", "")).canWrite))
-            val allIds = morpheus.getAllUses.par.filter(hasSameFileName)
+                        (hasSameFileName(i, morpheus) || new File(i.getFile.get.replaceFirst("file ", "")).canWrite))
+            val allIds = morpheus.getAllUses.par.filter(hasSameFileName(_, morpheus))
 
             val linkedIds = if (FORCE_LINKING && moduleInterface != null)
                 allIds.par.filter(id => moduleInterface.isListed(Opt(parentOpt(id, morpheus.getASTEnv).feature, id.name), morpheus.getFM))
@@ -272,5 +271,14 @@ trait DefaultRename extends Refactoring with Evaluation {
         })
 
         StatsCan.addStat(morpheus.getFile, run, Type, foundTypes)
+    }
+
+    def hasLocalLinkingInformation(id : Id, morpheus : Morpheus) = {
+        val local = morpheus.getTypeSystem.getInferredInterface().exports.exists(sig => sig.name.equals(id.name)) ||
+            morpheus.getTypeSystem.getInferredInterface().imports.exists(sig => sig.name.equals(id.name))
+        val global = if (morpheus.getModuleInterface == null) false
+        else morpheus.getModuleInterface.nameIsListed(id.name)
+
+        local && !global
     }
 }

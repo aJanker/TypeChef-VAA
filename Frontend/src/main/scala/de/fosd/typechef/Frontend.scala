@@ -24,14 +24,6 @@ object Frontend extends EnforceTreeHelper {
                 case o: OptionException => if (!opt.isPrintVersion || !opt.featureConfig) throw o
             }
 
-            if (opt.featureConfig) {
-                val i = new IfdefToIf
-                val configPath = opt.getFeatureConfigFilename()
-                i.writeExternIfdeftoIfStruct(configPath)
-                println("Created extern struct file from configuration at: " + configPath)
-                return
-            }
-
             if (opt.isPrintVersion) {
                 var version = "development build"
                 try {
@@ -160,51 +152,6 @@ object Frontend extends EnforceTreeHelper {
                     println("type checking.")
                     val typeCheckStatus = ts.checkAST()
                     ts.errors.map(errorXML.renderTypeError)
-                    if (opt.decluse) {
-                        if (typeCheckStatus) {
-                            val i = new IfdefToIf
-                            val fw = new FileWriter(i.outputStemToFileName(opt.getOutputStem()) + ".decluse")
-                            fw.write(ts.checkDefuse(ast, ts.getDeclUseMap, ts.getUseDeclMap, fm_ts)._1)
-                            fw.close()
-                            println(ast)
-                            println(ts.checkDefuse(ast, ts.getDeclUseMap, ts.getUseDeclMap, fm_ts)._1)
-                            println(ts.getDeclUseMap)
-                        } else {
-                            println("generating the declaration-usage map unsuccessful because of type errors in source file")
-                        }
-                    }
-                    if (opt.ifdeftoif) {
-                        if (typeCheckStatus) {
-                            //ProductGeneration.typecheckProducts(fm,fm_ts,ast,opt,
-                            //logMessage=("Time for lexing(ms): " + (t2-t1) + "\nTime for parsing(ms): " + (t3-t2) + "\n"))
-                            //ProductGeneration.estimateNumberOfVariants(ast, fm_ts)
-                            //val includeStructFilename = opt.getincludeStructFilename()
-                            var i: IfdefToIf = null
-                            if (opt.ifdeftoifstatistics) {
-                                i = new IfdefToIf with IfdefToIfStatistics
-                            } else {
-                                i = new IfdefToIf
-                            }
-                            val defUseMap = ts.getDeclUseMap
-                            val useDefMap = ts.getUseDeclMap
-                            val fileName = i.outputStemToFileName(opt.getOutputStem())
-                            val checkIfdefToIfResult = !opt.ifdeftoifnocheck
-                            val tuple = i.ifdeftoif(ast, defUseMap, useDefMap, fm, opt.getOutputStem(), stopWatch.get("lexing") + stopWatch.get("parsing"), opt.ifdeftoifstatistics, "", typecheckResult = checkIfdefToIfResult, true)
-                            tuple._1 match {
-                                case None =>
-                                    println("!! Transformation of " ++ fileName ++ " unsuccessful because of type errors in transformation result !!")
-                                /*
-                                tuple._3.map(errorXML.renderTypeError(_))             y
-                                 */
-                                case Some(x) =>
-                                    if (!opt.getOutputStem().isEmpty()) {
-                                        println("++Transformed: " ++ fileName ++ "++\t\t --in " + tuple._2 ++ " ms--")
-                                    }
-                            }
-                        } else {
-                            println("#ifdef to if transformation unsuccessful because of type errors in source file")
-                        }
-                    }
                     ts.errors.map(errorXML.renderTypeError(_))
                 }
                 if (opt.writeInterface) {
