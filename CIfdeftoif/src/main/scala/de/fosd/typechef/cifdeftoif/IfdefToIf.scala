@@ -1,7 +1,8 @@
 package de.fosd.typechef.cifdeftoif
 
-import scala.collection.mutable.ListBuffer
 import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
+import scala.io.Source
 
 import java.util.IdentityHashMap
 import java.util.regex.Pattern
@@ -19,6 +20,7 @@ import de.fosd.typechef.conditional._
 import de.fosd.typechef.lexer.FeatureExprLib
 import de.fosd.typechef.typesystem.{IdentityIdHashMap, CTypeSystemFrontend}
 import de.fosd.typechef.error.TypeChefError
+
 
 
 /**
