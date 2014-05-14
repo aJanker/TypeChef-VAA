@@ -446,16 +446,16 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     /**
      * Flatten the conditional tree structure and filter contradictory elements.
      */
-    def conditionalToTuple[T <: Product](choice: Conditional[T], currentContext: FeatureExpr = trueF): List[(FeatureExpr, T)] = {
+    def conditionalToList[T <: Product](choice: Conditional[T], curCtx: FeatureExpr = trueF): List[(FeatureExpr, T)] = {
         // TODO fgarbe: Possible code simplification!
         // ConditionalLib.items(choice, currentContext).filter(_._1.isSatisfiable(fm))
 
         val choiceList = choice.toList
-        if (currentContext.equals(trueF)) {
+        if (curCtx.equals(trueF)) {
             choiceList
         } else {
             //val result = choiceList.filter(x => x._1.implies(currentContext).isTautology)
-            val result = choiceList.filterNot(x => x._1.and(currentContext).isContradiction(fm)).map(x => (x._1.and(currentContext), x._2))
+            val result = choiceList.filterNot(x => x._1.and(curCtx).isContradiction(fm)).map(x => (x._1.and(curCtx), x._2))
             result
         }
     }
@@ -471,42 +471,38 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * If transformExpr is set to true, we also transform variability inside the given expression immediately.
      * Ex: Choice(def(A), 0, 1) -> id2i.a ? 0 : 1
      */
-    def conditionalToConditionalExpr(choice: Conditional[Expr], currentContext: FeatureExpr = trueF, transformExpr: Boolean = false): One[Expr] = {
-        val conditionalTuple = conditionalToTuple(choice, currentContext)
-        conditionalTuple match {
+    def conditionalToConditionalExpr(choice: Conditional[Expr], curCtx: FeatureExpr = trueF, transformExpr: Boolean = false): One[Expr] = {
+        val tList = conditionalToList(choice, curCtx)
+        tList match {
             case Nil =>
                 choice match {
-                    case o: One[Expr] =>
-                        o
-                    case c: Choice[Expr] =>
-                        One(conditionalTuple.find(e => e._1.implies(currentContext).isTautology()).getOrElse((trueF, Id("")))._2)
+                    case o: One[Expr]    => o
+                    // TODO fgarbe: Please specify why isTautology is called without a feature model.
+                    case c: Choice[Expr] => One(tList.find(e => e._1.implies(curCtx).isTautology()).getOrElse((trueF, Id("")))._2)
                 }
-            case x :: Nil =>
-                val currentExpr = replaceOptAndId(x._2, x._1)
+            case (fExp, exp) :: Nil =>
+                val currentExpr = replaceOptAndId(exp, fExp)
                 if (transformExpr) {
-                    val features = computeFeaturesForDuplication(x._2, x._1)
-                    One(convertToCondExpr(currentExpr, features, currentContext))
+                    val features = computeFeaturesForDuplication(exp, fExp)
+                    One(convertToCondExpr(currentExpr, features, curCtx))
                 } else {
                     One(currentExpr)
                 }
-            case x :: xs =>
+            case (fExp, exp) :: xs =>
+                val innerExpr = replaceOptAndId(exp, fExp)
                 if (transformExpr) {
-                    val innerExpr = replaceOptAndId(x._2, x._1)
-                    val trasformedInnerExpr = convertToCondExpr(innerExpr, computeFeaturesForDuplication(innerExpr, x._1), currentContext)
-                    // val newInnerExpr = ConditionalExpr(featureToCExpr(x._1.not), None, trasformedInnerExpr)
-                    val newInnerExpr = trasformedInnerExpr
+                    val transformedInnerExpr = convertToCondExpr(innerExpr, computeFeaturesForDuplication(innerExpr, fExp), curCtx)
+                    val newInnerExpr = transformedInnerExpr
                     val resultExpr = xs.foldLeft(newInnerExpr)((expr, condTuple) => {
                         val newExpr = replaceOptAndId(condTuple._2, condTuple._1)
-                        val transformedNewExpr = convertToCondExpr(newExpr, computeFeaturesForDuplication(newExpr, condTuple._1), currentContext)
-                        ConditionalExpr(toCExpr(fExprDiff(currentContext, condTuple._1)), Some(transformedNewExpr), expr)
+                        val transformedNewExpr = convertToCondExpr(newExpr, computeFeaturesForDuplication(newExpr, condTuple._1), curCtx)
+                        ConditionalExpr(toCExpr(fExprDiff(curCtx, condTuple._1)), Some(transformedNewExpr), expr)
                     })
                     One(resultExpr)
                 } else {
-                    // val innerExpr = ConditionalExpr(featureToCExpr(x._1.not), None, replaceOptAndId(x._2, x._1))
-                    val innerExpr = replaceOptAndId(x._2, x._1)
                     val resultExpr = xs.foldLeft(innerExpr)((expr, condTuple) => {
                         val newExpr = replaceOptAndId(condTuple._2, condTuple._1)
-                        ConditionalExpr(toCExpr(fExprDiff(currentContext, condTuple._1)), Some(newExpr), expr)
+                        ConditionalExpr(toCExpr(fExprDiff(curCtx, condTuple._1)), Some(newExpr), expr)
                     })
                     One(resultExpr)
                 }
@@ -517,6 +513,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * This method fills the IdMap which is used to map a feature expression to a number. This number is used for
      * for renaming identifiers e.g. #ifdef A int a #endif -> int _1_a     feature A is mapped to number 1.
      */
+    // TODO fgarbe: Parameter a is unused!
     def fillIdMap(a: Any) {
         if (featureNumberMap.size == 0) {
             featureNumberMap += (trueF -> featureNumberMap.size)
@@ -1436,7 +1433,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
             case is@IfStatement(One(statement), thenBranch, elif, els) =>
                 computationHelper(statement, curCtx)
             case is@IfStatement(c: Choice[Product], thenBranch, elif, els) =>
-                val choices = conditionalToTuple(c, curCtx)
+                val choices = conditionalToList(c, curCtx)
                 choices.flatMap(x => computationHelper(x._2, x._1)).distinct
             case ss@SwitchStatement(e, One(stmt: CompoundStatement)) =>
                 computationHelper(ss.expr, curCtx)
@@ -1709,13 +1706,13 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                 // 2. Step with conditionalExpressions
                 case i@IfStatement(c: Conditional[Expr], thenBranch: Conditional[Statement], elif, els) =>
                     var newCond: Expr = null
-                    val statementTuple = conditionalToTuple(thenBranch, currentContext)
+                    val statementTuple = conditionalToList(thenBranch, currentContext)
                     var elseTuple = List((FeatureExprFactory.True, None.asInstanceOf[Option[Conditional[Statement]]]))
                     els match {
                         case None =>
                         case Some(One(stmt)) =>
                         case Some(c: Choice[Statement]) =>
-                            elseTuple = conditionalToTuple(c, currentContext).map(x => (x._1, Some(One(x._2))))
+                            elseTuple = conditionalToList(c, currentContext).map(x => (x._1, Some(One(x._2))))
                     }
                     val stmtFeatures = statementTuple.map(x => x._1)
                     val elsFeatures = elseTuple.map(x => x._1)
@@ -1744,8 +1741,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                     val newCond = convertToCondExpr(e, exprFeatures, currentContext)
                     List(Opt(trueF, ElifStatement(One(newCond), transformRecursive(thenBranch, currentContext))))
                 case elif@ElifStatement(c: Conditional[Expr], thenBranch) =>
-                    val conditionalTuple = conditionalToTuple(c, currentContext)
-                    val statementTuple = conditionalToTuple(thenBranch, currentContext)
+                    val conditionalTuple = conditionalToList(c, currentContext)
+                    val statementTuple = conditionalToList(thenBranch, currentContext)
                     val condFeatures = conditionalTuple.map(x => x._1)
                     val stmtFeatures = statementTuple.map(x => x._1)
                     val carthProduct = computeCarthesianProduct(List(condFeatures, stmtFeatures), currentContext)
@@ -1821,14 +1818,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
 
                 // 2. Step
                 case IfStatement(c: Conditional[Expr], thenBranch: Conditional[Statement], elif, els) =>
-                    val conditionalTuple = conditionalToTuple(c, currentContext)
-                    val statementTuple = conditionalToTuple(thenBranch, currentContext)
+                    val conditionalTuple = conditionalToList(c, currentContext)
+                    val statementTuple = conditionalToList(thenBranch, currentContext)
                     var elseTuple = List((FeatureExprFactory.True, None.asInstanceOf[Option[Conditional[Statement]]]))
                     els match {
                         case None =>
                         case Some(One(stmt)) =>
                         case Some(c: Choice[Statement]) =>
-                            elseTuple = conditionalToTuple(c, currentContext).map(x => (x._1, Some(One(x._2))))
+                            elseTuple = conditionalToList(c, currentContext).map(x => (x._1, Some(One(x._2))))
                     }
                     val condFeatures = conditionalTuple.map(x => x._1)
                     val stmtFeatures = statementTuple.map(x => x._1)
@@ -1843,8 +1840,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
 
                 // 4. Step
                 case ElifStatement(c: Conditional[Expr], thenBranch) =>
-                    val conditionalTuple = conditionalToTuple(c, currentContext)
-                    val statementTuple = conditionalToTuple(thenBranch, currentContext)
+                    val conditionalTuple = conditionalToList(c, currentContext)
+                    val statementTuple = conditionalToList(thenBranch, currentContext)
                     val condFeatures = conditionalTuple.map(x => x._1)
                     val stmtFeatures = statementTuple.map(x => x._1)
                     val carthProduct = computeCarthesianProduct(List(stmtFeatures, condFeatures), currentContext)
@@ -1888,7 +1885,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
 
                 // 2. Step
                 case ForStatement(expr1, expr2, expr3, c: Choice[Statement]) =>
-                    val conditionalTuple = conditionalToTuple(c, currentContext)
+                    val conditionalTuple = conditionalToList(c, currentContext)
                     conditionalTuple.map(x => Opt(trueF, IfStatement(One(toCExpr(fExprDiff(currentContext, x._1))), One(CompoundStatement(handleForStatement(Opt(trueF, ForStatement(expr1, expr2, expr3, One(x._2))), x._1))), List(), None)))
 
                 // 3. Step
@@ -1945,7 +1942,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
 
                 // 2. Step
                 case WhileStatement(expr, c: Conditional[Statement]) =>
-                    val conditionalTuple = conditionalToTuple(c, currentContext)
+                    val conditionalTuple = conditionalToList(c, currentContext)
                     conditionalTuple.map(x => Opt(trueF,
                         IfStatement(
                             One(toCExpr(fExprDiff(currentContext, x._1))),
@@ -1956,7 +1953,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                             List(),
                             None)))
                 case SwitchStatement(expr, c: Conditional[Statement]) =>
-                    val conditionalTuple = conditionalToTuple(c, currentContext)
+                    val conditionalTuple = conditionalToList(c, currentContext)
                     conditionalTuple.map(x => Opt(trueF,
                         IfStatement(
                             One(toCExpr(fExprDiff(currentContext, x._1))),
@@ -1967,7 +1964,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                             List(),
                             None)))
                 case DoStatement(expr, c: Conditional[Statement]) =>
-                    val conditionalTuple = conditionalToTuple(c, currentContext)
+                    val conditionalTuple = conditionalToList(c, currentContext)
                     conditionalTuple.map(x => Opt(trueF,
                         IfStatement(
                             One(toCExpr(fExprDiff(currentContext, x._1))),
