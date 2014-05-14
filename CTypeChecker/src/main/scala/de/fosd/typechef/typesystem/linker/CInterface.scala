@@ -87,13 +87,16 @@ case class CInterface(
         CInterface(featureModel, importedFeatures -- declaredFeatures, declaredFeatures,
             packImports(strictness), packExports).setPacked
 
+    def packWithOutElimination(strictness: Strictness = LINK_STRICT): CInterface = if (isPacked) this
+    else
+        CInterface(featureModel, importedFeatures -- declaredFeatures, declaredFeatures,
+            packImportsWithOutElimination(strictness), packExports).setPacked
+
     private var isPacked = false;
     private def setPacked() = {
         isPacked = true;
         this
     }
-    private def packImports: Seq[CSignature] = {
-        var importMap = Map[(String, CType, Set[CFlag]), (FeatureExpr, Seq[Position])]()
 
     private def genComparisonKey(sig: CSignature, strictness: Strictness): Object = strictness match {
         case LINK_STRICT => (sig.name, sig.ctype, sig.extraFlags)
@@ -128,6 +131,22 @@ case class CInterface(
         yield CSignature(v._1.name, v._1.ctype, v._2, v._3, v._1.extraFlags)
         r.toSeq
     }
+
+    private def packImportsWithOutElimination(strictness: Strictness = LINK_STRICT): Seq[CSignature] = {
+        var importMap = Map[Object, (CSignature, FeatureExpr, Seq[Position])]()
+
+        //eliminate duplicates with a map
+        for (imp <- imports if ((featureModel and imp.fexpr).isSatisfiable())) {
+            val key = genComparisonKey(imp, strictness)
+            val old = importMap.getOrElse(key, (imp, False, Seq()))
+            importMap = importMap + (key ->(old._1, old._2 or imp.fexpr, old._3 ++ imp.pos))
+        }
+
+        val r = for (v <- importMap.values)
+        yield CSignature(v._1.name, v._1.ctype, v._2, v._3, v._1.extraFlags)
+        r.toSeq
+    }
+
     private def packExports: Seq[CSignature] = exports.filter(_.fexpr.and(featureModel).isSatisfiable())
 
 
@@ -203,14 +222,14 @@ case class CInterface(
             this.exports ++ that.exports
         ).pack(strictness)
 
-    def linkWithOutElimination(that: CInterface): CInterface =
+    def linkWithOutElimination(that: CInterface, strictness: Strictness = LINK_STRICT): CInterface =
         CInterface(
             this.featureModel and that.featureModel and inferConstraintsWith(that),
             this.importedFeatures ++ that.importedFeatures,
             this.declaredFeatures ++ that.declaredFeatures,
             this.imports ++ that.imports,
             this.exports ++ that.exports
-        ).packWithOutElimination
+        ).packWithOutElimination(strictness)
 
     /** links without proper checks and packing. only for debugging purposes **/
     def debug_join(that: CInterface): CInterface =

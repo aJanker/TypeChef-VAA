@@ -155,7 +155,8 @@ object Frontend extends EnforceTreeHelper {
                     //ProductGeneration.estimateNumberOfVariants(ast, fm_ts)
 
                     stopWatch.start("typechecking")
-                    println("#type checking")                    val typeCheckStatus = ts.checkAST()
+                    println("#type checking")
+                    val typeCheckStatus = ts.checkAST()
                     ts.errors.map(errorXML.renderTypeError)
                     ts.errors.map(errorXML.renderTypeError(_))
                 }

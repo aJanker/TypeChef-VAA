@@ -45,8 +45,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_WRITEBUILDCONDITION = Options.genOptionId();
     private final static char F_PROJECTINTERFACE = Options.genOptionId();
     private final static char F_PRETTYPRINT = Options.genOptionId();
-    
-    private final File _autoErrorXMLFile = new File(".");
+
     public boolean parse = true,
             typecheck = false,
             ifdeftoif = false,
@@ -230,14 +229,6 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             parse = canBuild = true;
         } else if (c == F_SHOWGUI) {
             parse = showGui = true;
-        } else if (c == F_DOUBLEFREE) {
-            parse = doublefree = true;
-        } else if (c == F_UNINITIALIZEDMEMORY) {
-            parse = uninitializedmemory = true;
-        } else if (c == F_XFREE) {
-            parse = xfree = true;
-        } else if (c == F_DANGLINGSWITCHCODE) {
-            parse = danglingswitchcode = true;
         } else if (c == F_SERIALIZEAST) {
             parse = serializeAST = true;
         } else if (c == F_REUSEAST) {
