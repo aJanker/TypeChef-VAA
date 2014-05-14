@@ -7,7 +7,6 @@ import java.util.IdentityHashMap
 import java.util.regex.Pattern
 import java.io._
 
-
 import org.apache.logging.log4j.LogManager
 
 import org.kiama.rewriting.Rewriter._
@@ -23,11 +22,12 @@ import de.fosd.typechef.error.TypeChefError
 
 
 /**
- * The ifdef to if process transforms compile-time variability using preprocessor based #ifdefs into run-time
- * variability by using different techniques, mainly code duplications and renamings.
- *
- * If a function for example has two different return types (i.e. Int and Long) we duplicate the function and rename it
- * by adding an ifdeftoif name prefix. Additionally all usages of the function are renamed (and duplicated) accordingly.
+ * #ifdef-to-if transforms compile-time variability using preprocessor based #ifdefs into run-time
+ * variability using if statements of C. During the transformation, #ifdef-annotated code that cannot
+ * be transformed directly is duplicated and renamed.
+ * For example, if a function for example has two different return types (e.g., long and ing), we
+ * duplicate the function and rename it by adding an ifdeftoif name prefix. Additionally all usages
+ * of the function are renamed (and duplicated) accordingly.
  *
  * // Original source code
  * #ifdef X64
@@ -35,11 +35,11 @@ import de.fosd.typechef.error.TypeChefError
  * #else
  * int
  * #endif
- * main () { return 0; }
+ * foo () { return 0; }
  *
  * // Ifdeftoif code
- * long _X64_main() { return 0; }
- * int _NotX64_main() { return 0; }
+ * long _X64_foo() { return 0; }
+ * int _NotX64_foo() { return 0; }
  */
 class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfStatisticsInterface with IOUtilities {
     private lazy val logger = LogManager.getLogger(this.getClass.getName)
