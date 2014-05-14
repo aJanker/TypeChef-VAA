@@ -25,10 +25,13 @@ import de.fosd.typechef.error.TypeChefError
 
 /**
  * #ifdef-to-if transforms compile-time variability using preprocessor based #ifdefs into run-time
- * variability using if statements of C. During the transformation, #ifdef-annotated code that cannot
- * be transformed directly is duplicated and renamed.
- * For example, if a function for example has two different return types (e.g., long and ing), we
- * duplicate the function and rename it by adding an ifdeftoif name prefix. Additionally all usages
+ * variability using if statements of C. The process is called variability encoding and the result
+ * is a product simulator. The simulator is a single program capable of "simulating" all variants,
+ * which have been represented with #ifdefs in the input program.
+ *
+ * During the transformation, #ifdef-annotated code that cannot be transformed directly is duplicated
+ * and renamed. For example, if a function for example has two different return types (e.g., long and ing),
+ * we duplicate the function and rename it by adding an ifdeftoif name prefix. Additionally all usages
  * of the function are renamed (and duplicated) accordingly.
  *
  * // Original source code
