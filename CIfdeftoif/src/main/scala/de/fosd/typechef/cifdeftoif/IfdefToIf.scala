@@ -171,18 +171,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
         }
         val sfe = fr.readObject().asInstanceOf[Set[String]]
         fr.close()
-        sfe.map(FeatureExprFactory.createDefinedExternal(_))
+        sfe.map(FeatureExprFactory.createDefinedExternal)
     } catch {
         case e: ObjectStreamException => System.err.println("failed loading serialized FeatureSet: " + e.getMessage); null
-    }
-
-    /**
-     * Takes the difference between a feature (ex: A&B) and a context (ex: A) and computes a CExpr from the difference
-     * of feature and context (ex: generates CExpr for B).
-     */
-    private def featureToDiffedCExpr(feature: FeatureExpr, context: FeatureExpr): Expr = {
-        val shortFeature = fExprDiff(context, feature)
-        toCExpr(shortFeature)
     }
 
     /**
@@ -190,7 +181,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * fExprDiff(A&B, A) => B
      */
     private def fExprDiff(context: FeatureExpr, pc: FeatureExpr): FeatureExpr = {
-        if (context.equivalentTo(trueF) || context.equivalentTo(pc) || !(pc.implies(context).isTautology(fm))) {
+        if (context.equivalentTo(trueF) || context.equivalentTo(pc) || ! pc.implies(context).isTautology(fm)) {
             pc
         } else {
             val result = pc.diff(context)
