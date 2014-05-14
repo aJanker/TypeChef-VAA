@@ -177,8 +177,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     }
 
     /**
-     * Computes the difference between a features (ex: A&B) and a context (ex: A).
-     * fExprDiff(A&B, A) => B
+     * Returns the distinct difference between a feature expression pc and its enclosing context.
+     * fExprDiff(A, A&B) => B
      */
     private def fExprDiff(context: FeatureExpr, pc: FeatureExpr): FeatureExpr = {
         if (context.equivalentTo(trueF) || context.equivalentTo(pc) || ! pc.implies(context).isTautology(fm)) {
