@@ -712,9 +712,11 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     /**
      * Renames identifiers inside of StructDeclarations by adding the ifdeftoif prefix number for given FeatureExpr ft.
      */
+    // TODO fgarbe: T is go general. Function is called with t: Declarator only1!
     def convertStructId[T <: Product](t: T, ft: FeatureExpr): T = {
         val r = oncetd(rule {
             case decl@AtomicNamedDeclarator(a, i: Id, b) =>
+                // TODO fgarbe: Is the isMainFunction check here really necessary? Use transformId to simplify code!
                 if (!isMainFunction(i.name)) {
                     addIdUsages(i, ft)
                     replaceId.put(i, ft)
