@@ -74,8 +74,8 @@ trait CModuleInterfaceGenerator extends Evaluation with App with Logging {
     val finalInterface = linkTreewise(interfaces)//.packWithOutElimination //.andFM(fm_constraints)
     logger.info("Linked interfaces in " + linkingClock.getTime + "ms.")
 
-    logger.info("Linked interface is complete:\t" + finalInterface.isComplete)
-    logger.info("Linked interface is fully configured:\t" + finalInterface.isFullyConfigured)
+    logger.info("Linked interface is complete:\t" + finalInterface.isComplete())
+    logger.info("Linked interface is fully configured:\t" + finalInterface.isFullyConfigured())
     logger.info("Linked interface is well-formed:\t" + finalInterface.isWellformed)
 
     logger.info(finalInterface.exports.size + " exports: " + finalInterface.exports)

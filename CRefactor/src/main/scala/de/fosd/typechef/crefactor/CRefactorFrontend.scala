@@ -22,6 +22,7 @@ import de.fosd.typechef.crefactor.evaluation.evalcases.busybox_1_18_5.BusyBoxRef
 import de.fosd.typechef.crefactor.evaluation.evalcases.openSSL.OpenSSLRefactor
 import de.fosd.typechef.crefactor.backend.CModuleInterface
 import de.fosd.typechef.featureexpr.bdd.FeatureExprHelper
+import de.fosd.typechef.lexer.LexerFrontend
 
 object CRefactorFrontend extends App with InterfaceWriter with BuildCondition with Logging with EnforceTreeHelper {
 
@@ -197,7 +198,7 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
             case RefactorType.NONE => println("No engine type defined")
         }
     }
-    private def lex(opt: FrontendOptions): TokenReader[CToken, CTypeContext] = CLexer.prepareTokens(new lexer.Main().run(opt, opt.parse))
+    private def lex(opt: FrontendOptions): TokenReader[CToken, CTypeContext] = CLexerAdapter.prepareTokens(new LexerFrontend().run(opt, opt.parse))
 
     private def serializeTUnit(ast: AST, filename: String) {
         val fw = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(filename)))

@@ -1,5 +1,6 @@
 package de.fosd.typechef.options;
 
+import de.fosd.typechef.VALexer;
 import de.fosd.typechef.error.Position;
 import de.fosd.typechef.featureexpr.FeatureExpr;
 import de.fosd.typechef.featureexpr.FeatureExprFactory$;
@@ -10,28 +11,16 @@ import gnu.getopt.LongOpt;
 import scala.Function3;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 
 public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
-    private final static char F_PARSE = Options.genOptionId();
-    private final static char F_INTERFACE = Options.genOptionId();
-    private final static char F_WRITEPI = Options.genOptionId();
-    private final static char F_DEBUGINTERFACE = Options.genOptionId();
-    private final static char F_DUMPCFG = Options.genOptionId();
     private final static char F_DOUBLEFREE = Options.genOptionId();
     private final static char F_UNINITIALIZEDMEMORY = Options.genOptionId();
     private final static char F_XFREE = Options.genOptionId();
     private final static char F_DANGLINGSWITCHCODE = Options.genOptionId();
-    private final static char F_SERIALIZEAST = Options.genOptionId();
-    private final static char F_REUSEAST = Options.genOptionId();
-    private final static char F_RECORDTIMING = Options.genOptionId();
-    private final static char F_FILEPC = Options.genOptionId();
     private final static char F_DISABLEPC = Options.genOptionId();
-    private final static char F_PARSERSTATS = Options.genOptionId();
-    private final static char F_HIDEPARSERRESULTS = Options.genOptionId();
-    private final static char F_BDD = Options.genOptionId();
-    private final static char F_ERRORXML = Options.genOptionId();
     private final static char F_IFDEFTOIF = Options.genOptionId();
     private final static char F_IFDEFTOIFSTATISTICS = Options.genOptionId();
     private final static char F_IFDEFTOIFNOCHECK = Options.genOptionId();
@@ -73,7 +62,9 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             parserStatistics = false,
             parserResults = true,
             writePI = false,
-            defaultPC = true;
+            defaultPC = true,
+            printVersion = false;
+
     protected File errorXMLFile = null;
     String outputStem = "";
     private String filePresenceConditionFile = "";
@@ -81,6 +72,24 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private String includeStructFile = "";
     private String refStudy = "";
     private RefactorType refEvalType = RefactorType.NONE;
+
+
+    private final static char F_PARSE = Options.genOptionId();
+    private final static char F_INTERFACE = Options.genOptionId();
+    private final static char F_WRITEPI = Options.genOptionId();
+    private final static char F_DEBUGINTERFACE = Options.genOptionId();
+    private final static char F_DUMPCFG = Options.genOptionId();
+    private final static char F_SERIALIZEAST = Options.genOptionId();
+    private final static char F_REUSEAST = Options.genOptionId();
+    private final static char F_RECORDTIMING = Options.genOptionId();
+    private final static char F_FILEPC = Options.genOptionId();
+    private final static char F_PARSERSTATS = Options.genOptionId();
+    private final static char F_HIDEPARSERRESULTS = Options.genOptionId();
+    private final static char F_BDD = Options.genOptionId();
+    private final static char F_ERRORXML = Options.genOptionId();
+    private static final char TY_VERSION = genOptionId();
+    private static final char TY_HELP = genOptionId();
+
     private Function3<FeatureExpr, String, Position, Object> _renderParserError;
     private FeatureExpr filePC = null;
     private FeatureExpr localFM = null;
@@ -162,6 +171,12 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                         "Do not show parser results."),
                 new Option("parserstatistics", LongOpt.NO_ARGUMENT, F_PARSERSTATS, null,
                         "Print parser statistics.")
+        ));
+        r.add(new OptionGroup("Misc", 1000,
+                new Option("version", LongOpt.NO_ARGUMENT, TY_VERSION, null,
+                        "Prints version number"),
+                new Option("help", LongOpt.NO_ARGUMENT, TY_HELP, null,
+                        "Displays help and usage information.")
         ));
 
         return r;
@@ -273,6 +288,11 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                 checkFileWritable(g.getOptarg());
                 errorXMLFile = new File(g.getOptarg());
             }
+        } else if (c == TY_VERSION) { // --version
+            printVersion = true;
+        } else if (c == TY_HELP) {//--help
+            printUsage();
+            printVersion = true;
         } else
             return super.interpretOption(c, g);
 
@@ -395,12 +415,17 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             return errorXMLFile;
     }
 
+
     public boolean getUseDefaultPC() {
         return defaultPC;
     }
 
     public String getLinkingInterfaceFile() {
         return linkingInterfaceFile;
+    }
+
+    public boolean isPrintVersion() {
+        return printVersion;
     }
 
     public String getRefStudy() {
