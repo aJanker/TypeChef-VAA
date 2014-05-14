@@ -326,35 +326,50 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
         if (!featureConfigPath.isEmpty) {
             val featureConfigFile = new File(featureConfigPath)
             val trueAndFalseFeatures = getFeaturesFromConfiguration(featureConfigFile, fm, defExSet)
+            val (trueFeats, falseFeats, otherFeats) = getFeaturesFromConfiguration(featureConfigFile, fm, defExSet)
 
-            val trueFeaturesInSet = trueAndFalseFeatures._1
-            val falseFeaturesInSet = trueAndFalseFeatures._2
-            val otherFeaturesInSet = trueAndFalseFeatures._3
-
-            val trueExprs = trueFeaturesInSet.map(x => featureToAssignment(x.feature, Constant("1")))
-            val falseExprs = falseFeaturesInSet.map(x => featureToAssignment(x.feature, Constant("0")))
-            val otherExprs = otherFeaturesInSet.map(x => featureToAssignment(x.feature, defaultConfigurationParameter))
+            val trueExprs = trueFeats.map(x => featureToAssignment(x.feature, Constant("1")))
+            val falseExprs = falseFeats.map(x => featureToAssignment(x.feature, Constant("0")))
+            val otherExprs = otherFeats.map(x => featureToAssignment(x.feature, defaultConfigurationParameter))
             exprStmts = trueExprs ++ otherExprs ++ falseExprs
         } else {
             exprStmts = defExSet.toList.map(x => featureToAssignment(x.feature, defaultConfigurationParameter))
         }
-        FunctionDef(List(Opt(trueF, VoidSpecifier())), AtomicNamedDeclarator(List(), Id(initFunctionName), List(Opt(trueF, DeclIdentifierList(List())))), List(), CompoundStatement(exprStmts))
+        FunctionDef(List(Opt(trueF, VoidSpecifier())),
+            AtomicNamedDeclarator(List(), Id(initFunctionName), List(Opt(trueF, DeclIdentifierList(List())))),
+            List(), CompoundStatement(exprStmts))
     }
 
     /**
      * Returns the AST representation of functions and declarations used for model checking.
-     * The first is an extern declaration: extern int __VERIFIER_nondet_int(void);
-     * The second is a function:
-     * int select_one() {
-     * if (__VERIFIER_nondet_int())
-     * return 1;
-     * else
-     * return 0;
-     * }
      */
     def getFunctionsForModelChecking(): List[Opt[ExternalDef]] = {
-        val externDeclaration = Declaration(List(Opt(trueF, ExternSpecifier()), Opt(trueF, IntSpecifier())), List(Opt(trueF, InitDeclaratorI(AtomicNamedDeclarator(List(), Id("__VERIFIER_NONDET_INT"), List(Opt(trueF, DeclParameterDeclList(List(Opt(trueF, PlainParameterDeclaration(List(Opt(trueF, VoidSpecifier())), List()))))))), List(), None))))
-        val selectOneFunction = FunctionDef(List(Opt(trueF, IntSpecifier())), AtomicNamedDeclarator(List(), Id("select_one"), List(Opt(trueF, DeclIdentifierList(List())))), List(), CompoundStatement(List(Opt(trueF, IfStatement(One(PostfixExpr(Id("__VERIFIER_NONDET_INT"), FunctionCall(ExprList(List())))), One(CompoundStatement(List(Opt(trueF, ReturnStatement(Some(Constant("1"))))))), List(), Some(One(CompoundStatement(List(Opt(trueF, ReturnStatement(Some(Constant("0")))))))))))))
+        // extern int __VERIFIER_nondet_int(void);
+        val externDeclaration = Declaration(
+            List(Opt(trueF, ExternSpecifier()), Opt(trueF, IntSpecifier())),
+            List(Opt(trueF,
+                InitDeclaratorI(
+                    AtomicNamedDeclarator(
+                        List(),
+                        Id("__VERIFIER_NONDET_INT"),
+                        List(Opt(trueF, DeclParameterDeclList(List(Opt(trueF,
+                            PlainParameterDeclaration(List(Opt(trueF,
+                                VoidSpecifier())), List()))))))), List(), None))))
+
+        // int select_one() {
+        //   if (__VERIFIER_nondet_int())
+        //     return 1;
+        //   else
+        //     return 0;
+        // }
+        val selectOneFunction = FunctionDef(List(Opt(trueF, IntSpecifier())),
+            AtomicNamedDeclarator(List(), Id("select_one"), List(Opt(trueF, DeclIdentifierList(List())))), List(),
+            CompoundStatement(List(Opt(trueF,
+                IfStatement(
+                    One(PostfixExpr(Id("__VERIFIER_NONDET_INT"), FunctionCall(ExprList(List())))),
+                    One(CompoundStatement(List(Opt(trueF, ReturnStatement(Some(Constant("1"))))))), List(),
+                    Some(One(CompoundStatement(List(Opt(trueF, ReturnStatement(Some(Constant("0")))))))))))))
+
         List(Opt(trueF, externDeclaration), Opt(trueF, selectOneFunction))
     }
 
