@@ -25,15 +25,7 @@ object Frontend extends EnforceTreeHelper {
             }
 
             if (opt.isPrintVersion) {
-                var version = "development build"
-                try {
-                    val cl = Class.forName("de.fosd.typechef.Version")
-                    version = "version " + cl.newInstance().asInstanceOf[VersionInfo].getVersion
-                } catch {
-                    case e: ClassNotFoundException =>
-                }
-
-                println("TypeChef " + version)
+                println("TypeChef " + getVersion)
                 return
             }
         }
@@ -46,6 +38,18 @@ object Frontend extends EnforceTreeHelper {
         }
 
         processFile(opt)
+    }
+
+
+    def getVersion: String = {
+        var version = "development build"
+        try {
+            val cl = Class.forName("de.fosd.typechef.Version")
+            version = "version " + cl.newInstance().asInstanceOf[VersionInfo].getVersion
+        } catch {
+            case e: ClassNotFoundException =>
+        }
+        version
     }
 
     private class StopWatch {
@@ -113,11 +117,13 @@ object Frontend extends EnforceTreeHelper {
         }
 
         stopWatch.start("lexing")
+        println("#lexing")
         //no parsing if read serialized ast
         val in = if (ast == null) lex(opt) else null
 
 
         if (opt.parse) {
+            println("#parsing")
             stopWatch.start("parsing")
 
             if (ast == null) {
@@ -149,7 +155,7 @@ object Frontend extends EnforceTreeHelper {
                     //ProductGeneration.estimateNumberOfVariants(ast, fm_ts)
 
                     stopWatch.start("typechecking")
-                    println("type checking.")
+                    println("#type checking")
                     val typeCheckStatus = ts.checkAST()
                     ts.errors.map(errorXML.renderTypeError)
                     ts.errors.map(errorXML.renderTypeError(_))
@@ -164,6 +170,7 @@ object Frontend extends EnforceTreeHelper {
                         ts.debugInterface(interface, new File(opt.getDebugInterfaceFilename))
                 }
                 if (opt.dumpcfg) {
+                    println("#call graph")
                     stopWatch.start("dumpCFG")
 
                     val cf = new CInterAnalysisFrontend(ast, fm_ts)
@@ -220,8 +227,8 @@ object Frontend extends EnforceTreeHelper {
 
 
     def lex(opt: FrontendOptions): TokenReader[CToken, CTypeContext] = {
-        val tokens = new lexer.Main().run(opt, opt.parse)
-        val in = CLexer.prepareTokens(tokens)
+        val tokens = new lexer.LexerFrontend().run(opt, opt.parse)
+        val in = CLexerAdapter.prepareTokens(tokens)
         in
     }
 
