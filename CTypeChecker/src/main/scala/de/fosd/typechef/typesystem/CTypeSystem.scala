@@ -79,7 +79,7 @@ trait CTypeSystem extends CTypes with CEnv with CDeclTyping with CTypeEnv with C
 
         //add function type to environment for remaining code
         val newEnv = newEnvEnum.addVar(declarator.getName, featureExpr, f, funType, kind, newEnvEnum.scope, getLinkage(declarator.getName, true, specifiers, featureExpr, env, declarator))
-        addDecl(declarator, featureExpr, env, false)
+        //addDecl(declarator, featureExpr, env, false)
         addJumpStatements(stmt)
 
         //check body (add parameters to environment)
@@ -87,6 +87,8 @@ trait CTypeSystem extends CTypes with CEnv with CDeclTyping with CTypeEnv with C
         getStmtType(stmt, featureExpr, innerEnv) //ignore changed environment, to enforce scoping!
         checkTypeFunction(specifiers, declarator, oldStyleParameters, featureExpr, env)
         addOldStyleParameters(oldStyleParameters, declarator, featureExpr, env)
+
+        addDecl(declarator, featureExpr, newEnv, false)
 
         //check actual return type against declared return type
         //TODO check that something was returned at all
