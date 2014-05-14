@@ -3,10 +3,10 @@ package de.fosd.typechef.cifdeftoif
 import scala.collection.mutable.ListBuffer
 import scala.collection.mutable
 
-import java.util.{Collections, IdentityHashMap}
+import java.util.IdentityHashMap
 import java.util.regex.Pattern
 import java.io._
-import io.Source
+
 
 import org.apache.logging.log4j.LogManager
 
@@ -17,9 +17,8 @@ import de.fosd.typechef.featureexpr._
 import de.fosd.typechef.featureexpr.bdd.BDDFeatureExpr
 import de.fosd.typechef.featureexpr.sat._
 import de.fosd.typechef.conditional._
-import de.fosd.typechef.lexer.{LexerFrontend, FeatureExprLib}
+import de.fosd.typechef.lexer.FeatureExprLib
 import de.fosd.typechef.typesystem.{IdentityIdHashMap, CTypeSystemFrontend}
-
 import de.fosd.typechef.error.TypeChefError
 
 
