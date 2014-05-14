@@ -104,14 +104,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     private val createFunctionsForModelChecking = false
 
     /**
-     * Converts a feature expression to a condition in the c programming language. def(x64) becomes options.x64.
+     * Converts a feature expression to a condition in C. #ifdef x64 becomes options.x64.
      */
     private def toCExpr(feature: FeatureExpr): Expr = feature match {
         case d: DefinedExternal => PostfixExpr(Id(featureStructInitializedName),
             PointerPostfixSuffix(".", Id(d.feature.toLowerCase)))
         case d: DefinedMacro => toCExpr(d.presenceCondition)
         case b: BDDFeatureExpr =>
-            bddFexToCExpr(b,
+            toCExpr(b,
                 (fName: String) => PostfixExpr(Id(featureStructInitializedName),
                     PointerPostfixSuffix(".", Id(fName.toLowerCase)))
             )
@@ -124,26 +124,29 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
         case Not(n) => UnaryOpExpr("!", toCExpr(n))
     }
 
-    /**
-     * Same as featureToCExpr for BDDs.
-     */
-    private def bddFexToCExpr(bdd: BDDFeatureExpr, transformFName: String => Expr): Expr = {
+    private def toCExpr(bdd: BDDFeatureExpr, transformFName: String => Expr): Expr = {
         if (bdd.isTautology(fm)) Constant("1")
         else if (bdd.isContradiction(fm)) Constant("0")
         else {
-            def clause(d: Array[(Byte, String)]): Expr = NAryExpr(clauseForHead(d.head), clauseForTailElements(d.tail))
-            def clauseForTailElements(d: Array[(Byte, String)]): List[Opt[NArySubExpr]] = d.map(
-                x => (if (x._1 == 0)
-                    List(Opt(trueF, NArySubExpr("&&", UnaryOpExpr("!", transformFName(x._2)))))
-                else
-                    List(Opt(trueF, NArySubExpr("&&", transformFName(x._2))))
-                    )).foldLeft(List[Opt[NArySubExpr]]())((a, b) => a ++ b)
-            def clauseForHead(x: (Byte, String)): Expr = (if (x._1 == 0)
-                UnaryOpExpr("!", transformFName(x._2))
-            else
-                transformFName(x._2)
-                )
-            val cnfClauses: List[Expr] = bdd.getBddAllSat.map(clause(_)).toList
+            def tClause(d: Array[(Byte, String)]): Expr =
+                NAryExpr(tClauseHead(d.head), tClauseTail(d.tail))
+
+            def tClauseTail(d: Array[(Byte, String)]): List[Opt[NArySubExpr]] =
+                d.toList.map {
+                    case (0, name) => Opt(trueF, NArySubExpr("&&", UnaryOpExpr("!", transformFName(name))))
+                    case (_, name) => Opt(trueF, NArySubExpr("&&", transformFName(name)))
+                }
+
+            def tClauseHead(x: (Byte, String)): Expr = {
+                x match {
+                    case (0, name) => UnaryOpExpr("!", transformFName(name))
+                    case (_, name) => transformFName(name)
+                }
+            }
+
+            val cnfClauses: List[Expr] = bdd.getBddAllSat.map(tClause).toList
+
+            // TODO fgarbe: Please specify what the following line does.
             NAryExpr(cnfClauses.head,
                 cnfClauses.tail.foldLeft(List[Opt[NArySubExpr]]())((a, b: Expr) => a ++ List(Opt(trueF, NArySubExpr("||", b))))
             )
