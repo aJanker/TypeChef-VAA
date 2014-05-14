@@ -614,6 +614,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
         }
     }
 
+    // Helper function that consolidates different functions for single Id transformation!
+    private def transformId(i: Id, ft: FeatureExpr) = {
+        addIdUsages(i, ft)
+        replaceId.put(i, ft)
+        updateIdMap(ft)
+        prependCtxPrefix(i, ft)
+    }
+
     /**
      * Renames identifiers inside a declaration by adding the ifdeftoif prefix number for given FeatureExpr ft.
      */
@@ -621,24 +629,16 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
         if (ft.equivalentTo(trueF, fm))
             return t
 
-        // Helper function that consolidates different functions for single Id transformation!
-        def transformId(i: Id) = {
-            addIdUsages(i, ft)
-            replaceId.put(i, ft)
-            updateIdMap(ft)
-            prependCtxPrefix(i, ft)
-        }
-
         val rt = alltd(rule {
             // do not transform the identifier of the main function
             case init@InitDeclaratorI(AtomicNamedDeclarator(_, Id(name), _), _, _) if isMainFunction(name) => init
-            case init@InitDeclaratorI(AtomicNamedDeclarator(a, i: Id, b), attr, inits)                     =>
-                val rId = transformId(i)
+            case InitDeclaratorI(AtomicNamedDeclarator(a, i: Id, b), attr, inits)                          =>
+                val rId = transformId(i, ft)
                 InitDeclaratorI(AtomicNamedDeclarator(a, prependCtxPrefix(i, ft), b), attr, inits)
             // do not transform the identifier of the main function
             case init@InitDeclaratorI(NestedNamedDeclarator(_, AtomicNamedDeclarator(_, Id(name), _), _, _), _, _) => init
-            case init@InitDeclaratorI(NestedNamedDeclarator(l, AtomicNamedDeclarator(a, i: Id, b), r, c), attr, inits) =>
-                val rId = transformId(i) 
+            case InitDeclaratorI(NestedNamedDeclarator(l, AtomicNamedDeclarator(a, i: Id, b), r, c), attr, inits)  =>
+                val rId = transformId(i, ft)
                 InitDeclaratorI(NestedNamedDeclarator(l, AtomicNamedDeclarator(a, rId, b), r, c), attr, inits)
         })
 
@@ -674,6 +674,29 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
             current
         } else {
             convert(current, feat)
+        }
+    }
+
+    /**
+     * TODO fgarbe: Possible replacement for convertId (see above).
+     * Renames the first identifier inside a declaration by adding the ifdeftoif prefix number for given FeatureExpr ft.
+     */
+    def transformDeclId[T <: Product](t: T, ft: FeatureExpr): T = {
+        if (ft.equivalentTo(trueF))
+            return t
+
+        t match {
+            case Declaration(declSpecs, init) =>
+                Declaration(declSpecs, init.map(x => convertId(x, ft))).asInstanceOf[T]
+            case Opt(optFt, InitDeclaratorI(decl, attri, iniz)) =>
+                Opt(optFt, InitDeclaratorI(convertId(decl, ft), attri, iniz)).asInstanceOf[T]
+            // Do not rename the identifier of the main function
+            case a@AtomicNamedDeclarator(_, Id(name), _) if isMainFunction(name) => a.asInstanceOf[T]
+            case AtomicNamedDeclarator(pointers, i: Id, extensions) =>
+                val rId = transformId(i, ft)
+                AtomicNamedDeclarator(pointers, rId, extensions).asInstanceOf[T]
+            case NestedNamedDeclarator(pointers, nestedDecl, extensions, attrib) =>
+                NestedNamedDeclarator(pointers, convertId(nestedDecl, ft), extensions, attrib).asInstanceOf[T]
         }
     }
 
