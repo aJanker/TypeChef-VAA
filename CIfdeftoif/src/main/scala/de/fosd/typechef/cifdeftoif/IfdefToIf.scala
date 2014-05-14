@@ -46,9 +46,10 @@ import de.fosd.typechef.error.TypeChefError
 class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfStatisticsInterface with IOUtilities {
     private lazy val logger = LogManager.getLogger(this.getClass.getName)
     private val trueF = FeatureExprFactory.True
-    private val CONFIGPREFIX = "v_"
+
+    // conversion factor: nanoseconds to milliseconds
     private val nstoms = 1000000
-    // Used for nanosecond to milisecond conversion
+
     private val fs = System.getProperty("file.separator")
 
     /* Variables used for the ifdeftoif transformation process */
