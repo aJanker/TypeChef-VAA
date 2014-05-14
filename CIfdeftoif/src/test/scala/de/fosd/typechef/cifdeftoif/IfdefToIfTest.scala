@@ -162,7 +162,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val defUseMap = getDeclUseMap
         val useDefMap = getUseDeclMap
 
-        val optionsAst = i.getOptionFile(source_ast)
+        val optionsAst = i.generateIfdefOptionsTUnit(source_ast)
         val newAst = i.transformAst(prepareAST(source_ast), defUseMap, useDefMap, 0)._1
         ("+++New Code+++\n" + PrettyPrinter.print(newAst))
     }
