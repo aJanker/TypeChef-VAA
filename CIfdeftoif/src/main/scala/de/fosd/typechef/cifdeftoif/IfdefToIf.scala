@@ -374,24 +374,24 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     }
 
     /**
-     * Returns a function used to initialize the feature values of the ifdeftoif configuration struct with the value
+     * Returns a function used to initialize the feature values of the ifdeftoif option struct with the value
      * 'select_one' from the function 'getFunctionsForModelChecking'.
-     * @param defExSet
-     * @return
      */
     def getModelCheckInitFunction(defExSet: Set[SingleFeatureExpr]): FunctionDef = {
         val cmpStmt = defExSet.map(x => {
-            Opt(trueF, ExprStatement(AssignExpr(PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id(x.feature.toLowerCase))), "=", PostfixExpr(Id("select_one"), FunctionCall(ExprList(List()))))))
+            Opt(trueF, ExprStatement(AssignExpr(
+                PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id(x.feature.toLowerCase))),
+                "=", PostfixExpr(Id("select_one"), FunctionCall(ExprList(List()))))))
         }).toList
-        FunctionDef(List(Opt(trueF, VoidSpecifier())), AtomicNamedDeclarator(List(), Id("initOptions"), List(Opt(trueF, DeclIdentifierList(List())))), List(), CompoundStatement(cmpStmt))
+
+        FunctionDef(List(Opt(trueF, VoidSpecifier())),
+            AtomicNamedDeclarator(List(), Id("initOptions"), List(Opt(trueF, DeclIdentifierList(List())))),
+            List(), CompoundStatement(cmpStmt))
     }
 
     /**
-     * Returns the initial TranslationUnit with the ifdeftoif configuration struct and a function which initializes
-     * the features inside the ifdeftoif configuration struct with values.
-     * @param defExSet
-     * @param featureConfigPath
-     * @return
+     * Returns the initial TranslationUnit with the ifdeftoif option struct and a function which initializes
+     * the features inside the ifdeftoif option struct with values.
      */
     def getInitialTranslationUnit(defExSet: Set[SingleFeatureExpr], featureConfigPath: String = ""): TranslationUnit = {
         val structDeclaration = Opt(trueF, getOptionStruct(defExSet))
@@ -405,9 +405,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     }
 
     /**
-     * Creates an id2i_optionstruct.h file where the ifdeftoif feature configuration struct and the init function for
+     * Creates an id2i_optionstruct.h file with the ifdeftoif option struct and the init function for
      * assigning selection states to features. The feature selection states are read from the given .config file path.
-     * @param featureConfigPath
      */
     def writeExternIfdeftoIfStruct(featureConfigPath: String) = {
         val featureSet = loadSerializedFeatureNames(serializedFeaturePath)
