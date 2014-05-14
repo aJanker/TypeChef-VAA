@@ -86,7 +86,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     private val featureStructName = "ifdef_options"
     // Suffix under which the ifdeftoif file is saved
     private val ifdeftoifFileSuffix = "_ifdeftoif.c"
-    // Threshold for a list size for computation of carthesian product
+    // Threshold for a list size for computation of cartesian product
     private val duplicationThreshold = 200
     // Data structure which maps definitions of variables to their usages
     private var defuse: IdentityIdHashMap = new IdentityIdHashMap(new IdentityHashMap())
