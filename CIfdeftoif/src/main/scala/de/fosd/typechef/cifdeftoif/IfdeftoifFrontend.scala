@@ -11,6 +11,7 @@ import java.util.zip.{GZIPOutputStream, GZIPInputStream}
 import de.fosd.typechef.parser.c.CTypeContext
 import de.fosd.typechef.typesystem.{CDeclUse, CTypeCache, CTypeSystemFrontend}
 import de.fosd.typechef.crewrite._
+import de.fosd.typechef.lexer.LexerFrontend
 
 
 object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
@@ -259,7 +260,7 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
             ts.debugInterface(interface, new File(opt.getDebugInterfaceFilename))
     }
 
-    private def lex(opt: FrontendOptions): TokenReader[CToken, CTypeContext] = CLexer.prepareTokens(new lexer.Main().run(opt, opt.parse))
+    private def lex(opt: FrontendOptions): TokenReader[CToken, CTypeContext] = CLexerAdapter.prepareTokens(new LexerFrontend().run(opt, opt.parse))
 
     private def serializeAST(ast: AST, filename: String) {
         val fw = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(filename)))

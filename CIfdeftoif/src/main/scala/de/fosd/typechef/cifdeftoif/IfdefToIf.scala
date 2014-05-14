@@ -17,7 +17,7 @@ import de.fosd.typechef.featureexpr._
 import de.fosd.typechef.featureexpr.bdd.BDDFeatureExpr
 import de.fosd.typechef.featureexpr.sat._
 import de.fosd.typechef.conditional._
-import de.fosd.typechef.lexer.FeatureExprLib
+import de.fosd.typechef.lexer.{LexerFrontend, FeatureExprLib}
 import de.fosd.typechef.typesystem.{IdentityIdHashMap, CTypeSystemFrontend}
 
 import de.fosd.typechef.error.TypeChefError
@@ -194,17 +194,21 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     /**
      * Retrieves an abstract syntax tree for a given file.
      */
-    def getAstFromFile(fileToAnalyse: File): TranslationUnit = {
-        def parseFile(stream: InputStream, file: String, dir: String): TranslationUnit = {
-            val ast: AST = new ParserMain(new CParser).parserMain(
-                () => CLexer.lexStream(stream, file, Collections.singletonList(dir), null), new CTypeContext, SilentParserOptions)
-            ast.asInstanceOf[TranslationUnit]
-        }
-        val fis = new FileInputStream(fileToAnalyse)
-        val ast = parseFile(fis, fileToAnalyse.getName, fileToAnalyse.getParent)
-        fis.close()
-        ast
-    }
+// TODO fgarbe: The following lines are outdated after lexer changes. New solution necessary!
+//    def getAstFromFile(fileToAnalyse: File): TranslationUnit = {
+//        def parseFile(stream: InputStream, file: String, dir: String): TranslationUnit = {
+//            val tokens = new LexerFrontend().parseStream(stream, file, Collections.singletonList(dir), null)
+//            val ast: AST = new ParserMain(new CParser).parserMain(
+//                () => CLexerAdapter.prepareTokens(tokens),
+//                    new CTypeContext, SilentParserOptions)
+//            ast.asInstanceOf[TranslationUnit]
+//        }
+//
+//        val fis = new FileInputStream(fileToAnalyse)
+//        val ast = parseFile(fis, fileToAnalyse.getName, fileToAnalyse.getParent)
+//        fis.close()
+//        ast
+//    }
 
     /**
      * Checks given AST for type errors, prints errors onto the console and returns if the type check was successful.
@@ -922,26 +926,28 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
 
                 // Overwrite file with #include statement with a file which possesses the ifdeftoif config struct
                 PrettyPrinter.printF(typecheck_ast, ifdeftoif_file)
-                val result_ast_with_position = getAstFromFile(new File(ifdeftoif_file))
-                if (result_ast_with_position == null) {
-                    val errorHeader = "-+ ParseErrors in " + fileNameWithExt + " +-\n"
-                    if (!(new File(typeErrorPath).exists)) {
-                        writeToFile(typeErrorPath, errorHeader + "\n\n")
-                    } else {
-                        appendToFile(typeErrorPath, errorHeader + "\n\n")
-                    }
-                    (None, 0, List())
-                } else {
-                    val errors = getAstErrors(result_ast_with_position)
-                    val errorHeader = "-+ TypeErrors in " + fileNameWithExt + " +-\n"
-                    val errorString = errors mkString "\n"
-                    if (!(new File(typeErrorPath).exists)) {
-                        writeToFile(typeErrorPath, errorHeader + errorString + "\n\n")
-                    } else {
-                        appendToFile(typeErrorPath, errorHeader + errorString + "\n\n")
-                    }
-                    (None, 0, errors)
-                }
+// TODO fgarbe: New solution required!
+//                val result_ast_with_position = getAstFromFile(new File(ifdeftoif_file))
+//                if (result_ast_with_position == null) {
+//                    val errorHeader = "-+ ParseErrors in " + fileNameWithExt + " +-\n"
+//                    if (!(new File(typeErrorPath).exists)) {
+//                        writeToFile(typeErrorPath, errorHeader + "\n\n")
+//                    } else {
+//                        appendToFile(typeErrorPath, errorHeader + "\n\n")
+//                    }
+//                    (None, 0, List())
+//                } else {
+//                    val errors = getAstErrors(result_ast_with_position)
+//                    val errorHeader = "-+ TypeErrors in " + fileNameWithExt + " +-\n"
+//                    val errorString = errors mkString "\n"
+//                    if (!(new File(typeErrorPath).exists)) {
+//                        writeToFile(typeErrorPath, errorHeader + errorString + "\n\n")
+//                    } else {
+//                        appendToFile(typeErrorPath, errorHeader + errorString + "\n\n")
+//                    }
+//                    (None, 0, errors)
+//                }
+                (None, 0, List())
             }
         }
     }
