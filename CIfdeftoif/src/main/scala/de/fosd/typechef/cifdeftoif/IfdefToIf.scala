@@ -444,10 +444,12 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     }
 
     /**
-     * Retrieves a list of tuples out of a choice node which include the corresponding FeatureExpr and AST node.
-     * Also takes choices inside choices into account.
+     * Flatten the conditional tree structure and filter contradictory elements.
      */
     def conditionalToTuple[T <: Product](choice: Conditional[T], currentContext: FeatureExpr = trueF): List[(FeatureExpr, T)] = {
+        // TODO fgarbe: Possible code simplification!
+        // ConditionalLib.items(choice, currentContext).filter(_._1.isSatisfiable(fm))
+
         val choiceList = choice.toList
         if (currentContext.equals(trueF)) {
             choiceList
