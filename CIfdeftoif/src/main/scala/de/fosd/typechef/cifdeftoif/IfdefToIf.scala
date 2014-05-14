@@ -418,30 +418,26 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     }
 
     /**
-     * Filters a given product for feature expressions which are not True and returns a set including each single feature expression.
+     * Returns a set of all configuration options in a.
      */
     def getSingleFeatures(a: Any): Set[SingleFeatureExpr] = {
         var featureSet: Set[FeatureExpr] = Set()
         val r = manytd(query {
-            case Opt(ft, _) =>
-                featureSet += ft
-            case Choice(ft, _, _) =>
-                featureSet += ft
+            case Opt(ft, _)       => featureSet += ft
+            case Choice(ft, _, _) => featureSet += ft
         })
-        r(a).get
+
+        r(a)
         featureSet.flatMap(x => x.collectDistinctFeatureObjects)
     }
 
     /**
-     * Returns the very first #include statement used to the external ifdeftoif configuration file in string form.
-     * This function looks for a serialized Set of feature names in 'serializedFeaturePath'
-     * Ex: #include "TypeChef/ifdeftoif/id2i_optionstruct.h"
-     * @param includePath
-     * @return
+     * Creates an #include directive for a header file of the "own" program, i.e., #include "path".
+     * Does not create an include for system header files!
      */
-    def getIncludeStatement(includePath: String): String = {
-        if (!includePath.isEmpty) {
-            "#include \"" + includePath + "\"\n"
+    def createIncludeDirective(path: String): String = {
+        if (!path.isEmpty) {
+            "#include \"" + path + "\"\n"
         } else {
             ""
         }
@@ -932,7 +928,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
         } else {
             ifdeftoif_file = newPath
         }
-        PrettyPrinter.printF(result_ast, ifdeftoif_file, getIncludeStatement(externOptionStructPath))
+        PrettyPrinter.printF(result_ast, ifdeftoif_file, createIncludeDirective(externOptionStructPath))
         println("Printed ifdeftoif to file " + ifdeftoif_file)
 
         if (!typecheckResult) {
