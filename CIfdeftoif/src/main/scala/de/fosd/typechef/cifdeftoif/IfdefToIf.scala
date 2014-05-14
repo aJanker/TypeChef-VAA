@@ -471,6 +471,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * If transformExpr is set to true, we also transform variability inside the given expression immediately.
      * Ex: Choice(def(A), 0, 1) -> id2i.a ? 0 : 1
      */
+    // TODO fgarbe: Apart from testing, transformExpr is always true. Simplifies code a lot, when option is removed!
     def conditionalToConditionalExpr(choice: Conditional[Expr], curCtx: FeatureExpr = trueF, transformExpr: Boolean = false): One[Expr] = {
         val tList = conditionalToList(choice, curCtx)
         tList match {
@@ -784,6 +785,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * Converts a given Choice[Expr] element to a ConditionalExpr. Example:
      * Choice(def(A),One(Id(a)),Choice(def(B),One(Id(b)),One(null))) -> (id2i_opt.a ? a : ((! id2i_opt.b) ?  : b))
      */
+    // TODO fgarbe: Unused function!
     def conditionalToCondExpr(current: Conditional[Expr], currentContext: FeatureExpr): Conditional[Expr] = {
         def conditionalToCondExprHelper(condExpr: Conditional[Expr], currentFeature: FeatureExpr = trueF): Expr = {
             condExpr match {
@@ -839,62 +841,51 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
         def replaceHelp[T <: Any](t: T, feat: FeatureExpr): T = {
             val r = alltd(rule {
                 case l: List[Opt[_]] =>
-                    l.flatMap(x => {
-                        x match {
-                            case o: Opt[_] =>
-                                if (o.feature.equivalentTo(feat, fm) || feat.implies(o.feature).isTautology(fm)) {
-
-                                    // Feature in opt node is equal or less specific than the context, replace opt node feature with True
-                                    List(Opt(trueF, replaceHelp(o.entry, feat)))
-                                } else if (feat.and(o.feature).isSatisfiable(fm)) {
-
-                                    // Feature in opt node is more specific and still satisfiable in the context, don't change opt node
-                                    List(Opt(o.feature, replaceHelp(o.entry, feat)))
-                                } else {
-
-                                    // Feature in opt node is not satisfiable in the current context, remove opt node
-                                    List()
-                                }
-                        }
-                    })
-                case i: Id =>
-                    if (idsToBeReplaced.containsKey(i)) {
-                        updateIdMap(feat)
-                        val featureList = idsToBeReplaced.get(i)
-                        val matchingId = featureList.find(x => feat.implies(x).isTautology(fm))
-                        matchingId match {
-                            case None =>
-                                // TODO: this should not happen?
-                                val lst = idsToBeReplaced.get(i)
-                                prependCtxPrefix(i, feat)
+                    l.flatMap {
+                        case o: Opt[_] =>
+                            // Feature in opt node is equal or less specific than the context, replace opt node feature with True
+                            if (o.feature.equivalentTo(feat, fm) || feat.implies(o.feature).isTautology(fm)) {
+                                List(Opt(trueF, replaceHelp(o.entry, feat)))
+                            }
+                            // Feature in opt node is more specific and still satisfiable in the context, don't change opt node
+                            else if (feat.and(o.feature).isSatisfiable(fm)) {
+                                List(Opt(o.feature, replaceHelp(o.entry, feat)))
+                            }
+                            // Feature in opt node is not satisfiable in the current context, remove opt node
+                            else {
+                                List()
+                            }
+                    }
+                case i: Id if !idsToBeReplaced.containsKey(i) => i
+                case i: Id                                    =>
+                    updateIdMap(feat)
+                    val featureList = idsToBeReplaced.get(i)
+                    val matchingId = featureList.find(x => feat.implies(x).isTautology(fm))
+                    matchingId match {
+                        // TODO: this should not happen?
+                        case None => i
+                        case Some(x: FeatureExpr) =>
+                            if (x.equivalentTo(trueF, fm)) {
                                 i
-                            case Some(x: FeatureExpr) =>
-                                if (x.equivalentTo(trueF, fm)) {
-                                    i
-                                } else {
-                                    prependCtxPrefix(i, x)
-                                }
-                            case k =>
-                                Id("")
-                        }
-                    } else {
-                        i
+                            } else {
+                                prependCtxPrefix(i, x)
+                            }
                     }
             })
             r(t).getOrElse(t).asInstanceOf[T]
         }
+
         if (feature.equivalentTo(trueF, fm)) {
             current
         } else {
             current match {
-                case o@Opt(ft, entry) =>
+                case Opt(ft, entry) =>
                     if (ft.equivalentTo(trueF, fm) || ft.equivalentTo(feature, fm)) {
                         Opt(trueF, replaceHelp(entry, feature)).asInstanceOf[S]
                     } else {
                         Opt(ft, replaceHelp(entry, feature)).asInstanceOf[S]
                     }
-                case _ =>
-                    replaceHelp(current, feature).asInstanceOf[S]
+                case _ => replaceHelp(current, feature)
             }
         }
     }
