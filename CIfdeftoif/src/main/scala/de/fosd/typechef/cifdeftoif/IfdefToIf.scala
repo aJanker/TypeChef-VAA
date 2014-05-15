@@ -1082,161 +1082,168 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * - statements which need to be duplicated or embedded inside if statements
      * - declarations which need to be duplicated/renamed
      */
-    def transformRecursive[T <: Product](t: T, currentContext: FeatureExpr = trueF, isTopLevel: Boolean = false): T = {
+    def transformRecursive[T <: Product](t: T, curCtx: FeatureExpr = trueF, isTopLevel: Boolean = false): T = {
         val r = alltd(rule {
             case l: List[Opt[_]] =>
-                l.flatMap(x => {
-                    x match {
-                        case o@Opt(ft, entry) =>
-                            if (x.entry.isInstanceOf[AST] && !x.entry.asInstanceOf[AST].range.getOrElse(None).equals(None)) {
+                l.flatMap {
+                    case o@Opt(ft, entry) =>
+                        if (entry.asInstanceOf[AST].range.isDefined) {
 
-                                /*
-                                Exports the current code position in the source file. Can be used to find out
-                                where the #ifdef to if progress stopped or gets stuck.
-                                 */
-                                writeToFile("ifdeftoif_progress.txt", x.entry.asInstanceOf[AST].range.get.toString() + " from " + o)
-                            }
-                            val features = computeFeaturesForDuplication(entry, o.feature.and(currentContext), isTopLevel)
-                            if (exceedsThreshold(features)) {
-                                List(o)
-                            } else {
-                                entry match {
-                                    case InitDeclaratorI(decl, attributes, Some(init@Initializer(initElemLabel, expr))) =>
-                                        if (!isTopLevel) {
+                            /*
+                            Exports the current code position in the source file. Can be used to find out
+                            where the #ifdef to if progress stopped or gets stuck.
+                             */
+                            writeToFile("ifdeftoif_progress.txt", entry.asInstanceOf[AST].range.get.toString() + " from " + o)
+                        }
+                        val fExps = computeFeaturesForDuplication(entry, o.feature.and(curCtx), isTopLevel)
+                        if (exceedsThreshold(fExps)) {
+                            List(o)
+                        } else {
+                            entry match {
+                                case InitDeclaratorI(decl, attributes, Some(init@Initializer(initElemLabel, expr))) =>
+                                    if (!isTopLevel) {
 
-                                            /*
-                                            Local declarations with assignments can be transformed with conditional assignments.
-                                            Ex: void main() { int a = id2i.x64 ? 0 : 1 }
-                                            Not possible for assignments on global variables!
-                                             */
-                                            val exprFeatures = computeFeaturesForDuplication(expr, o.feature.and(currentContext))
-                                            if (exceedsThreshold(exprFeatures)) {
-                                                List(o)
-                                            } else {
-                                                val condExpr = convertToCondExpr(init, exprFeatures, currentContext)
-                                                List(transformRecursive(Opt(ft, InitDeclaratorI(decl, attributes, Some(condExpr))), currentContext.and(ft)))
-                                            }
-                                        } else {
-                                            List(transformRecursive(o, currentContext.and(ft)))
-                                        }
-
-                                    case DeclarationStatement(decl: Declaration) =>
-                                        val result = handleDeclarations(Opt(ft, decl), currentContext, isTopLevel).map(x => Opt(trueF, DeclarationStatement(x.entry)))
-                                        countDuplications(decl, result.size, isTopLevel)
-                                        result
-                                    case _: Declaration =>
-                                        val result = handleDeclarations(o.asInstanceOf[Opt[Declaration]], currentContext, isTopLevel)
-                                        countDuplications(o.entry, result.size, isTopLevel)
-                                        result
-                                    case i@Initializer(elem, expr) =>
-                                        if (features.isEmpty) {
-                                            List(replaceAndTransform(Opt(trueF, Initializer(elem, expr)), o.feature.and(currentContext)))
-                                        } else {
-                                            List(Opt(trueF, convertToCondExpr(i, features, currentContext)))
-                                        }
-                                    case e@Enumerator(_, None) =>
-                                        if (!features.isEmpty) {
-                                            countDuplications(o.entry, features.size, isTopLevel)
-                                            features.map(x => Opt(trueF, transformRecursive(convertEnumId(replaceOptAndId(e, x), x), x)))
-                                        } else if (ft.equals(trueF)) {
-                                            List(transformRecursive(o, currentContext))
-                                        } else {
-                                            List(Opt(trueF, transformRecursive(convertEnumId(replaceOptAndId(e, o.feature), o.feature), o.feature.and(currentContext))))
-                                        }
-                                    case e@Enumerator(_, Some(expr)) =>
-                                        val exprFeatures = computeFeaturesForDuplication(expr, o.feature.and(currentContext))
-                                        if (!features.isEmpty) {
-                                            countDuplications(o.entry, features.size, isTopLevel)
-                                            features.map(x => Opt(trueF, transformRecursive(convertEnumId(replaceOptAndId(convertToCondExpr(e, exprFeatures, o.feature.and(currentContext)), x), x), x)))
-                                        } else if (ft.equals(trueF)) {
-                                            List(transformRecursive(Opt(trueF, convertToCondExpr(e, exprFeatures, o.feature.and(currentContext))), currentContext))
-                                        } else {
-                                            List(Opt(trueF, transformRecursive(convertEnumId(replaceOptAndId(convertToCondExpr(e, exprFeatures, o.feature.and(currentContext)), o.feature), o.feature), o.feature.and(currentContext))))
-                                        }
-                                    case sd@StructDeclaration(qual, decl) =>
-                                        if (!features.isEmpty) {
-                                            countDuplications(o.entry, features.size, isTopLevel)
-                                            features.map(x => replaceAndTransform(Opt(trueF, StructDeclaration(qual, convertStructId(decl, x))), x))
-                                        } else if (ft.equals(trueF)) {
-                                            List(transformRecursive(o, currentContext))
-                                        } else {
-                                            List(replaceOptAndId(Opt(trueF, StructDeclaration(qual, convertStructId(decl, o.feature))), o.feature))
-                                        }
-
-                                    case _: FunctionDef | _: NestedFunctionDef =>
-                                        val result = handleFunction(o)
-                                        countDuplications(o.entry, result.size, isTopLevel)
-                                        result
-
-
-                                    case _: IfStatement | _: WhileStatement | _: SwitchStatement | _: DoStatement | _: ForStatement =>
-                                        val result = handleStatement(o, ft.and(currentContext))
-                                        countDuplications(o.entry, result.size, isTopLevel)
-                                        result
-                                    case r: ReturnStatement =>
-                                        if (!features.isEmpty) {
-                                            val result = features.map(x => Opt(trueF, statementToIf(replaceAndTransform(r, x), x, currentContext)))
-                                            result
-                                        } else {
-                                            if (ft.equals(trueF)) {
-                                                List(transformRecursive(o, currentContext))
-                                            } else {
-                                                List(Opt(trueF, statementToIf(replaceAndTransform(r, ft), ft, currentContext)))
-                                            }
-                                        }
-                                    case g: GotoStatement =>
-                                        if (!features.isEmpty) {
-                                            val result = features.map(x => Opt(trueF, statementToIf(replaceOptAndId(g, x), ft, currentContext)))
-                                            result
-                                        } else if (ft.equals(trueF)) {
-                                            List(transformRecursive(o, currentContext))
-                                        } else {
-                                            List(Opt(trueF, statementToIf(replaceOptAndId(g, ft), ft, currentContext)))
-                                        }
-                                    case e: ExprStatement =>
-                                        val realFeature = currentContext.and(o.feature)
-                                        val features = computeFeaturesForDuplication(e, realFeature)
-                                        if (!features.isEmpty) {
-                                            countDuplications(o.entry, features.size, isTopLevel)
-                                            features.map(x => Opt(trueF, IfStatement(One(toCExpr(fExprDiff(currentContext, x.and(realFeature)))), One(CompoundStatement(List(replaceAndTransform(Opt(trueF, e), x.and(realFeature))))), List(), None)))
-                                        } else if (ft.equals(trueF)) {
-                                            List(transformRecursive(o, currentContext))
-                                        } else {
-                                            val result = List(Opt(trueF, IfStatement(One(toCExpr(realFeature)), One(CompoundStatement(List(replaceAndTransform(Opt(trueF, e), realFeature)))), List(), None)))
-                                            result
-                                        }
-                                    case label: LabelStatement =>
-                                        val features = computeFeaturesForDuplication(label, ft.and(currentContext))
-                                        if (!features.isEmpty) {
-                                            val result = features.map(x => Opt(trueF, statementToIf(replaceOptAndId(label, x), ft, currentContext)))
-                                            result
-                                        } else if (ft.equals(trueF)) {
+                                        /*
+                                        Local declarations with assignments can be transformed with conditional assignments.
+                                        Ex: void main() { int a = id2i.x64 ? 0 : 1 }
+                                        Not possible for assignments on global variables!
+                                         */
+                                        val exprFeatures = computeFeaturesForDuplication(expr, o.feature.and(curCtx))
+                                        if (exceedsThreshold(exprFeatures)) {
                                             List(o)
                                         } else {
-                                            List(Opt(trueF, statementToIf(replaceOptAndId(label, ft), ft, currentContext)))
+                                            val condExpr = convertToCondExpr(init, exprFeatures, curCtx)
+                                            List(transformRecursive(Opt(ft,
+                                                InitDeclaratorI(decl, attributes, Some(condExpr))), curCtx.and(ft)))
                                         }
-
-
-                                    case typeless: TypelessDeclaration =>
-                                        // TODOkA: Umwandlung
+                                    } else {
+                                        List(transformRecursive(o, curCtx.and(ft)))
+                                    }
+                                case DeclarationStatement(decl: Declaration) =>
+                                    val result = handleDeclarations(Opt(ft, decl), curCtx, isTopLevel)
+                                        .map(x => Opt(trueF, DeclarationStatement(x.entry)))
+                                    countDuplications(decl, result.size, isTopLevel)
+                                    result
+                                case _: Declaration =>
+                                    val result = handleDeclarations(o.asInstanceOf[Opt[Declaration]], curCtx, isTopLevel)
+                                    countDuplications(o.entry, result.size, isTopLevel)
+                                    result
+                                case i@Initializer(elem, expr) =>
+                                    if (fExps.isEmpty) {
+                                        List(replaceAndTransform(Opt(trueF, Initializer(elem, expr)), o.feature.and(curCtx)))
+                                    } else {
+                                        List(Opt(trueF, convertToCondExpr(i, fExps, curCtx)))
+                                    }
+                                case e@Enumerator(_, None) =>
+                                    if (!fExps.isEmpty) {
+                                        countDuplications(o.entry, fExps.size, isTopLevel)
+                                        fExps.map(x => Opt(trueF, transformRecursive(convertEnumId(replaceOptAndId(e, x), x), x)))
+                                    } else if (ft.equals(trueF)) {
+                                        List(transformRecursive(o, curCtx))
+                                    } else {
+                                        List(Opt(trueF,
+                                            transformRecursive(convertEnumId(replaceOptAndId(e, o.feature), o.feature),
+                                                o.feature.and(curCtx))))
+                                    }
+                                case e@Enumerator(_, Some(expr)) =>
+                                    val exprFeatures = computeFeaturesForDuplication(expr, o.feature.and(curCtx))
+                                    if (!fExps.isEmpty) {
+                                        countDuplications(o.entry, fExps.size, isTopLevel)
+                                        fExps.map(x => Opt(trueF,
+                                            transformRecursive(convertEnumId(replaceOptAndId(
+                                                convertToCondExpr(e, exprFeatures, o.feature.and(curCtx)), x), x), x)))
+                                    } else if (ft.equals(trueF)) {
+                                        List(transformRecursive(Opt(trueF,
+                                            convertToCondExpr(e, exprFeatures, o.feature.and(curCtx))), curCtx))
+                                    } else {
+                                        List(Opt(trueF,
+                                            transformRecursive(convertEnumId(replaceOptAndId(
+                                                convertToCondExpr(e, exprFeatures, o.feature.and(curCtx)),
+                                                o.feature), o.feature), o.feature.and(curCtx))))
+                                    }
+                                case sd@StructDeclaration(qual, decl) =>
+                                    if (!fExps.isEmpty) {
+                                        countDuplications(o.entry, fExps.size, isTopLevel)
+                                        fExps.map(x => replaceAndTransform(Opt(trueF, StructDeclaration(qual, convertStructId(decl, x))), x))
+                                    } else if (ft.equals(trueF)) {
+                                        List(transformRecursive(o, curCtx))
+                                    } else {
+                                        List(replaceOptAndId(Opt(trueF,
+                                            StructDeclaration(qual, convertStructId(decl, o.feature))), o.feature))
+                                    }
+                                case _: FunctionDef | _: NestedFunctionDef =>
+                                    val result = handleFunction(o)
+                                    countDuplications(o.entry, result.size, isTopLevel)
+                                    result
+                                case _: IfStatement | _: WhileStatement | _: SwitchStatement | _: DoStatement | _: ForStatement =>
+                                    val result = handleStatement(o, ft.and(curCtx))
+                                    countDuplications(o.entry, result.size, isTopLevel)
+                                    result
+                                case r: ReturnStatement =>
+                                    if (!fExps.isEmpty) {
+                                        fExps.map(x => Opt(trueF, statementToIf(replaceAndTransform(r, x), x, curCtx)))
+                                    } else {
+                                        if (ft.equals(trueF)) {
+                                            List(transformRecursive(o, curCtx))
+                                        } else {
+                                            List(Opt(trueF, statementToIf(replaceAndTransform(r, ft), ft, curCtx)))
+                                        }
+                                    }
+                                case g: GotoStatement =>
+                                    if (!fExps.isEmpty) {
+                                        fExps.map(x => Opt(trueF, statementToIf(replaceOptAndId(g, x), ft, curCtx)))
+                                    } else if (ft.equals(trueF)) {
+                                        List(transformRecursive(o, curCtx))
+                                    } else {
+                                        List(Opt(trueF, statementToIf(replaceOptAndId(g, ft), ft, curCtx)))
+                                    }
+                                case e: ExprStatement =>
+                                    val realFeature = curCtx.and(o.feature)
+                                    val features = computeFeaturesForDuplication(e, realFeature)
+                                    if (!features.isEmpty) {
+                                        countDuplications(o.entry, features.size, isTopLevel)
+                                        features.map(x => Opt(trueF,
+                                            IfStatement(One(toCExpr(fExprDiff(curCtx, x.and(realFeature)))),
+                                                One(CompoundStatement(List(replaceAndTransform(Opt(trueF, e), x.and(realFeature))))),
+                                                List(),
+                                                None)))
+                                    } else if (ft.equals(trueF)) {
+                                        List(transformRecursive(o, curCtx))
+                                    } else {
+                                        val result = List(Opt(trueF,
+                                            IfStatement(One(toCExpr(realFeature)),
+                                                One(CompoundStatement(List(replaceAndTransform(Opt(trueF, e), realFeature)))),
+                                                List(),
+                                                None)))
+                                        result
+                                    }
+                                case label: LabelStatement =>
+                                    val features = computeFeaturesForDuplication(label, ft.and(curCtx))
+                                    if (!features.isEmpty) {
+                                        features.map(x => Opt(trueF, statementToIf(replaceOptAndId(label, x), ft, curCtx)))
+                                    } else if (ft.equals(trueF)) {
                                         List(o)
-                                    case Pragma(stringLit) =>
-                                        // TODO: Eventuell variabel lassen
-                                        List(Opt(trueF, Pragma(StringLit(stringLit.name.map(x => Opt(trueF, x.entry))))))
-                                    case es: EmptyStatement =>
-                                        List()
-                                    case ee: EmptyExternalDef =>
-                                        List()
-                                    case cs: CompoundStatement =>
-                                        List(Opt(trueF, IfStatement(One(toCExpr(o.feature)), One(replaceAndTransform(cs, o.feature)), List(), None)))
-                                    case k =>
-                                        //println("Missing Opt: " + o + "\nFrom: " + k.asInstanceOf[AST].getPositionFrom + "\n")
-                                        List(transformRecursive(o, currentContext.and(o.feature)))
-                                }
+                                    } else {
+                                        List(Opt(trueF, statementToIf(replaceOptAndId(label, ft), ft, curCtx)))
+                                    }
+                                // TODO fgarbe: Transformation required!
+                                case _: TypelessDeclaration => List(o)
+                                // We do not support transformations of pragmas!
+                                case Pragma(_)           => List(o)
+                                case _: EmptyStatement   => List()
+                                case _: EmptyExternalDef => List()
+                                case cs: CompoundStatement =>
+                                    List(Opt(trueF,
+                                        IfStatement(
+                                            One(toCExpr(o.feature)),
+                                            One(replaceAndTransform(cs, o.feature)),
+                                            List(),
+                                            None)))
+                                case _ => List(transformRecursive(o, curCtx.and(o.feature)))
                             }
-                        case k => List(transformRecursive(k, currentContext))
-                    }
-                })
+                        }
+                    case k => List(transformRecursive(k, curCtx))
+                }
         })
         r(t).getOrElse(t).asInstanceOf[T]
     }
