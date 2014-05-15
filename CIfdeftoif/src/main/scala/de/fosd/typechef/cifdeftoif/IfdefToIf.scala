@@ -915,7 +915,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
         val fileNameWithExt = basename(outputStem)
         currentFileName = getFileNameWithoutExtension(fileNameWithExt)
 
-        val time = tb.getCurrentThreadCpuTime()
+        val time = tb.getCurrentThreadCpuTime
         var new_ast = transformRecursive(source_ast, trueF, true)
 
         // Check if a second run is required, can be the case if structs get used before they get defined
@@ -923,7 +923,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
             isFirstRun = false
             new_ast = transformRecursive(new_ast, trueF)
         }
-        val transformTime = (tb.getCurrentThreadCpuTime() - time) / nstoms
+        val transformTime = (tb.getCurrentThreadCpuTime - time) / nstoms
         var result_ast: TranslationUnit = new_ast
 
         var typecheck_ast: TranslationUnit = TranslationUnit(List())
@@ -1056,22 +1056,23 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     }
 
     /**
-     * Makes #ifdef to if transformation on given AST element. Returns new AST element and a statistics String.
+     * Makes #ifdef to if transformation on given translation unit.
      */
-    def transformAst(source_ast: TranslationUnit, decluse: IdentityIdHashMap, usedecl: IdentityIdHashMap, parseTime: Long, featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty): (TranslationUnit, String) = {
+    def transformAst(tunit: TranslationUnit, decluse: IdentityIdHashMap, usedecl: IdentityIdHashMap,
+                     parseTime: Long, featureModel: FeatureModel = FeatureExprLib.featureModelFactory.empty): (TranslationUnit, String) = {
         fm = featureModel
         init(fm)
         val tb = java.lang.management.ManagementFactory.getThreadMXBean
 
-        fillIdMap(source_ast)
-        features = getSingleFeatures(source_ast)
+        fillIdMap(tunit)
+        features = getSingleFeatures(tunit)
         defuse = decluse
         usedef = usedecl
-        val time = tb.getCurrentThreadCpuTime()
-        val result = transformRecursive(source_ast, trueF, true)
-        val transformTime = (tb.getCurrentThreadCpuTime() - time) / nstoms
+        val time = tb.getCurrentThreadCpuTime
+        val result = transformRecursive(tunit, trueF, true)
+        val transformTime = (tb.getCurrentThreadCpuTime - time) / nstoms
 
-        val csvEntry = createCsvEntry(source_ast, result, "unnamed", parseTime, transformTime, features.size)
+        val csvEntry = createCsvEntry(tunit, result, "unnamed", parseTime, transformTime, features.size)
         (TranslationUnit(getInitialTranslationUnit(features).defs ++ result.asInstanceOf[TranslationUnit].defs), csvEntry)
     }
 
