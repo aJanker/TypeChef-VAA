@@ -1262,16 +1262,19 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
 
     /**
      * Computes the cartesian product of a list of lists of FeatureExpressions using the boolean 'and' operator.
+     * Filter unsatisfiable results.
      * Ex: List( List(a, b), List(c, d, e)) becomes List(a&c, a&d, a&e, b&c, b&d, b&e).
      */
     def computeCarthesianProduct(list: List[List[FeatureExpr]], context: FeatureExpr): List[FeatureExpr] = {
         def computeCarthesianProductHelper(listOfLists: List[List[FeatureExpr]], currentContext: FeatureExpr): List[FeatureExpr] = {
-            val preparedList = listOfLists.map(x => x.filterNot(y => y.equivalentTo(FeatureExprFactory.False) || y.equivalentTo(trueF) || y.equivalentTo(currentContext))).filterNot(x => x.isEmpty)
+            // TODO fgarbe: Is it sufficient to do this only once for list, passed to computeCarthesianProduct?
+            val preparedList = listOfLists.map(
+                x => x.filterNot(y => y.equivalentTo(FeatureExprFactory.False) ||
+                    y.equivalentTo(trueF) ||
+                    y.equivalentTo(currentContext))).filterNot(x => x.isEmpty)
             preparedList match {
-                case Nil =>
-                    List()
-                case x :: Nil =>
-                    x
+                case Nil      => List()
+                case x :: Nil => x
                 case x :: xs =>
                     xs.foldLeft(x)((first, second) => {
                         if (first.size > 1000) {
@@ -1290,6 +1293,8 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                     })
             }
         }
+
+        // TODO fgarbe: Why filter here again? The results of the and operation are already checked for satisfiablity.
         computeCarthesianProductHelper(list, context).filter(x => x.isSatisfiable() && x.isSatisfiable(fm))
     }
 
