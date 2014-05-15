@@ -2,10 +2,8 @@ package de.fosd.typechef.cifdeftoif
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import scala.io.Source
 
 import java.util.IdentityHashMap
-import java.util.regex.Pattern
 import java.io._
 
 import org.apache.logging.log4j.LogManager
@@ -814,6 +812,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
         if (context.equivalentTo(trueF)) {
             id
         } else {
+            // Identifier was renamed before and has already an ifdeftoif prefix?
             if (java.util.regex.Pattern.compile("_[0-9]+_.+").matcher(id.name).matches()) {
                 val oldPrefix = id.name.split('_')(1)
                 val intPrefix = oldPrefix.toInt
@@ -913,7 +912,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
         fillIdMap(source_ast)
         loadAndUpdateFeatures(source_ast)
 
-        val fileNameWithExt = outputStemToFileName(outputStem)
+        val fileNameWithExt = basename(outputStem)
         currentFileName = getFileNameWithoutExtension(fileNameWithExt)
 
         val time = tb.getCurrentThreadCpuTime()
@@ -991,16 +990,19 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     }
 
     /**
-     * Returns the filename of given absolute path (including file extension).
+     * Strips the directory (and an optional suffix) from a given file name!
      * Ex: /home/user/main.c -> main.c
      */
-    def outputStemToFileName(outputStem: String): String = {
-        val lastSepIndex = outputStem.lastIndexOf(System.getProperty("file.separator"))
-        if (lastSepIndex == -1) {
-            outputStem
-        } else {
-            outputStem.substring(lastSepIndex + 1)
-        }
+    def basename(fName: String, suffix: String = ""): String = {
+        val lastSepIndex = fName.lastIndexOf(fs)
+        var bn = fName
+        if (lastSepIndex != -1)
+            bn = fName.substring(lastSepIndex + 1)
+
+        if (suffix != "" && bn.endsWith(suffix))
+            bn = bn.substring(0, bn.length-suffix.length)
+
+        bn
     }
 
     /**
@@ -1008,6 +1010,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * @param outputStem
      * @return
      */
+    // TODO fgarbe: Rewrite code using new basename function!
     def outputStemToifdeftoif(outputStem: String): String = {
         def outputStemToFileNameWithoutExtension(outputStem: String): String = {
             val indexOfLastFolderSep = outputStem.lastIndexOf(File.separatorChar)
@@ -1026,9 +1029,11 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
             outputStem + ifdeftoifFileSuffix
     }
 
+    // TODO fgarbe: Rewrite code using new basename function!
     def getFileNameWithoutExtension(file: File): String = {
         file.getName().replaceFirst("[.][^.]+$", "")
     }
+    // TODO fgarbe: Rewrite code using new basename function!
     def getFileNameWithoutExtension(strg: String): String = {
         strg.replaceFirst("[.][^.]+$", "")
     }
