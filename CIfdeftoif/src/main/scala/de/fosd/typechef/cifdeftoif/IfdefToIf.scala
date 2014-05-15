@@ -221,12 +221,6 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     def checkAstSilent(ast: TranslationUnit): Boolean = {
         getTypeSystem(ast).checkASTSilent
     }
-    /**
-     * Returns the errors retrieved from a typecheck on given AST.
-     */
-    def getAstErrors(ast: TranslationUnit): List[TypeChefError] = {
-        getTypeSystem(ast).getASTerrors()
-    }
 
     /**
      * Returns a new CTypeSystemFrontend for a given AST.
@@ -252,7 +246,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * Loads the currently serialized features from @serializedFeaturePath and updates it with the features found in
      * given ast.
      */
-    def loadAndUpdateFeatures(ast: TranslationUnit) = {
+    private def loadAndUpdateFeatures(ast: TranslationUnit) = {
         if (new File(serializedFeaturePath).exists) {
             val loadedFeatures = loadSerializedFeatureNames(serializedFeaturePath)
             features = getSingleFeatures(ast) ++ loadedFeatures
@@ -265,7 +259,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     /**
      * Converts a set of FeatureExpressions into a struct declaration.
      */
-    def getOptionStruct(defExSet: Set[SingleFeatureExpr]): Declaration = {
+    private def getOptionStruct(defExSet: Set[SingleFeatureExpr]): Declaration = {
         val structDeclList = defExSet.map(x => {
             featureToStructDeclaration(x.feature)
         }).toList
@@ -277,7 +271,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * @param featureName
      * @return
      */
-    def featureToStructDeclaration(featureName: String): Opt[StructDeclaration] = {
+    private def featureToStructDeclaration(featureName: String): Opt[StructDeclaration] = {
         Opt(trueF, StructDeclaration(List(Opt(trueF, IntSpecifier())),
             List(Opt(trueF,
                 StructDeclarator(
@@ -291,7 +285,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * @param structDeclList
      * @return
      */
-    def createDeclaration(structDeclList: List[Opt[StructDeclaration]]): Declaration = {
+    private def createDeclaration(structDeclList: List[Opt[StructDeclaration]]): Declaration = {
         Declaration(List(Opt(trueF,
             StructOrUnionSpecifier(false, Some(Id(featureStructName)), Some(structDeclList), List(), List()))),
             List(Opt(trueF, InitDeclaratorI(AtomicNamedDeclarator(List(), Id(featureStructInitializedName), List()),
@@ -304,7 +298,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * @param assignmentSource
      * @return
      */
-    def featureToAssignment(featureName: String, assignmentSource: Expr): Opt[ExprStatement] = {
+    private def featureToAssignment(featureName: String, assignmentSource: Expr): Opt[ExprStatement] = {
         Opt(trueF,
             ExprStatement(AssignExpr(PostfixExpr(Id(featureStructInitializedName),
                 PointerPostfixSuffix(".", Id(featureName.toLowerCase))), "=", assignmentSource)))
@@ -318,7 +312,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * @param featureConfigPath
      * @return
      */
-    def getInitFunction(defExSet: Set[SingleFeatureExpr], featureConfigPath: String = ""): FunctionDef = {
+    private def getInitFunction(defExSet: Set[SingleFeatureExpr], featureConfigPath: String = ""): FunctionDef = {
         var exprStmts: List[Opt[ExprStatement]] = List()
 
         if (!featureConfigPath.isEmpty) {
@@ -340,7 +334,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     /**
      * Returns the AST representation of functions and declarations used for model checking.
      */
-    def getFunctionsForModelChecking(): List[Opt[ExternalDef]] = {
+    private def getFunctionsForModelChecking(): List[Opt[ExternalDef]] = {
         // extern int __VERIFIER_nondet_int(void);
         val externDeclaration = Declaration(
             List(Opt(trueF, ExternSpecifier()), Opt(trueF, IntSpecifier())),
@@ -374,7 +368,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * Returns a function used to initialize the feature values of the ifdeftoif option struct with the value
      * 'select_one' from the function 'getFunctionsForModelChecking'.
      */
-    def getModelCheckInitFunction(defExSet: Set[SingleFeatureExpr]): FunctionDef = {
+    private def getModelCheckInitFunction(defExSet: Set[SingleFeatureExpr]): FunctionDef = {
         val cmpStmt = defExSet.map(x => {
             Opt(trueF, ExprStatement(AssignExpr(
                 PostfixExpr(Id(featureStructInitializedName), PointerPostfixSuffix(".", Id(x.feature.toLowerCase))),
@@ -390,7 +384,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * Returns the initial TranslationUnit with the ifdeftoif option struct and a function which initializes
      * the features inside the ifdeftoif option struct with values.
      */
-    def getInitialTranslationUnit(defExSet: Set[SingleFeatureExpr], featureConfigPath: String = ""): TranslationUnit = {
+    private def getInitialTranslationUnit(defExSet: Set[SingleFeatureExpr], featureConfigPath: String = ""): TranslationUnit = {
         val structDeclaration = Opt(trueF, getOptionStruct(defExSet))
         if (!createFunctionsForModelChecking) {
             TranslationUnit(List(structDeclaration, Opt(trueF, getInitFunction(defExSet, featureConfigPath))))
@@ -417,7 +411,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     /**
      * Returns a set of all configuration options in a.
      */
-    def getSingleFeatures(a: Any): Set[SingleFeatureExpr] = {
+    private def getSingleFeatures(a: Any): Set[SingleFeatureExpr] = {
         var featureSet: Set[FeatureExpr] = Set()
         val r = manytd(query {
             case Opt(ft, _)       => featureSet += ft
@@ -432,7 +426,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * Creates an #include directive for a header file of the "own" program, i.e., #include "path".
      * Does not create an include for system header files!
      */
-    def createIncludeDirective(path: String): String = {
+    private def createIncludeDirective(path: String): String = {
         if (!path.isEmpty) {
             "#include \"" + path + "\"\n"
         } else {
@@ -443,7 +437,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     /**
      * Flatten the conditional tree structure and filter contradictory elements.
      */
-    def conditionalToList[T <: Product](choice: Conditional[T], curCtx: FeatureExpr = trueF): List[(FeatureExpr, T)] = {
+    private def conditionalToList[T <: Product](choice: Conditional[T], curCtx: FeatureExpr = trueF): List[(FeatureExpr, T)] = {
         // TODO fgarbe: Possible code simplification!
         // ConditionalLib.items(choice, currentContext).filter(_._1.isSatisfiable(fm))
 
@@ -512,7 +506,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * for renaming identifiers e.g. #ifdef A int a #endif -> int _1_a     feature A is mapped to number 1.
      */
     // TODO fgarbe: Parameter a is unused!
-    def fillIdMap(a: Any) {
+    private def fillIdMap(a: Any) {
         if (featureNumberMap.size == 0) {
             featureNumberMap += (trueF -> featureNumberMap.size)
         }
@@ -540,7 +534,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * Creates a prefix for identifiers from the presence condition under which they occur.
      * Format is _x_ where x is an Integer which represents the presence condition.
      */
-    def getPrefixFromIdMap(feat: FeatureExpr): String = {
+    private def getPrefixFromIdMap(feat: FeatureExpr): String = {
         def getFromIdMap(feat: FeatureExpr): Int = {
             updateIdMap(feat)
             featureNumberMap.get(feat).get
@@ -552,7 +546,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * Creates all possible 2 power n combinations for a list of n raw (single) feature expressions. List(def(x64), def(x86))
      * becomes List(def(x64)&def(x86),!def(x64)&def(x86),def(x64)&!def(x86),!def(x64)&!def(x86).
      */
-    def getFeatureCombinations(fList: List[FeatureExpr]): List[FeatureExpr] = {
+    private def getFeatureCombinations(fList: List[FeatureExpr]): List[FeatureExpr] = {
         if (fList.size == 0) {
             List()
         } else {
@@ -566,7 +560,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * Retrieves the FeatureExpression which is mapped to the given number. Used for the second run of the
      * ifdeftoif transformation to retrieve the context of an already renamed identifier.
      */
-    def getFeatureForId(id: Int): Option[FeatureExpr] = {
+    private def getFeatureForId(id: Int): Option[FeatureExpr] = {
         if (featureNumberMap.size < id || id < 0) {
             None
         } else {
@@ -623,7 +617,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     /**
      * Renames identifiers inside a declaration by adding the ifdeftoif prefix number for given FeatureExpr ft.
      */
-    def transformDeclIds[T <: Product](t: T, ft: FeatureExpr): T = {
+    private def transformDeclIds[T <: Product](t: T, ft: FeatureExpr): T = {
         if (ft.equivalentTo(trueF, fm))
             return t
 
@@ -646,7 +640,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     /**
      * Renames the first identifier inside a declaration by adding the ifdeftoif prefix number for given FeatureExpr ft.
      */
-    def convertId[T <: Product](current: T, feat: FeatureExpr): T = {
+    private def convertId[T <: Product](current: T, feat: FeatureExpr): T = {
         def convert[T <: Product](t: T, ft: FeatureExpr): T = {
             t match {
                 case Declaration(declSpecs, init) =>
@@ -679,7 +673,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * TODO fgarbe: Possible replacement for convertId (see above).
      * Renames the first identifier inside a declaration by adding the ifdeftoif prefix number for given FeatureExpr ft.
      */
-    def transformDeclId[T <: Product](t: T, ft: FeatureExpr): T = {
+    private def transformDeclId[T <: Product](t: T, ft: FeatureExpr): T = {
         if (ft.equivalentTo(trueF))
             return t
 
@@ -703,15 +697,15 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * "_main" check for BusyBox files: in BusyBox ls_main is the main function of ls functionality, which is
      * statically linked into the BusyBox binary.
      */
-    def isMainFunction(functionName: String): Boolean = {
+    private def isMainFunction(functionName: String): Boolean = {
         functionName.equals("main") || functionName.equals(currentFileName + "_main")
     }
 
     /**
      * Renames identifiers inside of StructDeclarations by adding the ifdeftoif prefix number for given FeatureExpr ft.
      */
-    // TODO fgarbe: T is go general. Function is called with t: Declarator only1!
-    def convertStructId[T <: Product](t: T, ft: FeatureExpr): T = {
+    // TODO fgarbe: T is too general. Function is called with t: Declarator only!
+    private def convertStructId[T <: Product](t: T, ft: FeatureExpr): T = {
         val r = oncetd(rule {
             case decl@AtomicNamedDeclarator(a, i: Id, b) =>
                 // TODO fgarbe: Is the isMainFunction check here really necessary? Use transformId to simplify code!
@@ -734,7 +728,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     /**
      * Renames Enumerators by adding the ifdeftoif prefix number for given FeatureExpr ft.
      */
-    def convertEnumId(enu: Enumerator, ft: FeatureExpr): Enumerator = {
+    private def convertEnumId(enu: Enumerator, ft: FeatureExpr): Enumerator = {
         if (ft.equivalentTo(trueF)) {
             enu
         } else {
@@ -749,7 +743,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * element is returned where the variability is encoded in the form of a conditional expression.
      */
     // TODO: @fgarbe: The name of the function is not very specific.
-    def convertToCondExpr[T <: Product](current: T, variantFeatures: List[FeatureExpr], currentContext: FeatureExpr): T = {
+    private def convertToCondExpr[T <: Product](current: T, variantFeatures: List[FeatureExpr], currentContext: FeatureExpr): T = {
         def condExprHelper(expr: Expr, features: List[FeatureExpr]): Expr = {
             val innerMostExpr = replaceOptAndId(expr, features.head)
             features.tail.foldLeft(innerMostExpr)((first, second) =>
@@ -777,6 +771,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                 }
         }
     }
+
+
+    // TODO fgarbe: Many functions are used locally only but have public modifier (by default). Add private modifiers.
 
     /**
      * Converts a given Choice[Expr] element to a ConditionalExpr. Example:
