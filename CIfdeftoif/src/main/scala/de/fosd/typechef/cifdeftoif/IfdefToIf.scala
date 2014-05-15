@@ -1042,17 +1042,15 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * Removes duplicate features by checking for boolean equality according to the featureModel.
      * List(A&&B, B&&A) -> List(A&&B)
      */
-    def removeDuplicateFeatures(features: List[FeatureExpr], currentContext: FeatureExpr): List[FeatureExpr] = {
-        features match {
-            case Nil =>
-                List()
-            case x :: Nil =>
-                List(x)
+    def removeDuplicates(fExps: List[FeatureExpr], ctx: FeatureExpr): List[FeatureExpr] = {
+        fExps match {
+            case Nil      => List()
+            case x :: Nil => List(x)
             case x :: xs =>
-                if (xs.exists(y => y.equivalentTo(x, fm.and(currentContext)))) {
-                    (removeDuplicateFeatures(xs, currentContext))
+                if (xs.exists(y => y.equivalentTo(x, fm.and(ctx)))) {
+                    removeDuplicates(xs, ctx)
                 } else {
-                    x :: (removeDuplicateFeatures(xs, currentContext))
+                    x :: removeDuplicates(xs, ctx)
                 }
         }
     }
