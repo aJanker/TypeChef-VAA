@@ -1518,6 +1518,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * Takes a look at the CaseStatements and CompoundStatements inside a SwitchStatement in order to determine
      * the list of FeatureExpressions needed for duplication.
      */
+    // TODO fgarbe: Unused function!
     def computeCaseFeatures(cmpStmt: CompoundStatement, currentContext: FeatureExpr = trueF): List[FeatureExpr] = {
         /*def collectCaseStatements(compStmt: CompoundStatement, currentList: List[List[Opt[CaseStatement]]] = List(List())) : List[List[Opt[CaseStatement]]] = {
             val stmts = compStmt.innerStatements
@@ -1808,6 +1809,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * 3. Transform usual if-statement (possible variable ID definition in the condition!) recursive call for thenBranch
      * 4. Transform ElifStatements
      */
+    // TODO fgarbe: Unused function?
     def handleIfStatement(optIf: Opt[_], currentContext: FeatureExpr = trueF): List[Opt[_]] = {
 
         // 1. Step
@@ -2204,6 +2206,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     /**
      * Creates a single boolean expression for given .config file.
      */
+    // TODO fgarbe: Unused function!
     def getConfigFormula(@SuppressWarnings(Array("unchecked")) file: File, fm: FeatureModel = FeatureExprFactory.empty,
                          features: Set[SingleFeatureExpr] = Set()): FeatureExpr = {
         val featuresFromConfig = ConfigurationHandling.getFeaturesFromConfiguration(file, fm, features)
