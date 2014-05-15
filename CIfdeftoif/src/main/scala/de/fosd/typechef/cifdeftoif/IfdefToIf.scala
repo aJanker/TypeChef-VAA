@@ -750,7 +750,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * Converts a given enumerator or initializer element. If they contain variability a new initializer/enumerator
      * element is returned where the variability is encoded in the form of a conditional expression.
      */
-    // TODO: @fgarbe: The name of the function is not very specifc.
+    // TODO: @fgarbe: The name of the function is not very specific.
     def convertToCondExpr[T <: Product](current: T, variantFeatures: List[FeatureExpr], currentContext: FeatureExpr): T = {
         def condExprHelper(expr: Expr, features: List[FeatureExpr]): Expr = {
             val innerMostExpr = replaceOptAndId(expr, features.head)
