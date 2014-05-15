@@ -1,6 +1,5 @@
 package de.fosd.typechef.options;
 
-import de.fosd.typechef.VALexer;
 import gnu.getopt.Getopt;
 import gnu.getopt.LongOpt;
 
@@ -13,45 +12,12 @@ import java.util.List;
 public abstract class Options {
 
     private static char maxOptionId = 0;
+    protected List<String> files = new ArrayList<String>();
+    int dfltIndent = 35;
 
     public static char genOptionId() {
         maxOptionId++;
         return maxOptionId;
-    }
-
-    public static class OptionGroup implements Comparable {
-        private int priority;
-        private String name;
-        private List<Option> options;
-
-        public OptionGroup(String name, int priority, List<Option> options) {
-            this.name = name;
-            this.options = options;
-            this.priority = priority;
-        }
-
-        public OptionGroup(String name, int priority, Option... options) {
-            this(name, priority, Arrays.asList(options));
-        }
-
-        @Override
-        public int compareTo(Object o) {
-            if (o instanceof OptionGroup)
-                if (((OptionGroup) o).priority < this.priority) return 1;
-                else return -1;
-            return 0;
-        }
-    }
-
-    public static class Option extends LongOpt {
-        private String eg;
-        private String help;
-
-        public Option(String word, int arg, int ch, String eg, String help) {
-            super(word, arg, null, ch);
-            this.eg = eg;
-            this.help = help;
-        }
     }
 
     protected List<OptionGroup> getOptionGroups() {
@@ -117,10 +83,8 @@ public abstract class Options {
         return buf.toString();
     }
 
-    int dfltIndent = 35;
-
     @SuppressWarnings("unchecked")
-    void printUsage() {
+    public void printUsage() {
         StringBuilder text = new StringBuilder("Parameters: \n");
         List<OptionGroup> og = getOptionGroups();
         Collections.sort(og);
@@ -172,12 +136,9 @@ public abstract class Options {
         return sresult;
     }
 
-    protected List<String> files = new ArrayList<String>();
-
     public List<String> getFiles() {
         return files;
     }
-
 
     protected void checkFileExists(String file) throws OptionException {
         File f = new File(file);
@@ -195,6 +156,41 @@ public abstract class Options {
         File f = new File(file);
         if (f.isFile() && (!f.exists() && f.getParentFile().exists()))
             throw new OptionException("Cannot write file " + file);
+    }
+
+    public static class OptionGroup implements Comparable {
+        private int priority;
+        private String name;
+        private List<Option> options;
+
+        public OptionGroup(String name, int priority, List<Option> options) {
+            this.name = name;
+            this.options = options;
+            this.priority = priority;
+        }
+
+        public OptionGroup(String name, int priority, Option... options) {
+            this(name, priority, Arrays.asList(options));
+        }
+
+        @Override
+        public int compareTo(Object o) {
+            if (o instanceof OptionGroup)
+                if (((OptionGroup) o).priority < this.priority) return 1;
+                else return -1;
+            return 0;
+        }
+    }
+
+    public static class Option extends LongOpt {
+        private String eg;
+        private String help;
+
+        public Option(String word, int arg, int ch, String eg, String help) {
+            super(word, arg, null, ch);
+            this.eg = eg;
+            this.help = help;
+        }
     }
 
 }
