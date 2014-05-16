@@ -155,20 +155,6 @@ class FeatureExprTest extends TestCase {
 
   def createLT(a: FeatureExprValue, b: FeatureExprValue) = d.createLessThan(a, b)
 
-    @Test def testOpCount {
-        FeatureExprFactory.setDefault(FeatureExprFactory.bdd)
-        if (a.isInstanceOf[BDDFeatureExpr]) {
-            println("test with BDDs")
-
-            assertTrue(1 == (a.and(b)).asInstanceOf[BDDFeatureExpr].countOpsInStringRep())
-            assertTrue(0 == a.asInstanceOf[BDDFeatureExpr].countOpsInStringRep())
-            assertTrue(2 == (a.and(b).and(c)).asInstanceOf[BDDFeatureExpr].countOpsInStringRep())
-            assertTrue(2 == (a.or(b).or(c)).asInstanceOf[BDDFeatureExpr].countOpsInStringRep())
-            assertTrue(1 == (a.or(b)).asInstanceOf[BDDFeatureExpr].countOpsInStringRep())
-        } else {
-            assertTrue(false);
-        }
-    }
     @Test def testSimplify {
         def assertContract(a:FeatureExpr, b:FeatureExpr) {
             val diff1 = a.diff(b)
