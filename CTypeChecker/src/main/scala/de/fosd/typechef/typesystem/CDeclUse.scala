@@ -196,10 +196,12 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     private def addFunctionDeclaration(env: Env, declaration: Id, feature: FeatureExpr) {
 
         def swapDeclaration(originalDecl: Id, newDecl: Id) = {
-            putToDeclUseMap(newDecl)
-            addToDeclUseMap(newDecl, originalDecl)
-            declUseMap.get(originalDecl).foreach(x => addToDeclUseMap(newDecl, x))
-            declUseMap.remove(originalDecl)
+            if (!originalDecl.eq(newDecl)) {
+                putToDeclUseMap(newDecl)
+                addToDeclUseMap(newDecl, originalDecl)
+                declUseMap.get(originalDecl).foreach(x => addToDeclUseMap(newDecl, x))
+                declUseMap.remove(originalDecl)
+            }
         }
 
         // Forward Declaration of functions:
@@ -533,7 +535,6 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                     }
                 })
             case id: Id =>
-                // println(id + " @ " + id.getPositionFrom.getLine)
                 if (!useDeclMap.containsKey(id)) {
                     env.varEnv.getAstOrElse(id.name, null) match {
                         case o@One(_) => addUseOne(o, id, env)
@@ -694,7 +695,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                         case c@Choice(_, _, _) =>
                             val condTuple = c.toList
                             // TODO
-                            val tuple = condTuple.filter(x => x._1.equivalentTo(FeatureExprFactory.True) || feature.implies(x._1).isTautology)
+                            val tuple = condTuple.filter(x => x._1.equivalentTo(FeatureExprFactory.True) || !feature.and(x._1).isContradiction())
                             val tupleVariableDef = condTuple.filter(x => x._1.implies(feature).isTautology).diff(tuple)
                             if (feature.implies(tupleVariableDef.foldLeft(FeatureExprFactory.False)((a, b) => a.or(b._1))).isTautology) {
                                 tupleVariableDef.foreach(x => {

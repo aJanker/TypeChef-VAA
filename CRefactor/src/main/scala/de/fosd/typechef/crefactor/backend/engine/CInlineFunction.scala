@@ -6,7 +6,7 @@ import de.fosd.typechef.conditional._
 import de.fosd.typechef.crefactor._
 import de.fosd.typechef.crefactor.backend.{RefactorException, CRefactor}
 import de.fosd.typechef.crewrite.IntraCFG
-import de.fosd.typechef.featureexpr.{FeatureExpr, FeatureExprFactory}
+import de.fosd.typechef.featureexpr.FeatureExpr
 import de.fosd.typechef.parser.c._
 
 
@@ -226,7 +226,8 @@ object CInlineFunction extends CRefactor with IntraCFG {
             }
 
         }
-
+        // inline a function call which is part of a control statement like
+        // if(callToInline()) or while(callToInline())
         findPriorASTElem[Statement](call.entry, morpheus.getASTEnv) match {
             case Some(entry) =>
                 val inlineExprStatements = generateInlineExprStmts
@@ -235,8 +236,8 @@ object CInlineFunction extends CRefactor with IntraCFG {
                 var callParent = parentAST(call.entry, morpheus.getASTEnv)
                 entry match {
                     case i@IfStatement(c@condition, _, elifs, _) =>
-                        // TODO Refactor for performance
-                        // TODO: @andreas: unclear; What does the code do?
+                        // determine if inline call expression is part of a "if(callToInline)" or in a
+                        // "else if (callToInline())" statement
                         if (callParent.eq(i))
                             callParent = call.entry
 
@@ -442,7 +443,7 @@ object CInlineFunction extends CRefactor with IntraCFG {
         var workingStatement = compStmt
         val idsToRename = getIdsToRename(fDef.entry, workingStatement, morpheus)
         val renamed = renameShadowedIds(idsToRename, fDef, fCall, morpheus)
-        val initializer = getInitializers(fCall, renamed._2, morpheus)
+        val initializer = getDeclarationsFromCallParameters(fCall, renamed._2, morpheus)
 
         // apply feature environment
         val statements = applyFeaturesOnInlineStmts(renamed._1, fCall, morpheus)
@@ -483,7 +484,7 @@ object CInlineFunction extends CRefactor with IntraCFG {
         val idsToRename = getIdsToRename(fDef.entry, workingStatement, morpheus)
 
         val (renamedIdsStmts, renamedIdsParams) = renameShadowedIds(idsToRename, fDef, fCall, morpheus)
-        val initializer = getInitializers(fCall, renamedIdsParams, morpheus)
+        val initializer = getDeclarationsFromCallParameters(fCall, renamedIdsParams, morpheus)
         var stmts = applyFeaturesOnInlineStmts(renamedIdsStmts, fCall, morpheus)
         val returnStmts = getReturnStmts(stmts)
 
@@ -499,52 +500,35 @@ object CInlineFunction extends CRefactor with IntraCFG {
 
     /**
      * Determines if the identifier id occurs in different scopes.
-     * TODO ajanker: The following comment is unclear. Please describe the problem in more detail!
      * As renaming of globally scoped variables causes to alter the behaviour, we do not allow inlining of functions
      * containing identifiers of variables which are not in the same scope under each condition.
+     *
+     * Example for incompatible variable (variable i) scoping:
+     *
+     * int i;
+     *
+     * int foo() {
+     * #ifdef A
+     *  int i;
+     * #endif
+     *     i = 5;
+     * }
      */
     private def hasIncompatibleVariableScoping(id: Id, compStmt: CompoundStatement, morpheus: Morpheus): Boolean = {
         val env = morpheus.getEnv(compStmt.innerStatements.last.entry)
         val condScope = env.varEnv.lookupScope(id.name)
-        val variableScope = -1
-
-        // TODO ajanker: Could be rewritten with:
-        // ConditionalLib.leaves(condScope).forall(cs => cs == variableScope)
-
-        def checkConditional(conditional: Conditional[Int]): Boolean = {
-            def checkScopes(condScope: Conditional[Int]): Int = {
-                condScope match {
-                    case Choice(_, thenB, elseB) =>
-                        val thenScope = checkScopes(thenB)
-                        val elseScope = checkScopes(elseB)
-
-                        if (thenScope == variableScope || elseScope == variableScope) variableScope
-                        else if (thenScope != elseScope) variableScope
-                        else thenScope
-                    case One(scope) => scope
-                }
-            }
-            
-            checkScopes(conditional) == variableScope
-        }
 
         condScope match {
             case One(scope) => false
-            case _ => checkConditional(condScope)
+            case _ => ConditionalLib.leaves(condScope).distinct.tail.nonEmpty
         }
     }
 
     private def isValidFDef(fDef: Opt[FunctionDef], fCall: Opt[_], morpheus: Morpheus): Boolean = {
         // If a function call's feature does not imply a function definition's feature,
         // then there is no need to inline this definition at this call.
-        // TODO ajanker: The comment does not reflect the following condition.
-        // fcall.feature.implies(fDef.feature).isTautology(morpheus.getFM)
-        // Furthermore, the isTautology seems overly strict because function definition and function
-        // call have to have the same (i.e., equivalent) annotation.
-        // fcall.feature.implies(fDef.feature).isSatisfiable(morpheus.getFM) should do it.
-        // I suggest You check it with an example.
-        if (!(fDef.feature.equivalentTo(FeatureExprFactory.True)
-            || fDef.feature.implies(fCall.feature).isTautology(morpheus.getFM)))
+
+        if (!fCall.feature.implies(fDef.feature).isSatisfiable(morpheus.getFM))
             return false
 
         if (isRecursive(fDef.entry))
@@ -602,9 +586,10 @@ object CInlineFunction extends CRefactor with IntraCFG {
      * Checks if an id is only declared at the place of the inlining function scope.
      */
     private def isDeclaredInFunctionCallScope(id: Id, callCompStmt: CompoundStatement, morpheus: Morpheus): Boolean = {
+        val idContion = Opt(morpheus.getASTEnv.featureExpr(id), id.name)
 
         // lookup if name is visible in current scope
-        if (!isVisibleNameInFunctionScope(id.name, callCompStmt, morpheus))
+        if (!isVisibleNameInFunctionScope(idContion, callCompStmt, morpheus))
             return false
 
         // check if any reference of the inline id links into the calling scope - if so no renaming is required
@@ -615,10 +600,13 @@ object CInlineFunction extends CRefactor with IntraCFG {
         if (idReferences.exists(idsInCompStmt.contains))
             return false
 
+
+
         // in both places the has the same global visibility -> no need to rename
+        val idCondition = morpheus.getASTEnv.featureExpr(id)
         val localCompStmt = getCompStatement(parentOpt(id, morpheus.getASTEnv).asInstanceOf[Opt[AST]], morpheus.getASTEnv)
-        if((localCompStmt != null) && isVisibleGlobalNameInFunctionScope(id.name, callCompStmt, morpheus)
-            && isVisibleGlobalNameInFunctionScope(id.name, localCompStmt, morpheus))
+        if((localCompStmt != null) && isVisibleGlobalNameInFunctionScope(idContion, callCompStmt, morpheus)
+            && isVisibleGlobalNameInFunctionScope(idContion, localCompStmt, morpheus))
             return false
 
         // id is function -> no rename
@@ -639,74 +627,90 @@ object CInlineFunction extends CRefactor with IntraCFG {
     /**
      * Checks if a symbol is visible at the place of the inlining function scope.
      */
-    private def isVisibleGlobalNameInFunctionScope(name: String, callCompStmt: CompoundStatement, morpheus: Morpheus) =
+    private def isVisibleGlobalNameInFunctionScope(name: Opt[String], callCompStmt: CompoundStatement, morpheus: Morpheus) =
         isPartOfScope(name, callCompStmt, morpheus, 0)
 
     /**
      * Checks if a symbol is visible at the place of the inlining function scope.
      */
-    private def isVisibleNameInFunctionScope(symbol: String, callCompStmt: CompoundStatement, morpheus: Morpheus) =
+    private def isVisibleNameInFunctionScope(symbol: Opt[String], callCompStmt: CompoundStatement, morpheus: Morpheus) =
         !isPartOfScope(symbol, callCompStmt, morpheus, -1)
 
     /**
      * Checks if a symbol is part of a specific scope.
      */
-    private def isPartOfScope(symbol: String, compStmt: CompoundStatement, morpheus: Morpheus, scope: Int): Boolean = {
+    private def isPartOfScope(symbol: Opt[String], compStmt: CompoundStatement, morpheus: Morpheus, scope: Int): Boolean = {
         val env = morpheus.getEnv(compStmt.innerStatements.last.entry)
-        val nameScope = env.varEnv.lookupScope(symbol)
+        val nameScope = env.varEnv.lookupScope(symbol.entry)
 
-        // TODO ajanker: Is there a reason why we traverse nameScope without a feature expression?
-        ConditionalLib.leaves(nameScope).exists(s => s == scope)
+        ConditionalLib.items(nameScope).exists(cond =>
+            (cond._2 == scope) && symbol.feature.and(cond._1).isSatisfiable(morpheus.getFM))
     }
 
-    private def getInitializers(call: Opt[AST], params: List[Opt[DeclaratorExtension]],
-                                morpheus: Morpheus): List[Opt[DeclarationStatement]] = {
-
-        // TODO ajanker: I do not understand what the code does. Please comment!
-        def generateInitializer(param: Opt[DeclaratorExtension], exprList: List[Opt[Expr]]):
-        List[Opt[DeclarationStatement]] = {
-            var exprs = exprList
-            param.entry match {
-                case p: DeclParameterDeclList =>
-                    p.parameterDecls.flatMap(pDecl => {
-                        val expr = exprs.head
-                        val feature = expr.feature.and(param.feature)
-
-                        if (!feature.isSatisfiable(morpheus.getFM))
-                            None
-                        else {
-                            exprs = exprs.tail
-                            pDecl.entry match {
-                                case p: ParameterDeclarationD =>
-                                    val spec = p.specifiers.map(s => s.copy(feature = feature.and(s.feature)))
-                                    Some(Opt(feature,
-                                        DeclarationStatement(
-                                            Declaration(spec, List(Opt(feature,
-                                                InitDeclaratorI(p.decl, List(), Some(Initializer(None, expr.entry)))))))))
-                                case x =>
-                                    logger.warn("missed " + x)
-                                    throw new RefactorException("No rule defined for initializing parameter:" + x)
-                            }
-                        }
-                    })
-                case x =>
-                    logger.warn("missed " + x)
-                    throw new RefactorException("No rule defined for initializing parameter list:" + x)
-            }
+    /**
+     * Converts the parameters of a function call into declarations for the inlined function.
+     * e.g:
+     *
+     * void foo(int a, int b) {
+     *   a + b;
+     * }
+     *
+     * void bar() {
+     *  int i = 5;
+     *  int j = 6;
+     *
+     *  foo(i, j);
+     *
+     *  }
+     *
+     * would generate the following declarations for the parameters a and b of foo:
+     *
+     * int a = i;
+     * int b = j;
+     *
+     */
+    private def getDeclarationsFromCallParameters(callStmt: Opt[AST], parameters: List[Opt[DeclaratorExtension]],
+                                morpheus: Morpheus): List[Opt[DeclarationStatement]] =
+        findPriorASTElem[FunctionCall](callStmt, morpheus.getASTEnv) match {
+            case Some(fCall) => parameters.flatMap(generateDeclarationsFromCallParamExpr(_, fCall.params.exprs, morpheus))
+            case None => throw new RefactorException("Invalid function call has been selected: " + callStmt)
         }
-        // TODO Safe solution -> features
-        // TODO ajanker: Previous comment is unclear!
-        val exprList = filterASTElems[FunctionCall](call).head.params.exprs
 
-        if (exprList.isEmpty) {
-            List()
-        } else {
-            params.flatMap(param => {
-                generateInitializer(param, exprList) match {
-                    case null => List()
-                    case x => x
+    /*
+     * Helping function to map the function call parameter to the corresponding inline function parameter
+     * and generate its declaration.
+     */
+    private def generateDeclarationsFromCallParamExpr(parameters: Opt[DeclaratorExtension], callExprs: List[Opt[Expr]],
+                                                        morpheus : Morpheus): List[Opt[DeclarationStatement]] = {
+        var callParams = callExprs
+        parameters.entry match {
+            case DeclParameterDeclList(paramDecls) => paramDecls.flatMap(convertParameterToDeclaration)
+            case missed => throw new RefactorException("No rule defined for converterting parameter to initializer:" + missed)
+        }
+
+        def convertParameterToDeclaration(paramDecl : Opt[ParameterDeclaration])  = {
+            val currentCallParam = callParams.head
+            val declFeature = currentCallParam.feature.and(morpheus.getASTEnv.featureExpr(paramDecl))
+
+            if (callParams.isEmpty)
+                throw new RefactorException("Failed to correctly map call parameters with function parameters.")
+
+            if (!declFeature.isSatisfiable(morpheus.getFM))
+                None
+            else {
+                // call parameter and function parameter have matched - remove call parameter from working list
+                callParams = callParams.tail
+                paramDecl.entry match {
+                    case p: ParameterDeclarationD =>
+                        val specifier = p.specifiers.map(spec => spec.copy(feature = declFeature.and(spec.feature)))
+                        Some(Opt(declFeature,
+                            DeclarationStatement(
+                                Declaration(specifier, List(Opt(declFeature,
+                                    InitDeclaratorI(p.decl, List(),
+                                        Some(Initializer(None, currentCallParam.entry)))))))))
+                    case missed => throw new RefactorException("No rule defined for initializing parameter:" + missed)
                 }
-            })
+            }
         }
     }
 
