@@ -11,7 +11,7 @@ trait ConditionalNavigation {
         val eparent = env.parent(e)
         eparent match {
             case o: Opt[_] => Right(o)
-            case o: One    => Left(o)
+            case o: One[_]    => Left(o)
             case a: AST    => parentVNode(a, env)
             case _         => null
         }
