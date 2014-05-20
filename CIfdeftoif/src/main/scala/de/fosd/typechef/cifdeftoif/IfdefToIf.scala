@@ -452,9 +452,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
             val ps = collectConfigurations(x, env)
 
             // generate power set to determine all possible combinations
-            ps.subsets.toSet
+            ps.subsets.toSet[Set[FeatureExpr]]
                 // create configurations and filter unsatisfiable ones
-                .map(_.fold(FeatureExprFactory.True)(_ and _)).filter(_.isSatisfiable(fm))
+                .map(s => s.fold(FeatureExprFactory.True)(_ and _)).filter(_.isSatisfiable(fm))
         }
 
          // get parental variability node

@@ -46,9 +46,10 @@ object Sampling extends EnforceTreeHelper {
         val errorXML = new ErrorXML(opt.getErrorXMLFile)
         opt.setRenderParserError(errorXML.renderParserError)
 
-        val fm = opt.getLexerFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
-        opt.setFeatureModel(fm)
-        if (!opt.getFilePresenceCondition.isSatisfiable(fm)) {
+        val smallFM = opt.getSmallFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
+        opt.setSmallFeatureModel(smallFM)
+        val fullFM = opt.getFullFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
+        if (!opt.getFilePresenceCondition.isSatisfiable(smallFM)) {
             println("file has contradictory presence condition. existing.")
             return
         }
@@ -67,8 +68,8 @@ object Sampling extends EnforceTreeHelper {
         } else {
             new lexer.LexerFrontend().run(opt, opt.parse)
             val in = lex(opt)
-            val parserMain = new ParserMain(new CParser(fm))
-            ast = parserMain.parserMain(in, opt)
+            val parserMain = new ParserMain(new CParser(smallFM))
+            ast = parserMain.parserMain(in, opt, fullFM)
 
             if (ast != null && opt.serializeAST) {
                 Frontend.serializeAST(ast, opt.getSerializedTUnitFilename)
@@ -78,9 +79,8 @@ object Sampling extends EnforceTreeHelper {
         ast = prepareAST[TranslationUnit](ast)
 
         if (ast != null && opt.analyze) {
-            val fm_ts = opt.getTypeSystemFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
             val treeast = prepareAST[TranslationUnit](ast)
-            FamilyBasedVsSampleBased.typecheckProducts(fm_ts, fm_ts, treeast, opt, "")
+            FamilyBasedVsSampleBased.typecheckProducts(fullFM, fullFM, treeast, opt, "")
         }
     }
 

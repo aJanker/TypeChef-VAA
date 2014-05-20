@@ -91,6 +91,7 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
 
         val smallfm = opt.getSmallFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
         opt.setSmallFeatureModel(smallfm) //otherwise the lexer does not get the updated feature model with file presence conditions
+        val fullFM = opt.getFullFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
         if (!opt.getFilePresenceCondition.isSatisfiable(smallfm)) {
             println("file has contradictory presence condition. existing.") //otherwise this can lead to strange parser errors, because True is satisfiable, but anything else isn't
             return
@@ -109,7 +110,7 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
             if (ast == null) {
                 //no parsing and serialization if read serialized ast
                 val parserMain = new ParserMain(new CParser(smallfm))
-                ast = parserMain.parserMain(in, opt)
+                ast = parserMain.parserMain(in, opt, fullFM)
                 ast = prepareAST[TranslationUnit](ast)
 
                 if (ast != null && opt.serializeAST) {
@@ -120,10 +121,8 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
             }
 
             if (ast != null) {
-                val fm_ts = opt.getFullFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
-
                 // some dataflow analyses require typing information
-                val ts = new CTypeSystemFrontend(ast, fm_ts, opt) with CTypeCache with CDeclUse
+                val ts = new CTypeSystemFrontend(ast, fullFM, opt) with CTypeCache with CDeclUse
 
                 if (opt.typecheck || opt.writeInterface) {
                     //PrCDeclUseoductGeneration.typecheckProducts(fm,fm_ts,ast,opt,
@@ -138,10 +137,10 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
                         if (typeCheckStatus) {
                             val i = new IfdefToIf
                             val fw = new FileWriter(i.basename(opt.getOutputStem()) + ".decluse")
-                            fw.write(ts.checkDefuse(ast, ts.getDeclUseMap, ts.getUseDeclMap, fm_ts)._1)
+                            fw.write(ts.checkDefuse(ast, ts.getDeclUseMap, ts.getUseDeclMap, fullFM)._1)
                             fw.close()
                             println(ast)
-                            println(ts.checkDefuse(ast, ts.getDeclUseMap, ts.getUseDeclMap, fm_ts)._1)
+                            println(ts.checkDefuse(ast, ts.getDeclUseMap, ts.getUseDeclMap, fullFM)._1)
                             println(ts.getDeclUseMap)
                         } else {
                             println("generating the declaration-usage map unsuccessful because of type errors in source file")
@@ -195,14 +194,14 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
                 if (opt.dumpcfg) {
                     stopWatch.start("dumpCFG")
 
-                    val cf = new CInterAnalysisFrontend(ast, fm_ts)
+                    val cf = new CInterAnalysisFrontend(ast, fullFM)
                     val writer = new CFGCSVWriter(new FileWriter(new File(opt.getCCFGFilename)))
                     val dotwriter = new DotGraph(new FileWriter(new File(opt.getCCFGDotFilename)))
                     cf.writeCFG(opt.getFile, new ComposedWriter(List(dotwriter, writer)))
                 }
 
                 if (opt.staticanalyses) {
-                    val sa = new CIntraAnalysisFrontend(ast, ts.asInstanceOf[CTypeSystemFrontend with CTypeCache with CDeclUse], fm_ts)
+                    val sa = new CIntraAnalysisFrontend(ast, ts.asInstanceOf[CTypeSystemFrontend with CTypeCache with CDeclUse], fullFM)
                     if (opt.warning_double_free) {
                         stopWatch.start("doublefree")
                         sa.doubleFree()
