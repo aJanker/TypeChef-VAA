@@ -6,6 +6,18 @@ import org.kiama.rewriting.Rewriter._
 import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr}
 
 trait ConditionalNavigation {
+
+    // return the parent variability node; Opt or Conditional
+    def parentVNode(e: AST, env: ASTEnv): Either[Conditional[_], Opt[_]] = {
+        val eparent = env.parent(e)
+        eparent match {
+            case o: Opt[_] => Right(o)
+            case o: One[_] => Left(o)
+            case a: AST    => parentVNode(a, env)
+            case _         => null
+        }
+    }
+
     def parentOpt(e: Product, env: ASTEnv): Opt[_] = {
         val eparent = env.parent(e)
         eparent match {

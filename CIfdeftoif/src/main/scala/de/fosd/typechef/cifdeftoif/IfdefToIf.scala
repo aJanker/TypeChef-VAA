@@ -435,6 +435,95 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     }
 
     /**
+     * Function to lift/step up variability to the next parental variability node (Opt[_] or Conditional[_]).
+     * This should simplify the transformation of #ifdef-to-if a lot because it provides a general pattern for
+     * code duplication required as a result of insufficient transformation capabilities of low-level #ifdefs to
+     * if statements.
+     *
+     * We always step up to the next parental variability node and resolve all variability (Opt[_] and Conditional[_])
+     * in sub-elements the given input AST element a. We consider two scenarios during the transformation process:
+     *   1. Step up to the next Opt[_] o; replace o with List[Opt[_]].
+     *   2. Step up to the next One[_] (leave node of Conditional[_]) c; replace c with a Choice[_].
+     */
+    def stepUpVariability(a: AST, env: ASTEnv) = {
+
+        def validConfigurations(x: Product) = {
+            // collect variability in sub-elements and compute all satisfiable configurations
+            val ps = collectConfigurations(x, env)
+
+            // generate power set to determine all possible combinations
+            ps.subsets.toSet
+                // create configurations and filter unsatisfiable ones
+                .map(_.fold(FeatureExprFactory.True)(_ and _)).filter(_.isSatisfiable(fm))
+        }
+
+         // get parental variability node
+        parentVNode(a, env) match {
+            case Left(o: One[_]) =>
+                val cs = validConfigurations(o)
+
+                // duplicate the variable, parental node and zip each element with a valid configuration
+                val ol = List.fill(cs.size)(o).zip(cs)
+
+                // remove variability from the duplicated nodes based on the given configuration
+                val pol = ol.map { e => Opt(e._2, purgeVariability(e._1, e._2, env)) }
+
+                // create incrementally a Conditional[_] tree from the duplicated One[_] entries
+                // we use the head element as the seed for the tree creation
+                val cctx: FeatureExpr       = pol.head.feature
+                val cinit: Conditional[Any] = pol.head.entry
+                val res = pol.tail.foldLeft(cinit)((t, e) => ConditionalLib.insert(t, cctx, e.feature, e.entry.value))
+
+                Left(o, res)
+
+            case Right(o: Opt[_]) =>
+                val cs = validConfigurations(o)
+
+                // duplicate the variable, parental node and zip each element with a valid configuration
+                val ol = List.fill(cs.size)(o).zip(cs)
+
+                // remove variability from the duplicated nodes based on the given configuration
+                val res = ol.map { e => purgeVariability(e._1, e._2, env) }
+
+                Right(o, res)
+        }
+    }
+
+    /**
+     * Replaces variability nodes in o with non-variable nodes (Opt(True, ...) or One(_))
+     * according to the given feature expression config..
+     */
+    private def purgeVariability[T](o: T, config: FeatureExpr, env: ASTEnv): T = {
+        manytd(rule {
+            case l: List[Opt[_]] => l.flatMap {
+                e =>
+                    val fexp = env.featureExpr(e.entry)
+                    if (config.implies(fexp).isTautology(fm))
+                        Some(e.copy(feature = FeatureExprFactory.True))
+                    else
+                        None
+            }
+            case Choice(_, tb, eb) =>
+                val fexp = env.featureExpr(tb)
+                if (config.implies(fexp).isTautology(fm))
+                    tb
+                else
+                    eb
+        })(o).getOrElse(o).asInstanceOf[T]
+    }
+
+    /**
+     * Return all configurations that arise from variability in sub-elements of a.
+     */
+    private def collectConfigurations(a: Product, env: ASTEnv) = {
+        var res: Set[Set[FeatureExpr]] = Set()
+        manytd(query {
+            case x => res += env.featureSet(x)
+        })(a)
+        res.map(s => s.fold(FeatureExprFactory.True)(_ and _))
+    }
+
+    /**
      * Flatten the conditional tree structure and filter contradictory elements.
      */
     private def conditionalToList[T <: Product](choice: Conditional[T], curCtx: FeatureExpr = trueF): List[(FeatureExpr, T)] = {
