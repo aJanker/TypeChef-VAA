@@ -157,17 +157,19 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         }
     }
 
-    def lifting() {
-        val s = parseStmt(
+    @Test
+    def testlifting() {
+        val fa = FeatureExprFactory.createDefinedExternal("a")
+        val s = parseExpr(
             """
-            int i = 1
-            #ifdef A
-            + 1
+            a
+            #ifdef B
+            +b
             #endif
-            ;
             """.stripMargin)
-        val env = CASTEnv.createASTEnv(s)
-        val r = i.stepUpVariability(s, env)
+        val o = Opt(fa, s)
+        val env = CASTEnv.createASTEnv(o)
+        val r = i.liftVariability(s, env)
         println(r)
     }
 

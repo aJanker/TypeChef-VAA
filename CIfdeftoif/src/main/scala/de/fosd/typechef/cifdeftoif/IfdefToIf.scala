@@ -483,7 +483,11 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                 val ol = List.fill(cs.size)(o).zip(cs)
 
                 // remove variability from the duplicated nodes based on the given configuration
-                val res = ol.map { e => purgeVariability(e._1, e._2, env) }
+                val res = ol.map {
+                    e =>
+                        val no = purgeVariability(e._1, e._2, env)
+                        no.copy(feature = no.feature.and(e._2))
+                }
 
                 Right(o, res)
         }
@@ -518,7 +522,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     private def collectConfigurations(a: Product, env: ASTEnv) = {
         var res: Set[Set[FeatureExpr]] = Set()
         manytd(query {
-            case x => res += env.featureSet(x)
+            case Opt(_, x) => res += env.featureSet(x)
         })(a)
         res.map(s => s.fold(FeatureExprFactory.True)(_ and _))
     }
