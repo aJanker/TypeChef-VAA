@@ -444,6 +444,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * in sub-elements the given input AST element a. We consider two scenarios during the transformation process:
      *   1. Lifting to the next Opt[_] o; replace o with List[Opt[_]].
      *   2. Lifting up to the next One[_] (leave node of Conditional[_]) c; replace c with a Choice[_].
+     *
+     * The function returns Left for Conditional[_] and Right for Opt[_]. Both include the element to replace in the
+     * translation unit and the replacement (i.e., Choice[_] and List[Opt[_]]).
      */
     def liftVariability(a: AST, env: ASTEnv) = {
 
