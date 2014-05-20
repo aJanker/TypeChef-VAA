@@ -158,7 +158,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
     }
 
     @Test
-    def testlifting() {
+    def liftingExpr() {
         val fa = FeatureExprFactory.createDefinedExternal("a")
         val s = parseExpr(
             """
@@ -170,6 +170,58 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val o = Opt(fa, s)
         val env = CASTEnv.createASTEnv(o)
         val r = i.liftVariability(s, env)
+        println(r)
+    }
+
+    @Test
+    def liftingDecl() {
+        val fa = FeatureExprFactory.createDefinedExternal("a")
+        val s = parseDecl(
+            """
+            int i = 1
+            #ifdef B
+            +b
+            #endif
+            ;
+            """.stripMargin)
+        val o = Opt(fa, s)
+        val env = CASTEnv.createASTEnv(o)
+        val r = i.liftVariability(s, env)
+        println(r)
+    }
+
+    @Test
+    def liftingStmt() {
+        val fa = FeatureExprFactory.createDefinedExternal("a")
+        val s = parseStmt(
+            """
+            i = 1
+            #ifdef B
+            +b
+            #endif
+            ;
+            """.stripMargin)
+        val o = Opt(fa, s)
+        val env = CASTEnv.createASTEnv(o)
+        val r = i.liftVariability(s, env)
+        println(r)
+    }
+
+    @Test
+    def liftingStmtChoice() {
+        val fa = FeatureExprFactory.createDefinedExternal("a")
+        val s1 = parseStmt(
+            """
+            i = 1
+            #ifdef B
+            +b
+            #endif
+            ;
+            """.stripMargin)
+        val s2 = parseStmt(";")
+        val c = Choice(fa, One(s1), One(s2))
+        val env = CASTEnv.createASTEnv(c)
+        val r = i.liftVariability(s1, env)
         println(r)
     }
 
