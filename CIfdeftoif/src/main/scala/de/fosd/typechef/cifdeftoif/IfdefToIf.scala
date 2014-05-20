@@ -442,10 +442,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      *
      * We always step up to the next parental variability node and resolve all variability (Opt[_] and Conditional[_])
      * in sub-elements the given input AST element a. We consider two scenarios during the transformation process:
-     *   1. Step up to the next Opt[_] o; replace o with List[Opt[_]].
-     *   2. Step up to the next One[_] (leave node of Conditional[_]) c; replace c with a Choice[_].
+     *   1. Lifting to the next Opt[_] o; replace o with List[Opt[_]].
+     *   2. Lifting up to the next One[_] (leave node of Conditional[_]) c; replace c with a Choice[_].
      */
-    def stepUpVariability(a: AST, env: ASTEnv) = {
+    def liftVariability(a: AST, env: ASTEnv) = {
 
         def validConfigurations(x: Product) = {
             // collect variability in sub-elements and compute all satisfiable configurations
