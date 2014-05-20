@@ -1741,25 +1741,25 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val mixedVariableContradiction = FunctionDef(List(Opt(fa, StaticSpecifier()), Opt(fa.not().and(fb.not()), VoidSpecifier()), Opt(fc.and(fa.not()).and(fb).and(fb.or(fa)), IntSpecifier()), Opt(fa.not().and(fb).and(fc.not().or(fa).or(fb.not())).and(fb.or(fa)), DoubleSpecifier()), Opt(fx, StaticSpecifier())), AtomicNamedDeclarator(List(), Id("main"), List()), List(), CompoundStatement(List()))
 
 
-        val oneContradictionResult = i.computeFeaturesForDuplication(oneVariableContradiction, FeatureExprFactory.True)
-        val twoContradictionResult = i.computeFeaturesForDuplication(twoVariableContradiction, FeatureExprFactory.True)
-        val threeContradictionResult = i.computeFeaturesForDuplication(threeVariableContradiction, FeatureExprFactory.True)
-
-        val oneComputationResult = i.computeFeaturesForDuplication(oneVariableComputation, FeatureExprFactory.True)
-        val twoComputationResult = i.computeFeaturesForDuplication(twoVariableComputation, FeatureExprFactory.True)
-        val threeComputationResult = i.computeFeaturesForDuplication(threeVariableComputation, FeatureExprFactory.True)
-
-        val mixedComputationResult = i.computeFeaturesForDuplication(mixedVariableContradiction, FeatureExprFactory.True)
-
-        println("Amount of feature expressions: " + oneContradictionResult.size + ", in: " + oneContradictionResult)
-        println("Amount of feature expressions: " + twoContradictionResult.size + ", in: " + twoContradictionResult)
-        println("Amount of feature expressions: " + threeContradictionResult.size + ", in: " + threeContradictionResult)
-
-        println("Amount of feature expressions: " + oneComputationResult.size + ", in: " + oneComputationResult)
-        println("Amount of feature expressions: " + twoComputationResult.size + ", in: " + twoComputationResult)
-        println("Amount of feature expressions: " + threeComputationResult.size + ", in: " + threeComputationResult)
-
-        println("Amount of feature expressions: " + mixedComputationResult.size + ", in: " + mixedComputationResult)
+//        val oneContradictionResult = i.computeFeaturesForDuplication(oneVariableContradiction, FeatureExprFactory.True)
+//        val twoContradictionResult = i.computeFeaturesForDuplication(twoVariableContradiction, FeatureExprFactory.True)
+//        val threeContradictionResult = i.computeFeaturesForDuplication(threeVariableContradiction, FeatureExprFactory.True)
+//
+//        val oneComputationResult = i.computeFeaturesForDuplication(oneVariableComputation, FeatureExprFactory.True)
+//        val twoComputationResult = i.computeFeaturesForDuplication(twoVariableComputation, FeatureExprFactory.True)
+//        val threeComputationResult = i.computeFeaturesForDuplication(threeVariableComputation, FeatureExprFactory.True)
+//
+//        val mixedComputationResult = i.computeFeaturesForDuplication(mixedVariableContradiction, FeatureExprFactory.True)
+//
+//        println("Amount of feature expressions: " + oneContradictionResult.size + ", in: " + oneContradictionResult)
+//        println("Amount of feature expressions: " + twoContradictionResult.size + ", in: " + twoContradictionResult)
+//        println("Amount of feature expressions: " + threeContradictionResult.size + ", in: " + threeContradictionResult)
+//
+//        println("Amount of feature expressions: " + oneComputationResult.size + ", in: " + oneComputationResult)
+//        println("Amount of feature expressions: " + twoComputationResult.size + ", in: " + twoComputationResult)
+//        println("Amount of feature expressions: " + threeComputationResult.size + ", in: " + threeComputationResult)
+//
+//        println("Amount of feature expressions: " + mixedComputationResult.size + ", in: " + mixedComputationResult)
 
         /*val featureList = List(fc.and(fa), fc.and(fa.not().and(fb.not())), fc.and(fa.not().and(fb).and(fb.or(fa))))
         println("C: " + i.debugNextRelevantFeatures(featureList))
