@@ -157,6 +157,20 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         }
     }
 
+    def lifting() {
+        val s = parseStmt(
+            """
+            int i = 1
+            #ifdef A
+            + 1
+            #endif
+            ;
+            """.stripMargin)
+        val env = CASTEnv.createASTEnv(s)
+        val r = i.stepUpVariability(s, env)
+        println(r)
+    }
+
     def testAst(source_ast: TranslationUnit): String = {
         typecheckTranslationUnit(source_ast)
         val defUseMap = getDeclUseMap
