@@ -147,7 +147,7 @@ object Frontend extends EnforceTreeHelper {
             if (ast != null) {
 
                 // some dataflow analyses require typing information
-                val ts = new CTypeSystemFrontend(ast, fm_ts, opt) with CTypeCache with CDeclUse
+                val ts = new CTypeSystemFrontend(ast, fullFM, opt) with CTypeCache with CDeclUse
 
 
                 /** I did some experiments with the TypeChef FeatureModel of Linux, in case I need the routines again, they are saved here. */
