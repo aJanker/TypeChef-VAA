@@ -6,6 +6,18 @@ import org.kiama.rewriting.Rewriter._
 import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr}
 
 trait ConditionalNavigation {
+
+    // return the parent variability node; Opt or Conditional
+    def parentVNode(e: AST, env: ASTEnv): Either[Conditional[_], Opt[_]] = {
+        val eparent = env.parent(e)
+        eparent match {
+            case o: Opt[_] => Right(o)
+            case o: One[_] => Left(o)
+            case a: AST => parentVNode(a, env)
+            case _ => null
+        }
+    }
+
     def parentOpt(e: Product, env: ASTEnv): Opt[_] = {
         val eparent = env.parent(e)
         eparent match {
@@ -63,8 +75,8 @@ trait ConditionalNavigation {
                 case Opt(feature, entry) => List(feature) ++ (if (entry.isInstanceOf[Product]) entry.asInstanceOf[Product].productIterator.toList.flatMap(filterAllFeatureExprHelper)
                 else List())
                 case Choice(feature, thenBranch, elseBranch) => List(feature, feature.not()) ++
-                        thenBranch.asInstanceOf[Product].productIterator.toList.flatMap(filterAllFeatureExprHelper) ++
-                        elseBranch.asInstanceOf[Product].productIterator.toList.flatMap(filterAllFeatureExprHelper)
+                    thenBranch.asInstanceOf[Product].productIterator.toList.flatMap(filterAllFeatureExprHelper) ++
+                    elseBranch.asInstanceOf[Product].productIterator.toList.flatMap(filterAllFeatureExprHelper)
                 case l: List[_] => l.flatMap(filterAllFeatureExprHelper)
                 case x: Product => x.productIterator.toList.flatMap(filterAllFeatureExprHelper)
                 case _ => List()
