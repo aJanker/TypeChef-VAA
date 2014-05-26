@@ -910,6 +910,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
         }
         PrettyPrinter.printF(result_ast, ifdeftoif_file, getIncludeStatement(externOptionStructPath))
         println("Printed ifdeftoif to file " + ifdeftoif_file)
+        println("Assuming optionsstruct in file " + externOptionStructPath)
 
         if (!typecheckResult) {
             println("Skipping typecheck of ifdeftoif result")
