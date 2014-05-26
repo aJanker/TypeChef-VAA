@@ -5,7 +5,7 @@ import de.fosd.typechef.crefactor.evaluation.Stats._
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.featureexpr.FeatureModel
 import de.fosd.typechef.options.{RefactorType, FrontendOptions, OptionException, FrontendOptionsWithConfigFiles}
-import de.fosd.typechef.{VALexer, lexer}
+import de.fosd.typechef.lexer
 import java.io._
 import de.fosd.typechef.parser.TokenReader
 import de.fosd.typechef.crefactor.evaluation.util.StopClock
@@ -22,6 +22,7 @@ import de.fosd.typechef.crefactor.evaluation.evalcases.busybox_1_18_5.BusyBoxRef
 import de.fosd.typechef.crefactor.evaluation.evalcases.openSSL.OpenSSLRefactor
 import de.fosd.typechef.crefactor.backend.CModuleInterface
 import de.fosd.typechef.featureexpr.bdd.FeatureExprHelper
+import de.fosd.typechef.lexer.LexerFrontend
 
 object CRefactorFrontend extends App with InterfaceWriter with BuildCondition with Logging with EnforceTreeHelper {
 
@@ -57,7 +58,7 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         }).toArray
 
         val fm = getFM(runOpt)
-        runOpt.setFeatureModel(fm)
+        runOpt.setFullFeatureModel(fm)
 
         val tunit = getTunit(runOpt, fm)
 
@@ -79,7 +80,7 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         opt.parseOptions(file +: command.clone())
 
         val fm = getFM(opt)
-        opt.setFeatureModel(fm) //otherwise the lexer does not get the updated feature model with file presence conditions
+        opt.setFullFeatureModel(fm) //otherwise the lexer does not get the updated feature model with file presence conditions
 
         val tunit = getTunit(opt, fm)
 
@@ -137,8 +138,8 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
 
     private def getFM(opt: FrontendOptions): FeatureModel = {
         val fm = {
-            if (opt.getUseDefaultPC) opt.getLexerFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
-            else opt.getLexerFeatureModel.and(opt.getLocalFeatureModel)
+            if (opt.getUseDefaultPC) opt.getFullFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
+            else opt.getFullFeatureModel.and(opt.getLocalFeatureModel)
         }
 
         if (opt.getUseDefaultPC && !opt.getFilePresenceCondition.isSatisfiable(fm)) {
@@ -164,7 +165,7 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
     private def parseTUnit(fm: FeatureModel, opt: FrontendOptions): TranslationUnit = {
         val parsingTime = new StopClock
         val parserMain = new ParserMain(new CParser(fm))
-        val tUnit = parserMain.parserMain(lex(opt), opt)
+        val tUnit = parserMain.parserMain(lex(opt), opt, fm)
 
         StatsCan.addStat(opt.getFile, Parsing, parsingTime.getTime)
 
@@ -197,11 +198,7 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
             case RefactorType.NONE => println("No engine type defined")
         }
     }
-    private def lex(opt: FrontendOptions): TokenReader[CToken, CTypeContext] = {
-        val tokens = new lexer.LexerFrontend().run(opt, opt.parse)
-        val in = CLexerAdapter.prepareTokens(tokens)
-        in
-    }
+    private def lex(opt: FrontendOptions): TokenReader[CToken, CTypeContext] = CLexerAdapter.prepareTokens(new LexerFrontend().run(opt, opt.parse))
 
     private def serializeTUnit(ast: AST, filename: String) {
         val fw = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(filename)))

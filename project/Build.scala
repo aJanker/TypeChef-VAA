@@ -246,7 +246,7 @@ object TypeChef extends Build {
         "CIfdeftoif",
         file("CIfdeftoif"),
         settings = buildSettings
-    ) dependsOn(frontend, sampling, cparser, crewrite)
+    ) dependsOn(frontend, sampling, cparser % "test->test;compile->compile", crewrite)
 
     lazy val sampling = Project(
         "Sampling",

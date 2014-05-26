@@ -87,15 +87,40 @@ case class CInterface(
         CInterface(featureModel, importedFeatures -- declaredFeatures, declaredFeatures,
             packImports(strictness), packExports).setPacked
 
-    def packWithOutElimination(strictness: Strictness = LINK_STRICT): CInterface = if (isPacked) this
-    else
-        CInterface(featureModel, importedFeatures -- declaredFeatures, declaredFeatures,
-            packImportsWithOutElimination(strictness), packExports).setPacked
-
     private var isPacked = false;
     private def setPacked() = {
         isPacked = true;
         this
+    }
+
+    /**
+     * removes duplicates by joining the corresponding conditions
+     * removes False imports
+     *
+     * two elements are duplicate if they have the same name and type
+     *
+     * exports are not packed beyond removing False exports.
+     * duplicate exports are used for error detection
+     */
+    def packWithOutElimination: CInterface = if (isPacked) this
+    else
+        CInterface(featureModel, importedFeatures -- declaredFeatures, declaredFeatures,
+            eliminateImportDuplicates, packExports).setPacked
+
+
+    private def eliminateImportDuplicates = {
+        var importMap = Map[(String, CType, Set[CFlag]), (FeatureExpr, Seq[Position])]()
+
+        //eliminate duplicates with a map
+        for (imp <- imports if ((featureModel and imp.fexpr).isSatisfiable())) {
+            val key = (imp.name, imp.ctype, imp.extraFlags)
+            val old = importMap.getOrElse(key, (False, Seq()))
+            importMap = importMap + (key ->(old._1 or imp.fexpr, old._2 ++ imp.pos))
+        }
+        
+        val r = for ((k, v) <- importMap.iterator)
+        yield CSignature(k._1, k._2, v._1, v._2, k._3)
+        r.toSeq
     }
 
     private def genComparisonKey(sig: CSignature, strictness: Strictness): Object = strictness match {
@@ -126,27 +151,10 @@ case class CInterface(
             }
         }
 
-
         val r = for (v <- importMap.values)
         yield CSignature(v._1.name, v._1.ctype, v._2, v._3, v._1.extraFlags)
         r.toSeq
     }
-
-    private def packImportsWithOutElimination(strictness: Strictness = LINK_STRICT): Seq[CSignature] = {
-        var importMap = Map[Object, (CSignature, FeatureExpr, Seq[Position])]()
-
-        //eliminate duplicates with a map
-        for (imp <- imports if ((featureModel and imp.fexpr).isSatisfiable())) {
-            val key = genComparisonKey(imp, strictness)
-            val old = importMap.getOrElse(key, (imp, False, Seq()))
-            importMap = importMap + (key ->(old._1, old._2 or imp.fexpr, old._3 ++ imp.pos))
-        }
-
-        val r = for (v <- importMap.values)
-        yield CSignature(v._1.name, v._1.ctype, v._2, v._3, v._1.extraFlags)
-        r.toSeq
-    }
-
     private def packExports: Seq[CSignature] = exports.filter(_.fexpr.and(featureModel).isSatisfiable())
 
 
@@ -222,14 +230,14 @@ case class CInterface(
             this.exports ++ that.exports
         ).pack(strictness)
 
-    def linkWithOutElimination(that: CInterface, strictness: Strictness = LINK_STRICT): CInterface =
+    def linkWithOutElimination(that: CInterface): CInterface =
         CInterface(
             this.featureModel and that.featureModel and inferConstraintsWith(that),
             this.importedFeatures ++ that.importedFeatures,
             this.declaredFeatures ++ that.declaredFeatures,
             this.imports ++ that.imports,
             this.exports ++ that.exports
-        ).packWithOutElimination(strictness)
+        ).packWithOutElimination
 
     /** links without proper checks and packing. only for debugging purposes **/
     def debug_join(that: CInterface): CInterface =

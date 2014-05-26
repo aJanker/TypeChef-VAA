@@ -130,7 +130,7 @@ public abstract class LexerOptions extends Options implements ILexerOptions {
     protected Set<Warning> warnings = new HashSet<Warning>();
     protected Set<Feature> features = getDefaultFeatures();
     protected String lexOutputFile = "";
-    protected boolean lexPrintToStdout = false;
+    protected boolean lexPrintToStdout = true;
     protected boolean xtc = false;
     protected boolean adjustlines = false;
 
