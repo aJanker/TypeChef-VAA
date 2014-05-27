@@ -24,6 +24,36 @@ import de.fosd.typechef.parser.c.IntSpecifier
 import de.fosd.typechef.parser.c.FunctionDef
 import scala.Tuple2
 import de.fosd.typechef.parser.c.StaticSpecifier
+import org.kiama.rewriting.Rewriter._
+import de.fosd.typechef.parser.c.AttributeSequence
+import de.fosd.typechef.parser.c.AtomicNamedDeclarator
+import scala.Some
+import de.fosd.typechef.parser.c.Initializer
+import de.fosd.typechef.parser.c.VoidSpecifier
+import de.fosd.typechef.conditional.Choice
+import de.fosd.typechef.parser.c.TranslationUnit
+import de.fosd.typechef.parser.c.DoubleSpecifier
+import de.fosd.typechef.parser.c.AtomicAttribute
+import de.fosd.typechef.typesystem.IdentityIdHashMap
+import de.fosd.typechef.conditional.One
+import de.fosd.typechef.parser.c.DeclArrayAccess
+import de.fosd.typechef.parser.c.CharSpecifier
+import de.fosd.typechef.parser.c.InitDeclaratorI
+import de.fosd.typechef.parser.c.Declaration
+import de.fosd.typechef.parser.c.Id
+import de.fosd.typechef.parser.c.Constant
+import de.fosd.typechef.parser.c.EmptyStatement
+import de.fosd.typechef.parser.c.IntSpecifier
+import de.fosd.typechef.parser.c.ElifStatement
+import de.fosd.typechef.parser.c.FunctionDef
+import de.fosd.typechef.parser.c.CompoundAttribute
+import de.fosd.typechef.parser.c.CompoundStatement
+import de.fosd.typechef.conditional.Opt
+import scala.Tuple2
+import de.fosd.typechef.parser.c.GnuAttributeSpecifier
+import de.fosd.typechef.parser.c.StaticSpecifier
+import de.fosd.typechef.parser.c.StringLit
+import de.fosd.typechef.parser.c.ConstSpecifier
 
 class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclUse with CTypeSystem with TestHelper with EnforceTreeHelper {
     val makeAnalysis = true
@@ -143,7 +173,7 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
             val wellTypedFile = i.checkAst(result_ast)
             assert(wellTypedFile, "generated file is not well typed or could not be parsed")
             // 3. does it still contain #if statements?
-            val containsIfdef = i.hasVariableNodes(result_ast)
+            val containsIfdef = hasVariableNodes(result_ast)
             val fileContent = Source.fromFile(resultFile).getLines().mkString("\n")
             assert(!containsIfdef,
                 "generated file contains #if statements")
@@ -223,6 +253,18 @@ class IfdefToIfTest extends ConditionalNavigation with ASTNavigation with CDeclU
         val env = CASTEnv.createASTEnv(c)
         val r = i.liftVariability(s1, env)
         println(r)
+    }
+
+    /**
+     * Checks if the given ast contains any opt or choice nodes which contain variability in the form of #ifdefs.
+     */
+    private def hasVariableNodes(ast: AST): Boolean = {
+        val r = manytd(query {
+            case Opt(ft, _) if !ft.equals(FeatureExprFactory.True)        => return true
+            case Choice(ft, _, _) if !ft.equals(FeatureExprFactory.False) => return true
+        })
+        r(ast)
+        false
     }
 
     def testAst(source_ast: TranslationUnit): String = {

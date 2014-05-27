@@ -2156,16 +2156,4 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
             ""
         }
     }
-
-    /**
-     * Checks if the given ast contains any opt or choice nodes which contain variability in the form of #ifdefs.
-     */
-    def hasVariableNodes(ast: AST): Boolean = {
-        val r = manytd(query {
-            case Opt(ft, _) if !ft.equals(trueF)       => return true
-            case Choice(ft, _, _) if !ft.equals(trueF) => return true
-        })
-        r(ast)
-        false
-    }
 }
