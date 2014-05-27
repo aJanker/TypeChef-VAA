@@ -497,8 +497,12 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     }
 
     /**
-     * Replaces variability nodes in o with non-variable nodes (Opt(True, ...) or One(_))
-     * according to the given feature expression config..
+     * Replaces variability nodes in o according to the given feature expression config either with:
+     *   1. non-variable nodes (Opt(True, ...) or One(_)) if the config always implies the nodes'
+     *      feature expressions,
+     *   2. variable nodes (Opt(fexp, ...) or Choice(fexp, _, _)) if the config sometimes implies nodes'
+     *      feature expressions,
+     *   3. removes the nodes if the config contradicts the nodes' feature expressions.
      */
     private def purgeVariability[T](o: T, config: FeatureExpr, env: ASTEnv): T = {
         manytd(rule {
@@ -507,12 +511,25 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                     val fexp = env.featureExpr(e.entry)
                     if (config.implies(fexp).isTautology(fm))
                         Some(e.copy(feature = FeatureExprFactory.True))
+                    else if (config.implies(fexp).isSatisfiable(fm))
+                        Some(e.copy(feature = fexp.diff(config)))
                     else
                         None
             }
-            case Choice(_, tb, eb) =>
-                val fexp = env.featureExpr(tb)
-                if (config.implies(fexp).isTautology(fm))
+            case c@Choice(_, tb, eb) =>
+                val fexpTb = env.featureExpr(tb)
+                val fexpEb = env.featureExpr(eb)
+
+                if (!config.implies(fexpTb).isTautology(fm)
+                    && !config.implies(fexpEb).isTautology(fm)) {
+                    // The feature expression of the Choice node is not complete as always.
+                    // Therefore, we recompute it from the annotation sets of tb and eb,
+                    // and compute, including the feature expression of the node itself,
+                    // the diff with respect to the given configuration.
+                    val commonFexp = env.featureSet(tb).intersect(env.featureSet(eb))
+                        .fold(FeatureExprFactory.True)(_ and _)
+                    c.copy(feature = commonFexp.and(c.feature).diff(config))
+                } else if (config.implies(fexpTb).isTautology(fm))
                     tb
                 else
                     eb
