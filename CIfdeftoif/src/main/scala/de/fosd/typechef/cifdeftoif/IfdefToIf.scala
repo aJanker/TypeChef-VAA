@@ -526,6 +526,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
         var res: Set[Set[FeatureExpr]] = Set()
         manytd(query {
             case Opt(_, x) => res += env.featureSet(x)
+            case One(x)    => res += env.featureSet(x)
         })(a)
         res.map(s => s.fold(FeatureExprFactory.True)(_ and _))
     }
