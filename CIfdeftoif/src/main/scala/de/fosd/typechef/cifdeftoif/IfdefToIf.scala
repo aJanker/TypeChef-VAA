@@ -460,7 +460,6 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                 .map(s => s.fold(FeatureExprFactory.True)(_ and _)).filter(_.isSatisfiable(fm))
         }
 
-         // get parental variability node
         parentVNode(a, env) match {
             case Left(o: One[_]) =>
                 val cs = validConfigurations(o)
