@@ -26,7 +26,7 @@ trait FeatureExpr extends Serializable {
     /**
      * use simplify(b:FeatureExpr) instead
      */
-    @deprecated("use simplify(b:FeatureExpr) instead")
+    @deprecated("use simplify(b:FeatureExpr) instead", "revision bee6c4f5")
     def diff(b:FeatureExpr) : FeatureExpr = simplify(b)
     /**
      * Informal: Returns all the information in this that is not present in b.
