@@ -1605,17 +1605,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
         def getOptFeature(a: Any, currentContext: FeatureExpr = trueF): List[FeatureExpr] = {
             a match {
                 case Some(d: Initializer) =>
-                    //println("Stopping at: " + d)
                     if (isTopLevel) {
                         d.productIterator.toList.flatMap(getOptFeature(_, currentContext))
                     } else {
                         List()
                     }
                 case d@Opt(ft, entry: Statement) =>
-                    //println("Stopping at: " + d)
                     List()
                 case d@Opt(ft, entry: Initializer) =>
-                    //println("Stopping at: " + d)
                     val realFeature = getFeatureForContext(ft, currentContext)
                     if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False) || realFeature.equivalentTo(currentContext)) {
                         List()
@@ -1623,16 +1620,12 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                         List(realFeature) ++ entry.productIterator.toList.flatMap(getOptFeature(_, realFeature))
                     }
                 case d@Opt(ft, entry: Declaration) =>
-                    //println("Stopping at: " + d)
                     List()
                 case d@Opt(ft, entry: StructDeclaration) =>
-                    //println("Stopping at: " + d)
                     List()
                 case d@Opt(ft, entry: Enumerator) =>
-                    //println("Stopping at: " + d)
                     List()
                 case d@Opt(ft, entry: FunctionDef) =>
-                    //println("Stopping at: " + d)
                     List()
                 case d@Opt(ft, entry: Product) =>
                     if (ft.equivalentTo(trueF) || ft.equivalentTo(FeatureExprFactory.False)) entry.productIterator.toList.flatMap(getOptFeature(_, currentContext)) else List(getFeatureForContext(ft, currentContext)) ++ entry.productIterator.toList.flatMap(getOptFeature(_, getFeatureForContext(ft, currentContext)))
@@ -1643,7 +1636,6 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                 case p: Product =>
                     p.productIterator.toList.flatMap(getOptFeature(_, currentContext))
                 case k =>
-                    //println("Stopping at: " + k)
                     List()
             }
         }
@@ -1659,35 +1651,27 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
         def getVariableIds(a: Any, currentContext: FeatureExpr = trueF): List[Id] = {
             a match {
                 case d: Initializer =>
-                    //println("Stopping at: " + d)
                     if (isTopLevel) {
                         d.productIterator.toList.flatMap(getVariableIds(_, currentContext))
                     } else {
                         List()
                     }
                 case d@Opt(ft, entry: Initializer) =>
-                    //println("IdFeat canceled at: " + entry)
                     List()
                 case d@Opt(ft, entry: Enumerator) =>
-                    //println("IdFeat canceled at: " + entry)
                     List()
                 case d@Opt(ft, entry: Statement) =>
-                    //println("IdFeat canceled at: " + entry)
                     List()
                 case d@Opt(ft, entry: Declaration) =>
-                    //println("IdFeat canceled at: " + entry)
                     List()
                 case d@Opt(ft, entry: StructDeclaration) =>
-                    //println("IdFeat canceled at: " + entry)
                     List()
                 case d@Opt(ft, entry: FunctionDef) =>
-                    //println("IdFeat canceled at: " + entry)
                     List()
                 case d@Opt(ft, i: Id) =>
                     if (idsToBeReplaced.containsKey(i)) {
                         List(i)
                     } else {
-                        //println("IdFeat canceled at: " + i)
                         List()
                     }
                 case d@Opt(ft, entry: Product) =>
@@ -1696,13 +1680,11 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                     if (idsToBeReplaced.containsKey(i)) {
                         List(i)
                     } else {
-                        //println("IdFeat canceled at: " + i)
                         List()
                     }
                 case p: Product =>
                     p.productIterator.toList.flatMap(getVariableIds(_, currentContext))
                 case k =>
-                    //println("IdFeat canceled at: " + k)
                     List()
             }
         }
@@ -1726,7 +1708,6 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
         opt.entry match {
             case i: IfStatement =>
                 handleIfStatementConditional(opt, currentContext)
-            //handleIfStatement(opt, currentContext)
             case f: ForStatement =>
                 handleForStatement(opt.asInstanceOf[Opt[Statement]], currentContext)
             case w: WhileStatement =>
