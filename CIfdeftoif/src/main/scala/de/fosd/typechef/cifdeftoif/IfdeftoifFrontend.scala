@@ -12,6 +12,7 @@ import de.fosd.typechef.parser.c.CTypeContext
 import de.fosd.typechef.typesystem.{CDeclUse, CTypeCache, CTypeSystemFrontend}
 import de.fosd.typechef.crewrite._
 import de.fosd.typechef.lexer.LexerFrontend
+import de.fosd.typechef.conditional.One
 
 
 object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
@@ -175,6 +176,10 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
                                     if (!opt.getOutputStem().isEmpty()) {
                                         println("++Transformed: " ++ fileName ++ "++\t\t --in " + tuple._2 ++ " ms--")
                                     }
+                            }
+                            if (new File("../ifdeftoif/partialConfiguration.config").exists()) {
+                                val defaultConfigExpr : Expr = PostfixExpr(Id("__VERIFIER_NONDET_INT"), FunctionCall(ExprList(List())))
+                                i.writeExternIfdeftoIfStruct("../ifdeftoif/partialConfiguration.config", defaultConfigExpr)
                             }
                         } else {
                             println("#ifdef to if transformation unsuccessful because of type errors in source file")

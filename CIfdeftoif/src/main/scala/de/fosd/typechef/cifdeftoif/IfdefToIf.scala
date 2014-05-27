@@ -312,7 +312,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * @param featureConfigPath
      * @return
      */
-    private def getInitFunction(defExSet: Set[SingleFeatureExpr], featureConfigPath: String = ""): FunctionDef = {
+    private def getInitFunction(defExSet: Set[SingleFeatureExpr], featureConfigPath: String = "", defaultConfiguration:Expr=defaultConfigurationParameter): FunctionDef = {
         var exprStmts: List[Opt[ExprStatement]] = List()
 
         if (!featureConfigPath.isEmpty) {
@@ -321,10 +321,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
 
             val trueExprs = trueFeats.map(x => featureToAssignment(x.feature, Constant("1")))
             val falseExprs = falseFeats.map(x => featureToAssignment(x.feature, Constant("0")))
-            val otherExprs = otherFeats.map(x => featureToAssignment(x.feature, defaultConfigurationParameter))
+            val otherExprs = otherFeats.map(x => featureToAssignment(x.feature, defaultConfiguration))
             exprStmts = trueExprs ++ otherExprs ++ falseExprs
         } else {
-            exprStmts = defExSet.toList.map(x => featureToAssignment(x.feature, defaultConfigurationParameter))
+            exprStmts = defExSet.toList.map(x => featureToAssignment(x.feature, defaultConfiguration))
         }
         FunctionDef(List(Opt(trueF, VoidSpecifier())),
             AtomicNamedDeclarator(List(), Id(initFunctionName), List(Opt(trueF, DeclIdentifierList(List())))),
@@ -399,11 +399,11 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * Creates an id2i_optionstruct.h file with the ifdeftoif option struct and the init function for
      * assigning selection states to features. The feature selection states are read from the given .config file path.
      */
-    def writeExternIfdeftoIfStruct(featureConfigPath: String) = {
+    def writeExternIfdeftoIfStruct(featureConfigPath: String, defaultConfigExpr:Expr=defaultConfigurationParameter) = {
         val featureSet = loadSerializedFeatureNames(serializedFeaturePath)
         val structDeclaration = Opt(trueF, getOptionStruct(loadSerializedFeatureNames(serializedFeaturePath)))
         val externDeclaration = Opt(True, Declaration(List(Opt(True, ExternSpecifier()), Opt(True, StructOrUnionSpecifier(false, Some(Id(featureStructName)), None, List(), List()))), List(Opt(True, InitDeclaratorI(AtomicNamedDeclarator(List(), Id(featureStructInitializedName), List()), List(), None)))))
-        val initFunction = Opt(trueF, getInitFunction(featureSet, featureConfigPath))
+        val initFunction = Opt(trueF, getInitFunction(featureSet, featureConfigPath, defaultConfigExpr))
 
         PrettyPrinter.printF(TranslationUnit(List(structDeclaration, externDeclaration, initFunction)), externOptionStructPath)
     }
