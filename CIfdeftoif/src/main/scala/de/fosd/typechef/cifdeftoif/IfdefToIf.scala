@@ -1647,50 +1647,65 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      * expressions that are found for identifiers within given element a. This also checks subelements of a unless
      * they are new statements like for example an ExpressionStatement inside an IfStatement.
      */
-    private def getNextIdFeatures(a: Any, currentContext: FeatureExpr = trueF, isTopLevel: Boolean = false): List[FeatureExpr] = {
-        def getVariableIds(a: Any, currentContext: FeatureExpr = trueF): List[Id] = {
+    private def getNextIdFeatures(a: Any, curCtx: FeatureExpr = trueF, isTopLevel: Boolean = false): List[FeatureExpr] = {
+        def getVariableIds(a: Any): List[Id] = {
             a match {
                 case d: Initializer =>
                     if (isTopLevel) {
-                        d.productIterator.toList.flatMap(getVariableIds(_, currentContext))
+                        d.productIterator.toList.flatMap(getVariableIds(_, curCtx))
                     } else {
                         List()
                     }
-                case d@Opt(ft, entry: Initializer) =>
-                    List()
-                case d@Opt(ft, entry: Enumerator) =>
-                    List()
-                case d@Opt(ft, entry: Statement) =>
-                    List()
-                case d@Opt(ft, entry: Declaration) =>
-                    List()
-                case d@Opt(ft, entry: StructDeclaration) =>
-                    List()
-                case d@Opt(ft, entry: FunctionDef) =>
-                    List()
-                case d@Opt(ft, i: Id) =>
+                case Opt(_, _: Initializer)       => List()
+                case Opt(_, _: Enumerator)        => List()
+                case Opt(_, _: Statement)         => List()
+                case Opt(_, _: Declaration)       => List()
+                case Opt(_, _: StructDeclaration) => List()
+                case Opt(_, _: FunctionDef)       => List()
+                case Opt(_, i: Id) =>
                     if (idsToBeReplaced.containsKey(i)) {
                         List(i)
                     } else {
                         List()
                     }
-                case d@Opt(ft, entry: Product) =>
-                    entry.productIterator.toList.flatMap(getVariableIds(_, currentContext))
+                case Opt(ft, entry: Product) => entry.productIterator.toList.flatMap(getVariableIds(_, curCtx))
                 case i: Id =>
                     if (idsToBeReplaced.containsKey(i)) {
                         List(i)
                     } else {
                         List()
                     }
-                case p: Product =>
-                    p.productIterator.toList.flatMap(getVariableIds(_, currentContext))
-                case k =>
-                    List()
+                case p: Product => p.productIterator.toList.flatMap(getVariableIds(_, curCtx))
+                case _ => List()
             }
         }
-        val ids = getVariableIds(a, currentContext)
-        val listOfLists = ids.map(x => idsToBeReplaced.get(x).toList.map(y => y.and(currentContext)).filterNot(x => x.equivalentTo(FeatureExprFactory.False)))
-        computeCarthesianProduct(listOfLists, currentContext).filter(z => z.isSatisfiable(fm) && !z.equivalentTo(trueF))
+        val ids = getVariableIds(a, curCtx)
+        val listOfLists = ids.map(x => idsToBeReplaced.get(x).toList.map(y => y.and(curCtx)).filterNot(x => x.equivalentTo(FeatureExprFactory.False)))
+        computeCarthesianProduct(listOfLists, curCtx).filter(z => z.isSatisfiable(fm) && !z.equivalentTo(trueF))
+    }
+
+    /**
+     * Retrieves a list of feature expressions which represent the different variants according to the feature
+     * expressions that are found for identifiers within given element a. This also checks subelements of a unless
+     * they are new statements like for example an ExpressionStatement inside an IfStatement.
+     *
+     * TODO possible replacement for getNextIdFeatures
+     */
+    private def getNextIdFeatures_new(a: Any, env: ASTEnv, curCtx: FeatureExpr = FeatureExprFactory.True,
+                                      isTopLevel: Boolean = false): List[FeatureExpr] = {
+        var ids: List[Id] = List()
+        val tr = topdown(query {
+            case i: Id =>
+                if (idsToBeReplaced.containsKey(i)) {
+                    // add identifiers only for toplevel initializers
+                    findPriorASTElem[Initializer](i, env) match {
+                        case None    => ids ::= i
+                        case Some(_) => if (isTopLevel) ids ::= i
+                    }
+                }
+        })
+
+        tr(a)
     }
 
     /**
@@ -1704,21 +1719,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     /**
      * Calls the proper function to transform a statement st depending on the type of st.
      */
-    private def handleStatement(opt: Opt[_], currentContext: FeatureExpr = trueF): List[Opt[_]] = {
+    private def handleStatement(opt: Opt[_], curCtx: FeatureExpr = trueF): List[Opt[_]] = {
         opt.entry match {
-            case i: IfStatement =>
-                handleIfStatementConditional(opt, currentContext)
-            case f: ForStatement =>
-                handleForStatement(opt.asInstanceOf[Opt[Statement]], currentContext)
-            case w: WhileStatement =>
-                handleWSDStatements(opt.asInstanceOf[Opt[Statement]], currentContext)
-            case d: DoStatement =>
-                handleWSDStatements(opt.asInstanceOf[Opt[Statement]], currentContext)
-            case s: SwitchStatement =>
-                handleWSDStatements(opt.asInstanceOf[Opt[Statement]], currentContext)
-
-            case k =>
-                List()
+            case _: IfStatement     => handleIfStatementConditional(opt, curCtx)
+            case _: ForStatement    => handleForStatement(opt.asInstanceOf[Opt[Statement]], curCtx)
+            case _: WhileStatement  => handleWSDStatements(opt.asInstanceOf[Opt[Statement]], curCtx)
+            case _: DoStatement     => handleWSDStatements(opt.asInstanceOf[Opt[Statement]], curCtx)
+            case _: SwitchStatement => handleWSDStatements(opt.asInstanceOf[Opt[Statement]], curCtx)
+            case _                  => List()
         }
     }
 
