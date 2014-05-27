@@ -1181,8 +1181,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
             case l: List[Opt[_]] =>
                 l.flatMap {
                         case o@Opt(ft, entry) =>
-                        if (entry.asInstanceOf[AST].range.isDefined) {
-
+                        if (entry.isInstanceOf[AST] && entry.asInstanceOf[AST].range.isDefined) {
                                 /*
                                 Exports the current code position in the source file. Can be used to find out
                                 where the #ifdef to if progress stopped or gets stuck.
