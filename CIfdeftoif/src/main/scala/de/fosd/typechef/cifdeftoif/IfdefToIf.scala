@@ -469,7 +469,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                 val ol = List.fill(cs.size)(o).zip(cs)
 
                 // remove variability from the duplicated nodes based on the given configuration
-                val pol = ol.map { e => Opt(e._2, purgeVariability(e._1, e._2, env)) }
+                val pol = ol.map { e => Opt(e._2, reduceVariability(e._1, e._2, env)) }
 
                 // create incrementally a Conditional[_] tree from the duplicated One[_] entries
                 // we use the head element as the seed for the tree creation
@@ -488,7 +488,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                 // remove variability from the duplicated nodes based on the given configuration
                 val res = ol.map {
                     e =>
-                        val no = purgeVariability(e._1, e._2, env)
+                        val no = reduceVariability(e._1, e._2, env)
                         no.copy(feature = no.feature.and(e._2))
                 }
 
@@ -504,7 +504,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      *      feature expressions,
      *   3. removes the nodes if the config contradicts the nodes' feature expressions.
      */
-    private def purgeVariability[T](o: T, config: FeatureExpr, env: ASTEnv): T = {
+    private def reduceVariability[T](o: T, config: FeatureExpr, env: ASTEnv): T = {
         manytd(rule {
             case l: List[Opt[_]] => l.flatMap {
                 e =>
