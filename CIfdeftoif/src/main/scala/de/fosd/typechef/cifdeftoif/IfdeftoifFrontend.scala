@@ -4,7 +4,7 @@ package de.fosd.typechef.cifdeftoif
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.featureexpr.FeatureModel
 import de.fosd.typechef.options._
-import de.fosd.typechef.{ErrorXML, lexer}
+import de.fosd.typechef.{CPP_replacement_methods, ErrorXML, lexer}
 import java.io._
 import de.fosd.typechef.parser.TokenReader
 import java.util.zip.{GZIPOutputStream, GZIPInputStream}
@@ -181,6 +181,7 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
                                 val defaultConfigExpr : Expr = PostfixExpr(Id("__VERIFIER_NONDET_INT"), FunctionCall(ExprList(List())))
                                 i.writeExternIfdeftoIfStruct("../ifdeftoif/partialConfiguration.config", defaultConfigExpr)
                             }
+                            CPP_replacement_methods.writeDependencyFile(ast, opt.getOutputStem, fileName)
                         } else {
                             println("#ifdef to if transformation unsuccessful because of type errors in source file")
                         }
