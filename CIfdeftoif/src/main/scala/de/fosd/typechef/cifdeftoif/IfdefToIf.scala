@@ -1694,18 +1694,27 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
     private def getNextIdFeatures_new(a: Any, env: ASTEnv, curCtx: FeatureExpr = FeatureExprFactory.True,
                                       isTopLevel: Boolean = false): List[FeatureExpr] = {
         var ids: List[Id] = List()
-        val tr = topdown(query {
+
+        // define a stop rule for initializer elements that do not occur at the top level
+        def s(y: => Strategy): Strategy = {
+            rule {
+                case n: Initializer if !isTopLevel => n
+            }
+        }
+
+        val tr = topdownS(query {
             case i: Id =>
                 if (idsToBeReplaced.containsKey(i)) {
-                    // add identifiers only for toplevel initializers
-                    findPriorASTElem[Initializer](i, env) match {
-                        case None    => ids ::= i
-                        case Some(_) => if (isTopLevel) ids ::= i
-                    }
+                    ids ::= i
                 }
-        })
+        }, s)
 
         tr(a)
+
+        // infer the presence conditions of filtered identifiers, add the current feature-expression context,
+        // and filter out unsatisfiable conditions
+        val idUsageCtxs = ids.map(idsToBeReplaced.get(_).toList.map(_.and(curCtx)).filter(_.isSatisfiable()))
+        computeCarthesianProduct(idUsageCtxs, curCtx).filter(z => z.isSatisfiable(fm) && !z.equivalentTo(trueF))
     }
 
     /**
