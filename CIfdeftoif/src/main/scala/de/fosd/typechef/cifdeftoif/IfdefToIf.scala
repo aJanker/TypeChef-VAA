@@ -1714,7 +1714,34 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
         // infer the presence conditions of filtered identifiers, add the current feature-expression context,
         // and filter out unsatisfiable conditions
         val idUsageCtxs = ids.map(idsToBeReplaced.get(_).toList.map(_.and(curCtx)).filter(_.isSatisfiable()))
-        computeCarthesianProduct(idUsageCtxs, curCtx).filter(z => z.isSatisfiable(fm) && !z.equivalentTo(trueF))
+
+        fExpCorrelation(idUsageCtxs, curCtx)
+    }
+
+    /*
+     * Correlate different feature expressions (list of list of feature expressions) with each other to determine
+     * the list of valid configurations (combinations of feature expressions).
+     */
+    private def fExpCorrelation(l: List[List[FeatureExpr]], ctx: FeatureExpr) = {
+        /*
+         * Compute the n-ary cartesian product; generalization of 2-ary cartesian product.
+         * https://stackoverflow.com/questions/3387359/calculate-n-ary-cartesian-product
+         */
+        def naryCartesianProduct[T](i: List[List[T]]): List[List[T]] = {
+            i.foldRight[List[List[T]]](List(List())){
+                (l, a) => for (x <- l; xs <- a) yield x::xs
+            }
+        }
+
+        // filter trivial elements and the context ctx
+        val lNoTrivial = l.map {
+            _.filterNot(y => y.equivalentTo(FeatureExprFactory.False) ||
+                y.equivalentTo(trueF) ||
+                y.equivalentTo(ctx))
+        }
+
+        val configs = naryCartesianProduct(lNoTrivial).map(_.fold(FeatureExprFactory.True)(_ and _))
+        configs.filter(z => z.isSatisfiable(fm) && !z.equivalentTo(FeatureExprFactory.True))
     }
 
     /**
