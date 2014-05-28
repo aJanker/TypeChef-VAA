@@ -499,4 +499,76 @@ object ConfigurationHandling {
         }
     }
 
+    /**
+     * Returns a set of enabled, disabled and not occoring features from a configuration file.
+     */
+    def getFeaturesFromConfiguration(@SuppressWarnings(Array("unchecked")) file: File, fm: FeatureModel = FeatureExprFactory.empty, features: Set[SingleFeatureExpr] = Set()): (List[SingleFeatureExpr], List[SingleFeatureExpr], List[SingleFeatureExpr]) = {
+        val correctFeatureModelIncompatibility = false
+        var ignoredFeatures = 0
+        var changedAssignment = 0
+        var totalFeatures = 0
+        var fileEx: FeatureExpr = FeatureExprFactory.True
+        var trueFeatures: Set[SingleFeatureExpr] = Set()
+        var falseFeatures: Set[SingleFeatureExpr] = Set()
+
+        val enabledPattern: Pattern = java.util.regex.Pattern.compile("([^=]*)=y")
+        val disabledPattern: Pattern = java.util.regex.Pattern.compile("([^=]*)=n")
+        for (line <- Source.fromFile(file).getLines().filterNot(_.startsWith("#")).filterNot(_.isEmpty)) {
+            totalFeatures += 1
+            var matcher = enabledPattern.matcher(line)
+            if (matcher.matches()) {
+                val name = matcher.group(1)
+                val feature = FeatureExprFactory.createDefinedExternal(name)
+                var fileExTmp = fileEx.and(feature)
+                if (correctFeatureModelIncompatibility) {
+                    val isSat = fileExTmp.isSatisfiable(fm)
+                    println(name + " " + (if (isSat) "sat" else "!sat"))
+                    if (!isSat) {
+                        fileExTmp = fileEx.andNot(feature)
+                        println("disabling feature " + feature)
+                        //fileExTmp = fileEx; println("ignoring Feature " +feature)
+                        falseFeatures += feature
+                        changedAssignment += 1
+                    } else {
+                        trueFeatures += feature
+                    }
+                } else {
+                    trueFeatures += feature
+                }
+                fileEx = fileExTmp
+            } else {
+                matcher = disabledPattern.matcher(line)
+                if (matcher.matches()) {
+                    val name = matcher.group(1)
+                    val feature = FeatureExprFactory.createDefinedExternal(name)
+                    var fileExTmp = fileEx.andNot(feature)
+                    if (correctFeatureModelIncompatibility) {
+                        val isSat = fileEx.isSatisfiable(fm)
+                        println("! " + name + " " + (if (isSat) "sat" else "!sat"))
+                        if (!isSat) {
+                            fileExTmp = fileEx.and(feature)
+                            println("SETTING " + name + "=y")
+                            trueFeatures += feature
+                            changedAssignment += 1
+                        } else {
+                            falseFeatures += feature
+                        }
+                    } else {
+                        falseFeatures += feature
+                    }
+                    fileEx = fileExTmp
+                } else {
+                    ignoredFeatures += 1
+                    //println("ignoring line: " + line)
+                }
+            }
+            //println(line)
+        }
+
+        if (features.isEmpty) {
+            (trueFeatures.toList, falseFeatures.toList, List())
+        } else {
+            (features.filter(trueFeatures.contains).toList, features.filter(falseFeatures.contains).toList, features.filterNot((trueFeatures ++ falseFeatures).contains).toList)
+        }
+    }
 }
