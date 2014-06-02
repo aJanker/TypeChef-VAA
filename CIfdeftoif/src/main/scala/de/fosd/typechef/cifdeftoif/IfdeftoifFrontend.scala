@@ -161,7 +161,6 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
                             } else {
                                 i = new IfdefToIf
                             }
-                            i.setParseFM(parseFM)
                             val defUseMap = ts.getDeclUseMap
                             val useDefMap = ts.getUseDeclMap
                             val fileName = i.basename(opt.getOutputStem())

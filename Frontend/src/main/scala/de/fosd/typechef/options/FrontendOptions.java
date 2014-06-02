@@ -16,21 +16,10 @@ import java.util.List;
 
 
 public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
-    private final static char F_PARSE = Options.genOptionId();
-    private final static char F_INTERFACE = Options.genOptionId();
-    private final static char F_WRITEPI = Options.genOptionId();
-    private final static char F_DEBUGINTERFACE = Options.genOptionId();
-    private final static char F_DUMPCFG = Options.genOptionId();
-    private final static char F_SERIALIZEAST = Options.genOptionId();
-    private final static char F_REUSEAST = Options.genOptionId();
-    private final static char F_RECORDTIMING = Options.genOptionId();
-    private final static char F_FILEPC = Options.genOptionId();
-    private final static char F_PARSERSTATS = Options.genOptionId();
-    private final static char F_HIDEPARSERRESULTS = Options.genOptionId();
-    private final static char F_BDD = Options.genOptionId();
-    private final static char F_ERRORXML = Options.genOptionId();
-    private static final char TY_VERSION = genOptionId();
-    private static final char TY_HELP = genOptionId();
+    private final static char F_DOUBLEFREE = Options.genOptionId();
+    private final static char F_UNINITIALIZEDMEMORY = Options.genOptionId();
+    private final static char F_XFREE = Options.genOptionId();
+    private final static char F_DANGLINGSWITCHCODE = Options.genOptionId();
     private final static char F_DISABLEPC = Options.genOptionId();
     private final static char F_IFDEFTOIF = Options.genOptionId();
     private final static char F_IFDEFTOIFSTATISTICS = Options.genOptionId();
@@ -86,6 +75,24 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private String includeStructFile = "";
     private String refStudy = "";
     private RefactorType refEvalType = RefactorType.NONE;
+
+
+    private final static char F_PARSE = Options.genOptionId();
+    private final static char F_INTERFACE = Options.genOptionId();
+    private final static char F_WRITEPI = Options.genOptionId();
+    private final static char F_DEBUGINTERFACE = Options.genOptionId();
+    private final static char F_DUMPCFG = Options.genOptionId();
+    private final static char F_SERIALIZEAST = Options.genOptionId();
+    private final static char F_REUSEAST = Options.genOptionId();
+    private final static char F_RECORDTIMING = Options.genOptionId();
+    private final static char F_FILEPC = Options.genOptionId();
+    private final static char F_PARSERSTATS = Options.genOptionId();
+    private final static char F_HIDEPARSERRESULTS = Options.genOptionId();
+    private final static char F_BDD = Options.genOptionId();
+    private final static char F_ERRORXML = Options.genOptionId();
+    private static final char TY_VERSION = genOptionId();
+    private static final char TY_HELP = genOptionId();
+
     private Function3<FeatureExpr, String, Position, Object> _renderParserError;
     private FeatureExpr filePC = null;
     private FeatureExpr localFM = null;
