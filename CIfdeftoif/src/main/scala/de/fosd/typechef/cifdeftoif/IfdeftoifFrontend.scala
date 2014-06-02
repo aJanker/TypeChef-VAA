@@ -2,7 +2,7 @@ package de.fosd.typechef.cifdeftoif
 
 
 import de.fosd.typechef.parser.c._
-import de.fosd.typechef.featureexpr.FeatureModel
+import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureModel}
 import de.fosd.typechef.options._
 import de.fosd.typechef.{CPP_replacement_methods, ErrorXML, lexer}
 import java.io._
@@ -12,7 +12,7 @@ import de.fosd.typechef.parser.c.CTypeContext
 import de.fosd.typechef.typesystem.{CDeclUse, CTypeCache, CTypeSystemFrontend}
 import de.fosd.typechef.crewrite._
 import de.fosd.typechef.lexer.LexerFrontend
-import de.fosd.typechef.conditional.One
+import de.fosd.typechef.conditional.{Opt, One}
 
 
 object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
@@ -104,7 +104,6 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
         //no parsing if read serialized ast
         val in = if (ast == null) lex(opt) else null
 
-
         if (opt.parse) {
             stopWatch.start("parsing")
 
@@ -118,7 +117,6 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
                     stopWatch.start("serialize")
                     serializeAST(ast, opt.getSerializedTUnitFilename)
                 }
-
             }
 
             if (ast != null) {
@@ -149,6 +147,14 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
                     }
                     if (opt.ifdeftoif) {
                         if (typeCheckStatus) {
+
+                            /*
+                            println("before preprocessing")
+                            // preprocessing: replace situations with too much local variability (e.g. different string in each variant) with prepared replacements
+                            ast = PreparedIfdeftoifParts.replaceInAST(ast, new File("/local/ifdeftoif/ifdeftoif/PreparedReplacementParts.txt"))
+                            println("after preprocessing")
+                            */
+
                             //ProductGeneration.typecheckProducts(fm,fm_ts,ast,opt,
                             //logMessage=("Time for lexing(ms): " + (t2-t1) + "\nTime for parsing(ms): " + (t3-t2) + "\n"))
                             //ProductGeneration.estimateNumberOfVariants(ast, fm_ts)
@@ -179,7 +185,13 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
                             }
                             if (new File("../ifdeftoif/partialConfiguration.config").exists()) {
                                 val defaultConfigExpr : Expr = PostfixExpr(Id("__VERIFIER_NONDET_INT"), FunctionCall(ExprList(List())))
-                                i.writeExternIfdeftoIfStruct("../ifdeftoif/partialConfiguration.config", defaultConfigExpr)
+                                // extern int __VERIFIER_NONDET_INT();
+                                //val prefixEx = Declaration(List(Opt(FeatureExprFactory.True,ExternSpecifier()), Opt(FeatureExprFactory.True,IntSpecifier())),List(Opt(FeatureExprFactory.True,InitDeclaratorI(AtomicNamedDeclarator(List(),Id("__VERIFIER_NONDET_INT"),List(Opt(FeatureExprFactory.True,DeclIdentifierList(List())))),List(),None))))
+                                // int __VERIFIER_NONDET_INT() {return 1;}
+                                val prefixEx = FunctionDef(List(Opt(FeatureExprFactory.True,IntSpecifier())),AtomicNamedDeclarator(List(),Id("__VERIFIER_NONDET_INT"),List(Opt(FeatureExprFactory.True,DeclIdentifierList(List())))),List(),CompoundStatement(List(Opt(FeatureExprFactory.True,ReturnStatement(Some(Constant("1")))))))
+                                val prefixStr = PrettyPrinter.print(prefixEx)
+                                i.writeExternIfdeftoIfStruct("../ifdeftoif/partialConfiguration.config", defaultConfigExpr, prefixStr)
+
                             }
                             CPP_replacement_methods.writeDependencyFile(ast, opt.getOutputStem, fileName)
                         } else {
