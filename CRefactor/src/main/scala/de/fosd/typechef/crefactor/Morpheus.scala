@@ -12,28 +12,30 @@ import de.fosd.typechef.crefactor.evaluation.StatsCan
 import de.fosd.typechef.conditional.Opt
 import de.fosd.typechef.crefactor.backend.CModuleInterface
 
+/*
+ * Morpheus is the central class that maintains different caches and data structures for refactorings.
+ * Among these are the translation unit of the file, binding information, the module interface (binding
+ * across files), the feature model, and the ast environment.
+ */
 class Morpheus(tunit: TranslationUnit, fm: FeatureModel, moduleInterface: CModuleInterface, file: String)
     extends Observable with Logging {
 
     def this(tunit: TranslationUnit, fm: FeatureModel) = this(tunit, fm, null, null)
     def this(tunit: TranslationUnit, fm: FeatureModel, file: String) = this(tunit, fm, null, file)
 
-    private var tunitCached: TranslationUnit = tunit
-    private var astEnvCached: ASTEnv = CASTEnv.createASTEnv(getTranslationUnit)
-    private var ts = new CTypeSystemFrontend(getTranslationUnit, getFM) with CTypeCache with CDeclUse
+    private var tunitCached: TranslationUnit = null
+    private var astEnvCached: ASTEnv = null
+    private var ts : CTypeSystemFrontend with CTypeCache with CDeclUse = null
+    private var tcStatsGen : Boolean = true
 
+    // cache for getReferences
     private val idRefsCache: java.util.IdentityHashMap[Id, List[Opt[Id]]] = new java.util.IdentityHashMap()
 
-    private val typeCheck = new StopClock
-    getTypeSystem.typecheckTranslationUnit(getTranslationUnit)
-    private val typeCheckTime = typeCheck.getTime
+    update(tunit)
 
-    if (file != null)
-        StatsCan.addStat(file, TypeCheck, typeCheckTime)
+    def getDecls(id: Id): List[Id] = getSatisfiableReferences(id, getTypeSystem.getUseDeclMap)
 
-    def getDecls(id: Id): List[Id] = getEnforcedFmEntriesFromMap(id, getTypeSystem.getUseDeclMap)
-
-    def getUses(id: Id): List[Id] = getEnforcedFmEntriesFromMap(id, getTypeSystem.getDeclUseMap)
+    def getUses(id: Id): List[Id] = getSatisfiableReferences(id, getTypeSystem.getDeclUseMap)
 
     def getAllUses: List[Id] = getUseDeclMap.keys
 
@@ -48,6 +50,7 @@ class Morpheus(tunit: TranslationUnit, fm: FeatureModel, moduleInterface: CModul
     def getExternalDefs(ids: List[Id]) = getExternalVariableReferences(ids, getDecls)
 
     // determines reference information between id uses and id declarations
+    // compute transitive closure of identifier uses and declarations starting from id
     def getReferences(id: Id): List[Opt[Id]] = {
         if (idRefsCache.containsKey(id))
             return idRefsCache.get(id)
@@ -61,25 +64,23 @@ class Morpheus(tunit: TranslationUnit, fm: FeatureModel, moduleInterface: CModul
                 idRefsCache.put(id, Opt(fExpRef, conn) :: idRefsCache.get(id))
             else
                 idRefsCache.put(id, List(Opt(fExpRef, conn)))
-
         }
 
-        // find all uses of an callId
-        def exploreId(curId: Id) {
+        def exporeIdUse(curId: Id) {
             if (!visited.contains(curId)) {
                 markVisited(curId)
                 getUses(curId).foreach(use => {
                     markVisited(use)
-                    getDecls(use).foreach(exploreId)
+                    getDecls(use).foreach(exporeIdUse)
                 })
             }
         }
 
 
         if (isInUseDeclMap(id))
-            getDecls(id).foreach(exploreId)
+            getDecls(id).foreach(exporeIdUse)
         else
-            exploreId(id)
+            exporeIdUse(id)
 
         idRefsCache.get(id)
     }
@@ -89,7 +90,16 @@ class Morpheus(tunit: TranslationUnit, fm: FeatureModel, moduleInterface: CModul
         tunitCached = tunit
         astEnvCached = CASTEnv.createASTEnv(getTranslationUnit)
         ts = new CTypeSystemFrontend(getTranslationUnit, getFM) with CTypeCache with CDeclUse
+
+        val typeCheck = new StopClock
         getTypeSystem.typecheckTranslationUnit(getTranslationUnit)
+        val typeCheckTime = typeCheck.getTime
+
+        if (file != null && tcStatsGen) {
+            tcStatsGen = false
+            StatsCan.addStat(file, TypeCheck, typeCheckTime)
+        }
+
         setChanged()
         notifyObservers()
     }
@@ -102,7 +112,7 @@ class Morpheus(tunit: TranslationUnit, fm: FeatureModel, moduleInterface: CModul
 
     def getFM = fm
 
-    def getFile = file
+    def getFile = file //.replace("/Users/andi/Desktop/FOSD", "/local/janker/eval/rename")
 
     def getModuleInterface = moduleInterface
 
@@ -115,7 +125,7 @@ class Morpheus(tunit: TranslationUnit, fm: FeatureModel, moduleInterface: CModul
     // reference information (declaration-use) in the typesystem are determined without the feature model
     // solely on the basis of annotations in the source code
     // to rule out references that do not occur in any variant of the system we use the feature model here
-    private def getEnforcedFmEntriesFromMap(key: Id, map: IdentityIdHashMap): List[Id] = {
+    private def getSatisfiableReferences(key: Id, map: IdentityIdHashMap): List[Id] = {
         if (!map.containsKey(key))
             List()
         else

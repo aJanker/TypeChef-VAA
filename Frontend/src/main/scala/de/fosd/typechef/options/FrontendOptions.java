@@ -16,10 +16,21 @@ import java.util.List;
 
 
 public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
-    private final static char F_DOUBLEFREE = Options.genOptionId();
-    private final static char F_UNINITIALIZEDMEMORY = Options.genOptionId();
-    private final static char F_XFREE = Options.genOptionId();
-    private final static char F_DANGLINGSWITCHCODE = Options.genOptionId();
+    private final static char F_PARSE = Options.genOptionId();
+    private final static char F_INTERFACE = Options.genOptionId();
+    private final static char F_WRITEPI = Options.genOptionId();
+    private final static char F_DEBUGINTERFACE = Options.genOptionId();
+    private final static char F_DUMPCFG = Options.genOptionId();
+    private final static char F_SERIALIZEAST = Options.genOptionId();
+    private final static char F_REUSEAST = Options.genOptionId();
+    private final static char F_RECORDTIMING = Options.genOptionId();
+    private final static char F_FILEPC = Options.genOptionId();
+    private final static char F_PARSERSTATS = Options.genOptionId();
+    private final static char F_HIDEPARSERRESULTS = Options.genOptionId();
+    private final static char F_BDD = Options.genOptionId();
+    private final static char F_ERRORXML = Options.genOptionId();
+    private static final char TY_VERSION = genOptionId();
+    private static final char TY_HELP = genOptionId();
     private final static char F_DISABLEPC = Options.genOptionId();
     private final static char F_IFDEFTOIF = Options.genOptionId();
     private final static char F_IFDEFTOIFSTATISTICS = Options.genOptionId();
@@ -30,11 +41,12 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_REFLINk = Options.genOptionId();
     private final static char F_CANBUILD = Options.genOptionId();
     private final static char F_REFSTUDY = Options.genOptionId();
+    private final static char F_PREPAREREF = Options.genOptionId();
     private final static char F_SHOWGUI = Options.genOptionId();
     private final static char F_WRITEBUILDCONDITION = Options.genOptionId();
     private final static char F_PROJECTINTERFACE = Options.genOptionId();
     private final static char F_PRETTYPRINT = Options.genOptionId();
-    private final File _autoErrorXMLFile = new File(".");
+
     public boolean parse = true,
             typecheck = false,
             ifdeftoif = false,
@@ -44,6 +56,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             featureConfig = false,
             refEval = false,
             refLink = false,
+            prepareRef = false,
             canBuild = false,
             showGui = false,
             writeBuildCondition = false,
@@ -66,30 +79,13 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             printVersion = false;
 
     protected File errorXMLFile = null;
+    private final File _autoErrorXMLFile = new File(".");
     String outputStem = "";
     private String filePresenceConditionFile = "";
     private String featureConfigFile = "";
     private String includeStructFile = "";
     private String refStudy = "";
     private RefactorType refEvalType = RefactorType.NONE;
-
-
-    private final static char F_PARSE = Options.genOptionId();
-    private final static char F_INTERFACE = Options.genOptionId();
-    private final static char F_WRITEPI = Options.genOptionId();
-    private final static char F_DEBUGINTERFACE = Options.genOptionId();
-    private final static char F_DUMPCFG = Options.genOptionId();
-    private final static char F_SERIALIZEAST = Options.genOptionId();
-    private final static char F_REUSEAST = Options.genOptionId();
-    private final static char F_RECORDTIMING = Options.genOptionId();
-    private final static char F_FILEPC = Options.genOptionId();
-    private final static char F_PARSERSTATS = Options.genOptionId();
-    private final static char F_HIDEPARSERRESULTS = Options.genOptionId();
-    private final static char F_BDD = Options.genOptionId();
-    private final static char F_ERRORXML = Options.genOptionId();
-    private static final char TY_VERSION = genOptionId();
-    private static final char TY_HELP = genOptionId();
-
     private Function3<FeatureExpr, String, Position, Object> _renderParserError;
     private FeatureExpr filePC = null;
     private FeatureExpr localFM = null;
@@ -130,6 +126,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                         "Make #ifdef to if transformation."),
 
                 new Option("refEval", LongOpt.REQUIRED_ARGUMENT, F_REFEVAL, null, "Apply and verify random refactoring"),
+                new Option("refPrep", LongOpt.NO_ARGUMENT, F_PREPAREREF, null, "Writes out a .ref file containing all found and possible refactorings for this file"),
                 new Option("refLink", LongOpt.REQUIRED_ARGUMENT, F_REFLINk, null, "Apply refactorings also on all linked files."),
                 new Option("canBuild", LongOpt.NO_ARGUMENT, F_CANBUILD, null, "Tests the possibility of building the pretty printed File"),
                 new Option("study", LongOpt.REQUIRED_ARGUMENT, F_REFSTUDY, null, "Defines the used case-study environment"),
@@ -198,8 +195,6 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             parse = typecheck = writeInterface = true;
         } else if (c == F_DUMPCFG) {
             parse = dumpcfg = true;
-        } else if (c == F_DUMPCFG) {
-            parse = dumpcfg = true;
         } else if (c == F_IFDEFTOIFSTATISTICS) {
             parse = typecheck = ifdeftoif = ifdeftoifstatistics = true;
             if (g.getOptarg() == null)
@@ -234,6 +229,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             } else {
                 refEvalType = RefactorType.NONE;
             }
+        } else if (c == F_PREPAREREF) {
+            parse = typecheck = prepareRef = true;
         } else if (c == F_REFLINk) {
             refLink = true;
             checkFileExists(g.getOptarg());
@@ -415,6 +412,9 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             return errorXMLFile;
     }
 
+    public boolean isPrintVersion() {
+        return printVersion;
+    }
 
     public boolean getUseDefaultPC() {
         return defaultPC;
@@ -424,11 +424,11 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
         return linkingInterfaceFile;
     }
 
-    public boolean isPrintVersion() {
-        return printVersion;
-    }
-
     public String getRefStudy() {
         return refStudy;
+    }
+
+    public String getPreparedRefactoringsFileName() {
+        return outputStem + ".pr";
     }
 }

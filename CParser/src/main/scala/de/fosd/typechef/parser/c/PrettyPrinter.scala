@@ -98,6 +98,14 @@ object PrettyPrinter {
         writer.close()
     }
 
+    def printD(ast: AST, path: String, prefix: String = "") = {
+        val prettyPrinted = PrettyPrinter.print(ast).replace("definedEx", "defined")
+        val writer = new FileWriter(path, false)
+        writer.write(prefix)
+        writer.write(prettyPrinted)
+        writer.flush()
+        writer.close()
+    }
 
     def ppConditional(e: Conditional[_], list_feature_expr: List[FeatureExpr]): Doc = e match {
         case One(c: AST) => prettyPrint(c, list_feature_expr)

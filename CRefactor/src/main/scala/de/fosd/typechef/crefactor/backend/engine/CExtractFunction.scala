@@ -2,7 +2,7 @@ package de.fosd.typechef.crefactor.backend.engine
 
 import java.util.Collections
 
-import de.fosd.typechef.crefactor.backend.{RefactorException, CRefactor, ASTSelection}
+import de.fosd.typechef.crefactor.backend.{RefactorException, CRefactor}
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.crefactor.frontend.util.CodeSelection
 import de.fosd.typechef.crefactor.Morpheus
@@ -14,116 +14,54 @@ import de.fosd.typechef.crefactor.evaluation.util.StopClock
 import de.fosd.typechef.crefactor.evaluation.StatsCan
 import de.fosd.typechef.crefactor.evaluation.Stats._
 import de.fosd.typechef.crewrite.IntraCFG
-import scala.collection.JavaConversions._
+import org.kiama.rewriting.Rewriter._
+import de.fosd.typechef.parser.c.EnumSpecifier
+import scala.Some
+import de.fosd.typechef.parser.c.TypeDefTypeSpecifier
+import de.fosd.typechef.parser.c.Initializer
+import de.fosd.typechef.parser.c.VoidSpecifier
+import de.fosd.typechef.conditional.One
+import de.fosd.typechef.parser.c.DeclParameterDeclList
+import de.fosd.typechef.parser.c.Pointer
+import de.fosd.typechef.parser.c.Id
+import de.fosd.typechef.crefactor.backend.RefactorException
+import de.fosd.typechef.parser.c.ExprList
+import de.fosd.typechef.parser.c.ContinueStatement
+import de.fosd.typechef.parser.c.CompoundStatement
+import de.fosd.typechef.conditional.Opt
+import de.fosd.typechef.parser.c.CaseStatement
+import de.fosd.typechef.parser.c.PostfixExpr
+import de.fosd.typechef.parser.c.ReturnStatement
+import de.fosd.typechef.parser.c.AtomicNamedDeclarator
+import de.fosd.typechef.parser.c.StructOrUnionSpecifier
+import de.fosd.typechef.parser.c.PointerCreationExpr
+import de.fosd.typechef.conditional.Choice
+import de.fosd.typechef.parser.c.TranslationUnit
+import de.fosd.typechef.typesystem.CUnknown
+import de.fosd.typechef.typesystem.CFunction
+import de.fosd.typechef.parser.c.FunctionCall
+import de.fosd.typechef.parser.c.DeclArrayAccess
+import de.fosd.typechef.parser.c.InitDeclaratorI
+import de.fosd.typechef.parser.c.Declaration
+import de.fosd.typechef.parser.c.LabelStatement
+import de.fosd.typechef.parser.c.ExprStatement
+import de.fosd.typechef.parser.c.GotoStatement
+import de.fosd.typechef.parser.c.FunctionDef
+import de.fosd.typechef.parser.c.NestedFunctionDef
+import de.fosd.typechef.parser.c.BreakStatement
+import de.fosd.typechef.parser.c.ParameterDeclarationD
+import de.fosd.typechef.parser.c.RegisterSpecifier
+import de.fosd.typechef.parser.c.ConstSpecifier
+import de.fosd.typechef.crefactor.backend.codeselection.ASTSelection
 
 
 /**
- * Implements the strategy of extracting a function.
+ * Implements extract-function refactoring.
  */
-object CExtractFunction extends ASTSelection with CRefactor with IntraCFG {
+object CExtractFunction extends CRefactor with IntraCFG {
 
-    private var lastSelection: CodeSelection = null
-
-    private var cachedSelectedElements: List[AST] = null
-
-    def getSelectedElements(morpheus: Morpheus, selection: CodeSelection): List[AST] = {
-        if (lastSelection.eq(selection))
-            return cachedSelectedElements
-
-        lastSelection = selection
-        val ids = filterASTElementsForFile[Id](
-            filterASTElems[Id](morpheus.getTranslationUnit).par.filter(x => isPartOfSelection(x, selection)).toList, selection.getFilePath)
-
-        // this function tries to find the greatest statement of a selection: for example:
-        // if (1) {
-        //     i++;
-        // }
-        // in case the whole if statement is selected we don't want to add the i++ statement to our selection list,
-        // as it is already part of the if statement
-        def exploitStatements(statement: Statement): Statement = {
-            try {
-                parentAST(statement, morpheus.getASTEnv) match {
-                    case null => throw new RefactorException("No proper selection for extract function.")
-                    case _: FunctionDef => statement
-                    case _: NestedFunctionDef => statement
-                    case p =>
-                        if (isElementOfSelectionRange(p, selection)) {
-                            exploitStatements(p.asInstanceOf[Statement])
-                        } else
-                            statement
-                }
-            } catch {
-                case _: Throwable => statement
-            }
-        }
-
-        def lookupControlStatements(statement: Statement): Statement = {
-            try {
-                nextAST(statement, morpheus.getASTEnv) match {
-                    case null => statement
-                    case c: ContinueStatement =>
-                        if (isElementOfSelectionRange(c, selection)) c
-                        else statement
-                    case b: BreakStatement =>
-                        if (isElementOfSelectionRange(b, selection)) b
-                        else statement
-                    case c: CaseStatement =>
-                        if (isElementOfSelectionRange(c, selection)) c
-                        else statement
-                    case g: GotoStatement =>
-                        if (isElementOfSelectionRange(g, selection)) g
-                        else statement
-                    case r: ReturnStatement =>
-                        if (isElementOfSelectionRange(r, selection)) r
-                        else statement
-                    case _ => statement
-                }
-            } catch {
-                case _: Throwable => statement
-            }
-        }
-        val uniqueSelectedStatements = Collections.newSetFromMap[Statement](new java.util.IdentityHashMap())
-        val uniqueSelectedExpressions = Collections.newSetFromMap[Expr](new java.util.IdentityHashMap())
-
-        ids.foreach(id => {
-            val parent = findPriorASTElem[Statement](id, morpheus.getASTEnv)
-            parent match {
-                case null =>
-                case s: Some[Statement] =>
-                    s.get.setPositionRange(id)
-                    uniqueSelectedStatements.add(s.get)
-                    uniqueSelectedStatements.add(lookupControlStatements(s.get))
-                case x => // logger.info("There may have been an expression! " + x)
-            }
-        })
-
-        val selectedElements = {
-            if (!uniqueSelectedStatements.isEmpty) {
-                val parents = uniqueSelectedStatements.toList
-                uniqueSelectedStatements.clear()
-                parents.foreach(statement => {
-                    val exploitedStatement = exploitStatements(statement)
-                    uniqueSelectedStatements.add(exploitedStatement)
-                })
-                uniqueSelectedStatements
-            } else
-                uniqueSelectedExpressions
-        }
-
-
-        cachedSelectedElements = selectedElements.toList.sortWith(comparePosition)
-        logger.info("ExtractFuncSelection: " + cachedSelectedElements)
-        cachedSelectedElements
-    }
-
-    def getAvailableIdentifiers(morpheus: Morpheus, selection: CodeSelection): List[Id] =
-        getSelectedElements(morpheus, selection).isEmpty match {
-            case true => null
-            case false => List[Id]() // returns a empty list to signalize a valid selection was found
-        }
-
-
-    def isAvailable(morpheus: Morpheus, selection: List[AST]): Boolean = {
+    // TODO Integrate in extract
+    def canRefactor(morpheus: Morpheus, selection: List[AST]): Boolean = {
         if (selection.isEmpty) return false
 
         val selectedIds = filterAllASTElems[Id](selection)
@@ -144,44 +82,39 @@ object CExtractFunction extends ASTSelection with CRefactor with IntraCFG {
         else true
     }
 
-    def isAvailable(morpheus: Morpheus, selection: CodeSelection): Boolean =
-        isAvailable(morpheus, getSelectedElements(morpheus, selection))
+    def extract(morpheus: Morpheus, selectedElements: List[AST], funcName: String): Either[String, TranslationUnit] = {
 
-    def extract(morpheus: Morpheus, selectedElements: List[AST], funName: String): Either[String, TranslationUnit] = {
-
-        if (!isValidId(funName))
+        if (!isValidName(funcName))
             return Left(Configuration.getInstance().getConfig("default.error.invalidName"))
-
-        val selection = selectedElements.sortWith(comparePosition)
 
         // Reference check is performed as soon as we know the featureExpr the new function is going to have!
 
-        val oldFDef = findPriorASTElem[FunctionDef](selection.head, morpheus.getASTEnv)
-        if (isValidInProgram(Opt(morpheus.getASTEnv.featureExpr(oldFDef.get), funName), morpheus))
+        val oldFDef = findPriorASTElem[FunctionDef](selectedElements.head, morpheus.getASTEnv)
+        if (isValidInProgram(Opt(morpheus.getASTEnv.featureExpr(oldFDef.get), funcName), morpheus))
             return Left(Configuration.getInstance().getConfig(
                 "default.error.isInConflictWithSymbolInModuleInterface"))
 
         // we check binding and visibility using the last element in the translation unit
-        if (isValidInModule(funName, morpheus.getTranslationUnit.defs.last.entry, morpheus))
+        if (isValidInModule(funcName, morpheus.getTranslationUnit.defs.last.entry, morpheus))
             return Left(Configuration.getInstance().getConfig("default.error.isInConflictWithSymbolInModule"))
 
         // we can only handle statements. report error otherwise.
-        if (selection.exists {
+        if (selectedElements.exists {
             case _: Expr => true
             case _ => false
         })
             return Left(Configuration.getInstance().getConfig("refactor.extractFunction.failed.unsupported"))
 
-        if (!selection.forall {
+        if (!selectedElements.forall {
             case _: Statement => true
             case _ => false
         })
             return Left(Configuration.getInstance().getConfig("refactor.extractFunction.failed.invalidSelection"))
 
-        extractStatements(morpheus, selection, funName)
+        extractStatements(morpheus, selectedElements, funcName)
     }
 
-    private def extractStatements(morpheus: Morpheus, selection: List[AST], funcName: String):
+    private def extractStatements(morpheus: Morpheus, selection: List[AST], fName: String):
     Either[String, TranslationUnit] = {
         try {
             val parentFunction = getFunction(selection, morpheus)
@@ -218,25 +151,25 @@ object CExtractFunction extends ASTSelection with CRefactor with IntraCFG {
             val params = retrieveParameters(extRefIds, morpheus)
             val paramsIds = params.map(_._3)
 
-            StatsCan.addStat(morpheus.getFile, Liveness, startTime.getTime)
-            StatsCan.addStat(morpheus.getFile, ExternalUses, externalUses)
+            StatsCan.addStat(morpheus.getFile, Liveness,      startTime.getTime)
+            StatsCan.addStat(morpheus.getFile, ExternalUses,  externalUses)
             StatsCan.addStat(morpheus.getFile, ExternalDecls, externalDefs)
-            StatsCan.addStat(morpheus.getFile, Parameters, paramsIds)
+            StatsCan.addStat(morpheus.getFile, Parameters,    paramsIds)
 
             // generate new function definition
             val specifiers = genSpecifiers(parentFunction, morpheus)
             val parameterDecls = getParameterDecls(params, parentFunction, morpheus)
-            val declarator = genDeclarator(funcName, parameterDecls)
-            val compundStatement = genCompoundStatement(selectedOptStatements,
+            val declarator = genDeclarator(fName, parameterDecls)
+            val compoundStatement = genCompoundStatement(selectedOptStatements,
                 allExtRefIds, paramsIds, morpheus)
-            val newFDef = genFDef(specifiers, declarator, compundStatement)
+            val newFDef = genFDef(specifiers, declarator, compoundStatement)
             val newFDefOpt = genFDefExternal(parentFunction, newFDef, morpheus)
 
             // generate forward declaration
             val newFDefForward = genFDefForward(parentFunction, morpheus, specifiers, declarator)
             val newFDefForwardOpt = genFDefExternal(parentFunction, newFDefForward, morpheus)
 
-            if (isValidInProgram(Opt(newFDefOpt.feature, funcName), morpheus))
+            if (isValidInProgram(Opt(newFDefOpt.feature, fName), morpheus))
                 return Left(Configuration.getInstance().getConfig("default.error.invalidName"))
 
             // generate function fCall
@@ -246,21 +179,20 @@ object CExtractFunction extends ASTSelection with CRefactor with IntraCFG {
                     FunctionCall(ExprList(callParameters)))))
 
             // Keep changes at the AST as local as possible
-            // TODO: Check with single compound statements.
+            // TODO: Check with single line compound statements.
             val tunitWithFCall = insertBefore(compStmt.innerStatements,
                 selectedOptStatements.head, functionCall)
             val ccStmtWithRemovedStmts = removeStatementInTUnit(tunitWithFCall, selectedOptStatements)
             val tunitWithFDef = insertBeforeAndAfter(morpheus.getTranslationUnit,
                 parentFunctionOpt, newFDefForwardOpt, newFDefOpt)
 
-            val refAST = replaceCompoundStmt(tunitWithFDef, compStmt, ccStmtWithRemovedStmts)
+            val refAST = replaceCompoundStmt(tunitWithFDef, compStmt, compStmt.copy(innerStatements = ccStmtWithRemovedStmts))
             Right(refAST)
         } catch {
             case r: RefactorException => Left(r.error)
-            case x: Throwable => {
+            case x: Throwable =>
                 x.printStackTrace()
                 Left(x.getMessage)
-            }
         }
     }
 
@@ -350,7 +282,7 @@ object CExtractFunction extends ASTSelection with CRefactor with IntraCFG {
                 res
             } catch {
                 case _: Throwable =>
-                    logger.warn("No entry found for: " + liveId)
+                    // logger.warn("No entry found for: " + liveId)
                     false
             }
         })
@@ -517,8 +449,24 @@ object CExtractFunction extends ASTSelection with CRefactor with IntraCFG {
 
         /**
          * Helping method for fake choice nodes retrieved from typesystem.
+         * Fake choice nodes are nodes representing variability of the same exact element under different features.
+         * Consider the following example:
+         * int foo(unit_8 a, int b) with unit_8 as variable TypeDef defined in a header file under
+         * two different features A and B.
+         * Due to code code duplication of TypeChef int b would be also variable with following choices: A, !A, B, !B
+         * This has caused some compile issues and therefore we put all choices to a big OR feature.
          */
         def addChoiceOne(c: Choice[_], id: Id, ft: FeatureExpr = FeatureExprFactory.True) = {
+            def getOrFeatures(a: Any): FeatureExpr = {
+                var featureSet: Set[FeatureExpr] = Set()
+                val r = manytd(query {
+                    case Opt(ft, _) => featureSet += ft
+                    case Choice(ft, _, _) => featureSet += ft
+                })
+                r(a).get
+                featureSet.foldRight(FeatureExprFactory.True)(_ or _)
+            }
+
             val orFeatures = getOrFeatures(c)
             val featureExpr = ft.and(orFeatures)
             addParameterFromDeclaration(id, featureExpr, true, false)
@@ -548,7 +496,7 @@ object CExtractFunction extends ASTSelection with CRefactor with IntraCFG {
                         addTodeclIdMapMap(entry, id)
                     }
                 }
-                case none =>
+                case None =>
                     // fallback as parameter from parameter...
                     if (fallBackAllowed) addParameterFromParameter(id, ft, !fallBackAllowed, featureExploit)
                     else logger.warn("Would have required fallback to parameter: " + id)

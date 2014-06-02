@@ -120,13 +120,6 @@ public abstract class FeatureModelOptions extends LexerOptions implements ILexer
             if (smallFeatureModel == null)
                 smallFeatureModel = FeatureExprLib.featureModelFactory().create(f);
             else smallFeatureModel = smallFeatureModel.and(f);
-//        } else if (c == FM_CLASS) {//--featureModelClass
-//            try {
-//                FeatureModelFactory factory = (FeatureModelFactory) Class.forName(g.getOptarg()).newInstance();
-//                smallFeatureModel = factory.createFeatureModel();
-//            } catch (Exception e) {
-//                throw new OptionException("cannot instantiate feature model: " + e.getMessage());
-//            }
         } else if (c == FM_TSDIMACS) {
             checkFileExists(g.getOptarg());
             fullFeatureModel = FeatureExprLib.featureModelFactory().createFromDimacsFile_2Var(g.getOptarg());

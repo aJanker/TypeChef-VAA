@@ -45,15 +45,17 @@ trait ConditionalNavigation {
     }
 
     // check recursively for any nodes that have an annotation != True
-    def isVariable(e: Product): Boolean = {
-        var res = false
+    def isVariable(e: Product, env: ASTEnv, ctx : FeatureExpr = FeatureExprFactory.True): Boolean = {
         val variable = manytd(query {
-            case Opt(f, _) => if (f != FeatureExprFactory.False && f != FeatureExprFactory.True) res = true
-            case x => res = res
+            case x: AST =>
+                val fExp = env.featureExpr(x).diff(ctx)
+                if (fExp != FeatureExprFactory.True &&
+                    fExp != FeatureExprFactory.False)
+                    return true
         })
 
         variable(e)
-        res
+        false
     }
 
     def filterAllOptElems(e: Product): List[Opt[_]] = {

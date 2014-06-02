@@ -9,6 +9,7 @@ import parser.TokenReader
 import de.fosd.typechef.options.{FrontendOptionsWithConfigFiles, FrontendOptions, OptionException}
 import de.fosd.typechef.parser.c.CTypeContext
 import de.fosd.typechef.parser.c.TranslationUnit
+import de.fosd.typechef.featureexpr.FeatureExpr
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
 object Frontend extends EnforceTreeHelper {
@@ -121,7 +122,7 @@ object Frontend extends EnforceTreeHelper {
         stopWatch.start("lexing")
         //no parsing if read serialized ast
         val in = if (ast == null) {
-        println("#lexing")
+            println("#lexing")
             lex(opt)
         } else null
 
@@ -146,11 +147,7 @@ object Frontend extends EnforceTreeHelper {
             if (ast != null) {
 
                 // some dataflow analyses require typing information
-
-                val ts = if (opt.typechecksa)
-                            new CTypeSystemFrontend(ast, fullFM, opt) with CTypeCache with CDeclUse
-                         else
-                            new CTypeSystemFrontend(ast, fullFM, opt)
+                val ts = new CTypeSystemFrontend(ast, fullFM, opt) with CTypeCache with CDeclUse
 
 
                 /** I did some experiments with the TypeChef FeatureModel of Linux, in case I need the routines again, they are saved here. */
@@ -162,11 +159,9 @@ object Frontend extends EnforceTreeHelper {
                     //ProductGeneration.estimateNumberOfVariants(ast, fm_ts)
 
                     stopWatch.start("typechecking")
-
                     println("#type checking")
                     ts.checkAST()
-
-                    ts.errors.map(errorXML.renderTypeError(_))
+                    ts.errors.map(errorXML.renderTypeError)
                 }
                 if (opt.writeInterface) {
                     stopWatch.start("interfaces")

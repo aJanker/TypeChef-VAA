@@ -5,21 +5,21 @@ import de.fosd.typechef.crefactor.evaluation.Stats._
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.featureexpr.FeatureModel
 import de.fosd.typechef.options.{RefactorType, FrontendOptions, OptionException, FrontendOptionsWithConfigFiles}
-import de.fosd.typechef.lexer
+import de.fosd.typechef.{VALexer, lexer}
 import java.io._
 import de.fosd.typechef.parser.TokenReader
 import de.fosd.typechef.crefactor.evaluation.util.StopClock
 import de.fosd.typechef.typesystem.linker.InterfaceWriter
-import de.fosd.typechef.crefactor.evaluation.{Refactor, StatsCan}
+import de.fosd.typechef.crefactor.evaluation.{PreparedRefactorings, Evaluation, Refactor, StatsCan}
 import de.fosd.typechef.crefactor.evaluation.setup.{CModuleInterfaceGenerator, Building, BuildCondition}
 import java.util.zip.{GZIPOutputStream, GZIPInputStream}
 import de.fosd.typechef.parser.c.CTypeContext
 import de.fosd.typechef.typesystem.{CDeclUse, CTypeCache, CTypeSystemFrontend}
 import de.fosd.typechef.crefactor.frontend.Editor
 import javax.swing.SwingUtilities
-import de.fosd.typechef.crefactor.evaluation.evalcases.sqlite.SQLiteRefactor
-import de.fosd.typechef.crefactor.evaluation.evalcases.busybox_1_18_5.BusyBoxRefactor
-import de.fosd.typechef.crefactor.evaluation.evalcases.openSSL.OpenSSLRefactor
+import de.fosd.typechef.crefactor.evaluation.evalcases.sqlite.SQLiteRefactorEvaluation
+import de.fosd.typechef.crefactor.evaluation.evalcases.busybox_1_18_5.BusyBoxRefactorEvaluation
+import de.fosd.typechef.crefactor.evaluation.evalcases.openSSL.OpenSSLRefactorEvaluation
 import de.fosd.typechef.crefactor.backend.CModuleInterface
 import de.fosd.typechef.featureexpr.bdd.FeatureExprHelper
 import de.fosd.typechef.lexer.LexerFrontend
@@ -44,9 +44,9 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         else if (runOpt.parse) parseOrLoadTUnitandProcess(args, true)
 
 
-        println("# unique Sat calls: " + FeatureExprHelper.uniqueSatCalls)
-        println("# cached Sat calls: " + FeatureExprHelper.cachedSatCalls)
-        println("# all Sat calls: " + (FeatureExprHelper.uniqueSatCalls + FeatureExprHelper.cachedSatCalls))
+        logger.info("# unique Sat calls: " + FeatureExprHelper.uniqueSatCalls)
+        logger.info("# cached Sat calls: " + FeatureExprHelper.cachedSatCalls)
+        logger.info("# all Sat calls: " + (FeatureExprHelper.uniqueSatCalls + FeatureExprHelper.cachedSatCalls))
     }
 
     def parseOrLoadTUnitandProcess(args: Array[String], saveArg: Boolean = false) = {
@@ -70,7 +70,7 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         processFile(tunit, fm, runOpt)
     }
 
-    def parseOrLoadTUnit(toLoad: String): (TranslationUnit, FeatureModel) = {
+    def getTUnit(toLoad: String): (TranslationUnit, FeatureModel) = {
         val file = {
             if (toLoad.startsWith("file")) toLoad.substring(5)
             else toLoad
@@ -85,7 +85,7 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         val tunit = getTunit(opt, fm)
 
         if (tunit == null) {
-            logger.error("... failed reading AST " + opt.getFile + "\nExiting.")
+            logger.error("... failed reading TUnit " + opt.getFile + "\nExiting.")
             System.exit(-1)
         }
 
@@ -126,7 +126,9 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
 
         if (opt.writeInterface) writeInterface(tunit, fm, opt)
 
-        if (opt.refEval) refactorEval(opt, tunit, fm, linkInf)
+        if (opt.prepareRef) prepareRefactor(opt, tunit, fm, linkInf)
+
+        if (opt.refEval) evaluateRefactor(opt, tunit, fm, linkInf)
 
         if (opt.prettyPrint) prettyPrint(tunit, opt)
 
@@ -137,6 +139,7 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
     }
 
     private def getFM(opt: FrontendOptions): FeatureModel = {
+        // note: we use the full feature model instead of the small one
         val fm = {
             if (opt.getUseDefaultPC) opt.getFullFeatureModel.and(opt.getLocalFeatureModel).and(opt.getFilePresenceCondition)
             else opt.getFullFeatureModel.and(opt.getLocalFeatureModel)
@@ -150,8 +153,8 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         fm
     }
 
-    private def writeInterface(ast: AST, fm: FeatureModel, opt: FrontendOptions) {
-        val ts = new CTypeSystemFrontend(ast.asInstanceOf[TranslationUnit], fm, opt) with CTypeCache with CDeclUse
+    private def writeInterface(tunit: TranslationUnit, fm: FeatureModel, opt: FrontendOptions) {
+        val ts = new CTypeSystemFrontend(tunit, fm, opt) with CTypeCache with CDeclUse
         ts.checkAST()
 
         val interface = {
@@ -182,37 +185,64 @@ object CRefactorFrontend extends App with InterfaceWriter with BuildCondition wi
         val canBuild = builder.canBuild(tunit, fm, opt.getFile)
         logger.info("Can build " + new File(opt.getFile).getName + " : " + canBuild)
     }
-    private def refactorEval(opt: FrontendOptions, tunit: TranslationUnit,
+    private def prepareRefactor(opt: FrontendOptions, tunit: TranslationUnit,
                              fm: FeatureModel, linkInf: CModuleInterface) {
-        val caseStudy: Refactor = {
-            if (opt.getRefStudy.equalsIgnoreCase("busybox")) BusyBoxRefactor
-            else if (opt.getRefStudy.equalsIgnoreCase("openssl")) OpenSSLRefactor
-            else if (opt.getRefStudy.equalsIgnoreCase("sqlite")) SQLiteRefactor
-            else null
+        val caseStudy: Refactor = getRefactorStudy(opt)
+        val prepared = caseStudy.prepareForEvaluation(tunit, fm, opt.getFile, linkInf)
+        serializePreparedRefactorings(prepared, opt.getPreparedRefactoringsFileName)
         }
 
+
+    private def evaluateRefactor(opt: FrontendOptions, tunit: TranslationUnit,
+                             fm: FeatureModel, linkInf: CModuleInterface) {
+        val caseStudy: Refactor = getRefactorStudy(opt)
+
+        val preparedRefactor = loadPreparedRefactorings(opt.getPreparedRefactoringsFileName)
+
         opt.getRefactorType match {
-            case RefactorType.RENAME => caseStudy.rename(tunit, fm, opt.getFile, linkInf)
-            case RefactorType.EXTRACT => caseStudy.extract(tunit, fm, opt.getFile, linkInf)
-            case RefactorType.INLINE => caseStudy.inline(tunit, fm, opt.getFile, linkInf)
+            case RefactorType.RENAME => caseStudy.rename(preparedRefactor, tunit, fm, opt.getFile, linkInf)
+            case RefactorType.EXTRACT => caseStudy.extract(preparedRefactor, tunit, fm, opt.getFile, linkInf)
+            case RefactorType.INLINE => caseStudy.inline(preparedRefactor, tunit, fm, opt.getFile, linkInf)
             case RefactorType.NONE => println("No engine type defined")
         }
     }
-    private def lex(opt: FrontendOptions): TokenReader[CToken, CTypeContext] = CLexerAdapter.prepareTokens(new LexerFrontend().run(opt, opt.parse))
+    private def lex(opt: FrontendOptions): TokenReader[CToken, CTypeContext] = {
+        val tokens = new lexer.LexerFrontend().run(opt, opt.parse)
+        val in = CLexerAdapter.prepareTokens(tokens)
+        in
+    }
+    private def getRefactorStudy(opt: FrontendOptions): Evaluation with Refactor =
+        if (opt.getRefStudy.equalsIgnoreCase("busybox")) BusyBoxRefactorEvaluation
+        else if (opt.getRefStudy.equalsIgnoreCase("openssl")) OpenSSLRefactorEvaluation
+        else if (opt.getRefStudy.equalsIgnoreCase("sqlite")) SQLiteRefactorEvaluation
+        else null
 
-    private def serializeTUnit(ast: AST, filename: String) {
+    private def serializeTUnit(tUnit: TranslationUnit, filename: String) =
+        serializeFile(tUnit, filename)
+    
+    private def serializePreparedRefactorings(prepared : PreparedRefactorings, filename: String) =
+        serializeFile(prepared, filename)
+
+    private def loadSerializedTUnit(filename: String): TranslationUnit =
+        loadSerializedGZipFile[TranslationUnit](filename)
+
+    private def loadPreparedRefactorings(filename: String) : PreparedRefactorings =
+        loadSerializedGZipFile[PreparedRefactorings](filename)
+    
+    private def serializeFile(obj: AnyRef, filename: String) {
         val fw = new ObjectOutputStream(new GZIPOutputStream(new FileOutputStream(filename)))
-        fw.writeObject(ast)
+        fw.writeObject(obj)
         fw.close()
     }
 
-    private def loadSerializedTUnit(filename: String): TranslationUnit = {
+    private def loadSerializedGZipFile[T](filename : String) : T = {
         val fr = new ObjectInputStream(new GZIPInputStream(new FileInputStream(filename))) {
-            override protected def resolveClass(desc: ObjectStreamClass) = { /*println(desc);*/ super.resolveClass(desc) }
+            override protected def resolveClass(desc: ObjectStreamClass) = { super.resolveClass(desc) }
         }
-        val ast = fr.readObject().asInstanceOf[TranslationUnit]
+        val loaded = fr.readObject().asInstanceOf[T]
         fr.close()
-        ast
+
+        loaded
     }
 
     private def prettyPrint(tunit: TranslationUnit, options: FrontendOptions) = {

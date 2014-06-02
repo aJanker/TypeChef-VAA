@@ -1,16 +1,18 @@
 package de.fosd.typechef.crefactor.evaluation
 
 import java.io._
-import de.fosd.typechef.parser.c._
-import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr, SingleFeatureExpr, FeatureModel}
 import java.util.regex.Pattern
-import scala.io.Source
-import de.fosd.typechef.crefactor.{Morpheus, Logging}
 import java.util.{TimerTask, Timer, IdentityHashMap}
-import de.fosd.typechef.crefactor.evaluation.setup.BuildCondition
-import de.fosd.typechef.typesystem.linker.SystemLinker
+import scala.io.Source
+
+import de.fosd.typechef.parser.c._
 import de.fosd.typechef.conditional.Opt
-import java.util
+import de.fosd.typechef.crefactor.backend.CModuleInterface
+import de.fosd.typechef.crefactor.evaluation.setup.BuildCondition
+import de.fosd.typechef.crefactor.evaluation.defaultEngines.{DefaultInlineEngine, DefaultExtractEngine, DefaultRenameEngine}
+import de.fosd.typechef.crefactor.{Morpheus, Logging}
+import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr, SingleFeatureExpr, FeatureModel}
+import de.fosd.typechef.typesystem.linker.SystemLinker
 
 trait Evaluation extends Logging with BuildCondition with ASTNavigation with ConditionalNavigation {
 
@@ -40,8 +42,18 @@ trait Evaluation extends Logging with BuildCondition with ASTNavigation with Con
     val FORCE_LINKING: Boolean
 
     val maxConfigs: Int = 50
+    
+    val renameEngine : DefaultRenameEngine
+    val extractEngine : DefaultExtractEngine
+    val inlineEngine : DefaultInlineEngine
+
+    def evaluate(preparedRefactorings : PreparedRefactorings, tunit: TranslationUnit, fm: FeatureModel, file: String, linkInterface: CModuleInterface, r: Refactoring)
 
     def copyFile(file1: File, file2: File) = new FileOutputStream(file2).getChannel.transferFrom(new FileInputStream(file1).getChannel, 0, Long.MaxValue)
+    
+    // case study specific id for renaming validation function
+    // override if necessary
+    def isValidIdForRename(id : Id, morpheus : Morpheus) : Boolean = true
 
     /**
      * Runs a shell script with either default timeout or a custom timeout in ms
