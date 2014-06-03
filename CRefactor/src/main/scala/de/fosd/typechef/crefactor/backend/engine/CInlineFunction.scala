@@ -10,6 +10,8 @@ import de.fosd.typechef.crefactor.backend.{RefactorException, CRefactor}
 import de.fosd.typechef.crewrite.IntraCFG
 import de.fosd.typechef.featureexpr.FeatureExpr
 import de.fosd.typechef.parser.c._
+import java.util
+import scala.util
 
 
 /**
@@ -200,8 +202,8 @@ object CInlineFunction extends CRefactor with IntraCFG {
         replace(morpheus, compStmt, refactoredCompStmt)
     }
 
-    // A compound statement expression only can hold one compund statement
-    // to add several compund statements under different features in one expression we generate one big expression
+    // A compound statement expression only can hold one compound statement
+    // to add several compound statements under different features in one expression we generate one big expression
     // and add the feature of the parent expression to its statements.
     private def mapCompStmtsToCompStmtExprs(compStmtExprs: List[Opt[CompoundStatementExpr]]): CompoundStatementExpr =
         CompoundStatementExpr(CompoundStatement(compStmtExprs.flatMap(compStmtExpr => {
@@ -464,11 +466,11 @@ object CInlineFunction extends CRefactor with IntraCFG {
                                      fCallId : Id, fDef: Opt[FunctionDef]): CompoundStatement = {
         var workingStatement = compStmt
         val idsToRename = getIdsToRename(fDef.entry, workingStatement, morpheus)
-        val renamed = renameShadowedIds(idsToRename, fDef, fCall, morpheus)
-        val initializer = getDeclarationsFromCallParameters(fCall, fCallId, renamed._2, morpheus)
+        val (renamedIdsStmts, renamedIdsParams, idFeatureEnv) = renameShadowedIds(idsToRename, fDef, fCall, morpheus)
+        val initializer = getDeclarationsFromCallParameters(fCall, fCallId, renamedIdsParams, idFeatureEnv, morpheus)
 
         // apply feature environment
-        val statements = mapFeaturesOnInlineStmts(renamed._1, fCall, morpheus)
+        val statements = mapFeaturesOnInlineStmts(renamedIdsStmts, fCall, morpheus)
 
         // find return statements
         val returnStmts = getReturnStmts(statements)
@@ -497,8 +499,8 @@ object CInlineFunction extends CRefactor with IntraCFG {
                                  fCall: Opt[AST], fCallId : Id, morpheus: Morpheus): CompoundStatementExpr = {
         val idsToRename = getIdsToRename(fDef.entry, compStmt, morpheus)
 
-        val (renamedIdsStmts, renamedIdsParams) = renameShadowedIds(idsToRename, fDef, fCall, morpheus)
-        val initializer = getDeclarationsFromCallParameters(fCall, fCallId, renamedIdsParams, morpheus)
+        val (renamedIdsStmts, renamedIdsParams, idFeatureEnv) = renameShadowedIds(idsToRename, fDef, fCall, morpheus)
+        val initializer = getDeclarationsFromCallParameters(fCall, fCallId, renamedIdsParams, idFeatureEnv, morpheus)
         val returnStmts = getReturnStmts(renamedIdsStmts)
 
         // replace (return expr; => expr;) or remove (return; => <removed>) return statements
@@ -682,14 +684,18 @@ object CInlineFunction extends CRefactor with IntraCFG {
      *
      */
     private def getDeclarationsFromCallParameters(fCallStmt: Opt[AST], fCallId: Id, parameters: List[Opt[DeclaratorExtension]],
+                                                  idFeatureEnv : java.util.IdentityHashMap[Id, FeatureExpr],
                                                   morpheus: Morpheus): List[Opt[DeclarationStatement]] =
         findPriorASTElem[PostfixExpr](fCallId, morpheus.getASTEnv) match {
             case Some(fCall) =>
                 fCall.s match {
-                    case f: FunctionCall => parameters.flatMap(generateDeclarationsFromCallParamExpr(_, f.params.exprs, morpheus))
-                    case _ => throw new RefactorException("Invalid function call has been selected: " + fCallStmt + "\n" + fCallId)
+                    case f: FunctionCall =>
+                        parameters.flatMap(generateDeclarationsFromCallParamExpr(_, f.params.exprs, idFeatureEnv, morpheus))
+                    case _ =>
+                        throw new RefactorException("Invalid function call has been selected: " + fCallStmt + "\n" + fCallId)
                 }
-            case None => throw new RefactorException("Invalid function call has been selected: " + fCallStmt + "\n" + fCallId)
+            case None =>
+                throw new RefactorException("Invalid function call has been selected: " + fCallStmt + "\n" + fCallId)
         }
 
     /*
@@ -697,6 +703,7 @@ object CInlineFunction extends CRefactor with IntraCFG {
      * and generate its declaration.
      */
     private def generateDeclarationsFromCallParamExpr(parameters: Opt[DeclaratorExtension], callExprs: List[Opt[Expr]],
+                                                      idFeatureEnv : java.util.IdentityHashMap[Id, FeatureExpr],
                                                       morpheus: Morpheus): List[Opt[DeclarationStatement]] = {
         var callParams = callExprs
         var declStmts : List[Opt[DeclarationStatement]] = List()
@@ -712,7 +719,16 @@ object CInlineFunction extends CRefactor with IntraCFG {
                 throw new RefactorException("Failed to correctly map call parameters with function parameters.")
 
             val currentCallParam = callParams.head
-            val declFeature = currentCallParam.feature.and(morpheus.getASTEnv.featureExpr(paramDecl))
+            val paramDeclFeature =
+                paramDecl.entry match {
+                    case p: ParameterDeclarationD =>
+                        if (idFeatureEnv.containsKey(p.decl.getId)) idFeatureEnv.get(p.decl.getId)
+                        else morpheus.getASTEnv.featureExpr(paramDecl)
+                    case unknown =>
+                        throw new RefactorException("Unknown mapping for parameter: " + unknown)
+                }
+
+            val declFeature = morpheus.getASTEnv.featureExpr(currentCallParam).and(paramDeclFeature)
 
             if (!declFeature.isSatisfiable(morpheus.getFM))
                 None
@@ -736,12 +752,22 @@ object CInlineFunction extends CRefactor with IntraCFG {
     }
 
     private def renameShadowedIds(idsToRename: List[Id], fDef: Opt[FunctionDef], fCall: Opt[AST],
-                                  morpheus: Morpheus): (List[Opt[Statement]], List[Opt[DeclaratorExtension]]) = {
-        val statements = idsToRename.foldLeft(fDef.entry.stmt.innerStatements)(
-            (statement, id) => replace(statement, id, id.copy(name = generateValidNewName(id, fCall, morpheus))))
-        val parameters = idsToRename.foldLeft(fDef.entry.declarator.extensions)(
-            (extension, id) => replace(extension, id, id.copy(name = generateValidNewName(id, fCall, morpheus))))
-        (statements, parameters)
+                                  morpheus: Morpheus):
+    (List[Opt[Statement]], List[Opt[DeclaratorExtension]], java.util.IdentityHashMap[Id, FeatureExpr]) = {
+
+        // generate a new id featureEnv as astEnv.featureExpr fails to determine the feature for renamed Ids
+        val paramFeatureEnv = new java.util.IdentityHashMap[Id, FeatureExpr]()
+
+        def rename[T <: AST](o : List[Opt[T]], id : Id) = {
+            val renamedId = id.copy(name = generateValidNewName(id, fCall, morpheus))
+            paramFeatureEnv.put(renamedId, morpheus.getASTEnv.featureExpr(id))
+            replace(o, id, renamedId)
+        }
+
+        val statements = idsToRename.foldLeft(fDef.entry.stmt.innerStatements)((statement, id) => rename(statement, id))
+        val parameters = idsToRename.foldLeft(fDef.entry.declarator.extensions)((extension, id) => rename(extension, id))
+
+        (statements, parameters, paramFeatureEnv)
     }
 
     private def mapFeaturesOnInlineStmts(statements: List[Opt[Statement]], call: Opt[AST],
