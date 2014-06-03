@@ -1649,11 +1649,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      */
     private def getNextIdFeatures(a: Any, curCtx: FeatureExpr = trueF, isTopLevel: Boolean = false): List[FeatureExpr] = {
         def getVariableIds(a: Any): List[Id] = {
-            println(a)
             a match {
                 case d: Initializer =>
                     if (isTopLevel) {
-                        d.productIterator.toList.flatMap(getVariableIds(_, curCtx))
+                        d.productIterator.toList.flatMap(getVariableIds(_))
                     } else {
                         List()
                     }
@@ -1669,14 +1668,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                     } else {
                         List()
                     }
-                case Opt(ft, entry: Product) => entry.productIterator.toList.flatMap(getVariableIds(_, curCtx))
+                case Opt(ft, entry: Product) => entry.productIterator.toList.flatMap(getVariableIds(_))
                 case i: Id =>
                     if (idsToBeReplaced.containsKey(i)) {
                         List(i)
                     } else {
                         List()
                     }
-                case p: Product => p.productIterator.toList.flatMap(getVariableIds(_, curCtx))
+                case p: Product => p.productIterator.toList.flatMap(getVariableIds(_))
                 case _ => List()
             }
         }
