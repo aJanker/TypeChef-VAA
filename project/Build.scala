@@ -165,6 +165,7 @@ object TypeChef extends Build {
         ctypechecker,
         javaparser,
         crewrite,
+        errorlib,
         frontend,
         sampling,
         crefactor,
