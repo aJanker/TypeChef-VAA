@@ -168,7 +168,6 @@ object TypeChef extends Build {
         errorlib,
         frontend,
         sampling,
-        crefactor,
         cifdeftoif
         )
 
@@ -236,12 +235,6 @@ object TypeChef extends Build {
         settings = buildSettings ++
             Seq(libraryDependencies <+= scalaVersion(kiamaDependency(_)))
     ) dependsOn(cparser % "test->test;compile->compile", ctypechecker, conditionallib, errorlib)
-
-    lazy val crefactor = Project(
-        "CRefactor",
-        file("CRefactor"),
-        settings = buildSettings
-    ) dependsOn(frontend, sampling)
 
     lazy val cifdeftoif = Project(
         "CIfdeftoif",
