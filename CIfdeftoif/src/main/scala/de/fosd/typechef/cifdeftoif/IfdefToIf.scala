@@ -1649,6 +1649,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
      */
     private def getNextIdFeatures(a: Any, curCtx: FeatureExpr = trueF, isTopLevel: Boolean = false): List[FeatureExpr] = {
         def getVariableIds(a: Any): List[Id] = {
+            println(a)
             a match {
                 case d: Initializer =>
                     if (isTopLevel) {
@@ -1679,7 +1680,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                 case _ => List()
             }
         }
-        val ids = getVariableIds(a, curCtx)
+        val ids = getVariableIds(a)
         val listOfLists = ids.map(x => idsToBeReplaced.get(x).toList.map(y => y.and(curCtx)).filterNot(x => x.equivalentTo(FeatureExprFactory.False)))
         computeCarthesianProduct(listOfLists, curCtx).filter(z => z.isSatisfiable(fm) && !z.equivalentTo(trueF))
     }
