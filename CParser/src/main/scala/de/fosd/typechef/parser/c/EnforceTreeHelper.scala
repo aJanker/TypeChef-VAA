@@ -49,7 +49,6 @@ trait EnforceTreeHelper {
         })
         val cast = clone(ast).get.asInstanceOf[T]
         copyPositions(ast, cast)
-        cast
         def prepareASTforIfdef[T <: Product](t: T, currentContext: FeatureExpr = FeatureExprFactory.True): T = {
             val r = alltd(rule {
                 case l: List[Opt[_]] =>

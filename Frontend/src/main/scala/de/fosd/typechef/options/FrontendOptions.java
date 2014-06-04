@@ -41,6 +41,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_REFLINk = Options.genOptionId();
     private final static char F_CANBUILD = Options.genOptionId();
     private final static char F_REFSTUDY = Options.genOptionId();
+    private final static char F_PREPAREREF = Options.genOptionId();
     private final static char F_SHOWGUI = Options.genOptionId();
     private final static char F_WRITEBUILDCONDITION = Options.genOptionId();
     private final static char F_PROJECTINTERFACE = Options.genOptionId();
@@ -55,6 +56,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             featureConfig = false,
             refEval = false,
             refLink = false,
+            prepareRef = false,
             canBuild = false,
             showGui = false,
             writeBuildCondition = false,
@@ -115,6 +117,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                         "Make #ifdef to if transformation."),
 
                 new Option("refEval", LongOpt.REQUIRED_ARGUMENT, F_REFEVAL, null, "Apply and verify random refactoring"),
+                new Option("refPrep", LongOpt.NO_ARGUMENT, F_PREPAREREF, null, "Writes out a .ref file containing all found and possible refactorings for this file"),
                 new Option("refLink", LongOpt.REQUIRED_ARGUMENT, F_REFLINk, null, "Apply refactorings also on all linked files."),
                 new Option("canBuild", LongOpt.NO_ARGUMENT, F_CANBUILD, null, "Tests the possibility of building the pretty printed File"),
                 new Option("study", LongOpt.REQUIRED_ARGUMENT, F_REFSTUDY, null, "Defines the used case-study environment"),
@@ -217,6 +220,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             } else {
                 refEvalType = RefactorType.NONE;
             }
+        } else if (c == F_PREPAREREF) {
+            parse = typecheck = prepareRef = true;
         } else if (c == F_REFLINk) {
             refLink = true;
             checkFileExists(g.getOptarg());
@@ -404,5 +409,9 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
 
     public String getRefStudy() {
         return refStudy;
+    }
+
+    public String getPreparedRefactoringsFileName() {
+        return outputStem + ".pr";
     }
 }
