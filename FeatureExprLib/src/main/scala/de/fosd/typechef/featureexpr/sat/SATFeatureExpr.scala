@@ -639,6 +639,7 @@ object True extends And(Set()) with DefaultPrint {
     override def evaluate(selectedFeatures: Set[String]) = true
     override def substitute(feature: SingleFeatureExpr, replacement: SATFeatureExpr): SATFeatureExpr = this
     private def writeReplace(): Object = new FeatureExprSerializationProxy(this.toTextExpr)
+    override def toScalaString = "FeatureExprFactory.True"
 }
 
 object False extends Or(Set()) with DefaultPrint {
@@ -649,6 +650,7 @@ object False extends Or(Set()) with DefaultPrint {
     override def evaluate(selectedFeatures: Set[String]) = false
     override def substitute(feature: SingleFeatureExpr, replacement: SATFeatureExpr): SATFeatureExpr = this
     private def writeReplace(): Object = new FeatureExprSerializationProxy(this.toTextExpr)
+    override def toScalaString = "FeatureExprFactory.False"
 }
 
 
@@ -730,6 +732,8 @@ abstract class BinaryLogicConnective[This <: BinaryLogicConnective[This]] extend
 
 
     override def toString = clauses.mkString("(", operName, ")")
+    override def toScalaString = clauses.map(_.toScalaString).mkString("(",  " " + operName + " ", ")")
+
     override def toTextExpr = clauses.map(_.toTextExpr).mkString("(", " " + operName + operName + " ", ")")
     override def print(p: Writer) = {
         trait PrintValue
@@ -911,6 +915,7 @@ class Not(val expr: SATFeatureExpr) extends HashCachingFeatureExpr {
     }
 
     override def toString = "!" + expr.toString
+    override def toScalaString = expr.toScalaString + ".not()"
     override def toTextExpr = "!" + expr.toTextExpr
     override def print(p: Writer) = {
         p.write("!")
@@ -988,6 +993,7 @@ class DefinedExternal(name: String) extends DefinedExpr {
     def feature = name
     override def toTextExpr = "definedEx(" + name + ")";
     override def toString = "def(" + name + ")"
+    override def toScalaString = "FeatureExprFactory.createDefinedExternal(\"" + name + "\")"
     def countSize() = 1
     def isExternal = true
     override def substitute(feature: SingleFeatureExpr, replacement: SATFeatureExpr): SATFeatureExpr =
@@ -1007,6 +1013,7 @@ class DefinedMacro(val name: String, val presenceCondition: SATFeatureExpr, val 
     def feature = name
     override def toTextExpr = "defined(" + name + ")"
     override def toString = "macro(" + name + "=" +presenceCondition.resolveToExternal.toString +  ")"
+    override def toScalaString = "DefinedMacro(\""+name + "\"," + presenceCondition + ",\""+expandedName+"\","+presenceConditionCNF  +")"
     override def satName = expandedName
     def countSize() = 1
     def isExternal = false

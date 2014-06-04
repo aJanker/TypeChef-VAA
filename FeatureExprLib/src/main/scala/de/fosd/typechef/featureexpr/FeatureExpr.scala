@@ -5,7 +5,6 @@ import scala.deprecated
 
 
 trait FeatureExpr extends Serializable {
-
     /**
      * x.isSatisfiable(fm) is short for x.and(fm).isSatisfiable
      * but is faster because FM is cached
@@ -36,6 +35,11 @@ trait FeatureExpr extends Serializable {
      * @return
      */
     def simplify(b:FeatureExpr) : FeatureExpr
+
+
+    // returns this expression as scala object
+    // The expression def(A)&!def(B)  returns  FeatureExprFactory.createDefinedExternal("A") and FeatureExprFactory.createDefinedExternal("B").not()
+    def toScalaString: String
 
     //equals, hashcode
 

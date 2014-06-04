@@ -295,6 +295,9 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
         bddAllSat.map(clause(_))
     }
 
+    override def toScalaString: String =
+        toSATFeatureExpr().toScalaString
+
     override def toString: String =
         toSATFeatureExpr().toString
 

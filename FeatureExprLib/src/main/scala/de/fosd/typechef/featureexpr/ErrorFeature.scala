@@ -25,6 +25,7 @@ class ErrorFeature(msg: String, f: FeatureExpr) extends FeatureExpr {
 
     private def error: Nothing = throw new FeatureArithmeticException(msg)
     override def toTextExpr = error
+    override def toScalaString = error
     //    override def mapDefinedExpr(f: DefinedExpr => FeatureExpr, cache: Map[FeatureExpr, FeatureExpr]) = error
     override def debug_print(x: Int) = error
 

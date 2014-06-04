@@ -16,6 +16,7 @@ case class Opt[+T](val feature: FeatureExpr, val entry: T) {
     def map[U](f: T => U): Opt[U] = Opt(feature, f(entry))
     // jl: overriding Opt always causes trouble when looking at the output of AST directly should not be here!
     //override def toString = if (feature == FeatureExpr.True) entry.toString else "Opt(" + feature + "," + entry + ")"
+    override def toString = "Opt(" + feature.toScalaString + "," + entry + ")"
 }
 
 //Conditional is either Choice or One
@@ -66,6 +67,8 @@ case class Choice[+T](feature: FeatureExpr, thenBranch: Conditional[T], elseBran
     def forall(f: T => Boolean): Boolean = thenBranch.forall(f) && elseBranch.forall(f)
 
     def when(f: T => Boolean): FeatureExpr = (thenBranch.when(f) and feature) or (elseBranch.when(f) andNot feature)
+
+    override def toString() = "Choice(" + feature.toScalaString + "," + thenBranch + "," + elseBranch + ")"
 }
 
 case class One[+T](value: T) extends Conditional[T] {
