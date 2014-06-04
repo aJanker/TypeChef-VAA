@@ -3,8 +3,6 @@ package de.fosd.typechef.cifdeftoif
 import java.io._
 import scala.io.Source
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
-import de.fosd.typechef.parser.c.TranslationUnit
-import de.fosd.typechef.crefactor.backend.TUnitRewriteRules
 import org.kiama.rewriting.Rewriter._
 import de.fosd.typechef.parser.c.TranslationUnit
 import de.fosd.typechef.conditional.Opt
