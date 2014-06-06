@@ -170,7 +170,11 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
                         if (typeCheckStatus) {
 
                             // preprocessing: replace situations with too much local variability (e.g. different string in each variant) with prepared replacements
-                            ast = PreparedIfdeftoifParts.replaceInAST(ast, new File("./ifdeftoif_replacements_parts/PreparedReplacementParts.txt"))
+                            val replacementDefintionsFile = new File("./ifdeftoif_replacements_parts/PreparedReplacementParts.txt")
+                            if (replacementDefintionsFile.exists())
+                                ast = PreparedIfdeftoifParts.replaceInAST(ast, replacementDefintionsFile)
+                            else
+                                println("Did not find file with replacement definitions: " + replacementDefintionsFile.getPath)
 
                             //ProductGeneration.typecheckProducts(fm,fm_ts,ast,opt,
                             //logMessage=("Time for lexing(ms): " + (t2-t1) + "\nTime for parsing(ms): " + (t3-t2) + "\n"))
