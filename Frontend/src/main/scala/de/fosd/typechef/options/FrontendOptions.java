@@ -62,7 +62,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             defaultPC = true;
     protected File errorXMLFile = null;
     private final File _autoErrorXMLFile = new File(".");
-    protected String outputStem = "";
+    private String outputStem = "";
     private String filePresenceConditionFile = "";
     private String featureConfigFile = "";
     private String includeStructFile = "";
