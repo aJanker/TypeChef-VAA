@@ -13,8 +13,8 @@ trait ConditionalNavigation {
         eparent match {
             case o: Opt[_] => Right(o)
             case o: One[_] => Left(o)
-            case a: AST => parentVNode(a, env)
-            case _ => null
+            case a: AST    => parentVNode(a, env)
+            case _         => null
         }
     }
 
@@ -77,8 +77,8 @@ trait ConditionalNavigation {
                 case Opt(feature, entry) => List(feature) ++ (if (entry.isInstanceOf[Product]) entry.asInstanceOf[Product].productIterator.toList.flatMap(filterAllFeatureExprHelper)
                 else List())
                 case Choice(feature, thenBranch, elseBranch) => List(feature, feature.not()) ++
-                    thenBranch.asInstanceOf[Product].productIterator.toList.flatMap(filterAllFeatureExprHelper) ++
-                    elseBranch.asInstanceOf[Product].productIterator.toList.flatMap(filterAllFeatureExprHelper)
+                        thenBranch.asInstanceOf[Product].productIterator.toList.flatMap(filterAllFeatureExprHelper) ++
+                        elseBranch.asInstanceOf[Product].productIterator.toList.flatMap(filterAllFeatureExprHelper)
                 case l: List[_] => l.flatMap(filterAllFeatureExprHelper)
                 case x: Product => x.productIterator.toList.flatMap(filterAllFeatureExprHelper)
                 case _ => List()
