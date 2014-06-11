@@ -1,6 +1,5 @@
 package de.fosd.typechef.options;
 
-import de.fosd.typechef.VALexer;
 import de.fosd.typechef.error.Position;
 import de.fosd.typechef.featureexpr.FeatureExpr;
 import de.fosd.typechef.featureexpr.FeatureExprFactory$;
@@ -11,7 +10,6 @@ import gnu.getopt.LongOpt;
 import scala.Function3;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.List;
 
 
@@ -32,17 +30,10 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private static final char TY_VERSION = genOptionId();
     private static final char TY_HELP = genOptionId();
     private final static char F_DISABLEPC = Options.genOptionId();
-    private final static char F_IFDEFTOIF = Options.genOptionId();
-    private final static char F_IFDEFTOIFSTATISTICS = Options.genOptionId();
-    private final static char F_IFDEFTOIFNOCHECK = Options.genOptionId();
-    private final static char F_FEATURECONFIG = Options.genOptionId();
     private final static char F_DECLUSE = Options.genOptionId();
 
     public boolean parse = true,
             typecheck = false,
-            ifdeftoif = false,
-            ifdeftoifstatistics = false,
-            ifdeftoifnocheck = false,
             decluse = false,
             featureConfig = false,
             writeInterface = false,
@@ -64,8 +55,6 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final File _autoErrorXMLFile = new File(".");
     private String outputStem = "";
     private String filePresenceConditionFile = "";
-    private String featureConfigFile = "";
-    private String includeStructFile = "";
     private Function3<FeatureExpr, String, Position, Object> _renderParserError;
     private FeatureExpr filePC = null;
     private FeatureExpr localFM = null;
@@ -87,14 +76,6 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
 
                 new Option("dumpcfg", LongOpt.NO_ARGUMENT, F_DUMPCFG, null,
                         "Lex, parse, and dump control flow graph"),
-                new Option("ifdeftoif", LongOpt.NO_ARGUMENT, F_IFDEFTOIF, "file",
-                        "Make #ifdef to if transformation."),
-                new Option("ifdeftoifstatistics", LongOpt.NO_ARGUMENT, F_IFDEFTOIFSTATISTICS, "file",
-                        "Make #ifdef to if transformation."),
-                new Option("ifdeftoifnocheck", LongOpt.NO_ARGUMENT, F_IFDEFTOIFNOCHECK, "file",
-                        "Do not typecheck the result of #ifdef to if transformation."),
-                new Option("featureConfig", LongOpt.REQUIRED_ARGUMENT, F_FEATURECONFIG, null,
-                        "Make #ifdef to if transformation."),
 
                 new Option("decluse", LongOpt.NO_ARGUMENT, F_DECLUSE, null,
                         "Test the declaration use map."),
@@ -157,27 +138,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             parse = typecheck = writeInterface = true;
         } else if (c == F_DUMPCFG) {
             parse = dumpcfg = true;
-        } else if (c == F_IFDEFTOIFSTATISTICS) {
-            parse = typecheck = ifdeftoif = ifdeftoifstatistics = true;
-            if (g.getOptarg() == null)
-                includeStructFile = "";
-            else {
-                includeStructFile = g.getOptarg();
-            }
-        } else if (c == F_IFDEFTOIF) {
-            parse = typecheck = ifdeftoif = true;
-            if (g.getOptarg() == null)
-                includeStructFile = "";
-            else {
-                includeStructFile = g.getOptarg();
-            }
-        } else if (c == F_FEATURECONFIG) {
-            checkFileExists(g.getOptarg());
-            featureConfigFile = g.getOptarg();
-            featureConfig = true;
-        } else if (c == F_IFDEFTOIFNOCHECK) {
-            parse = typecheck = ifdeftoif = ifdeftoifnocheck = true;
-        } else if (c == F_DECLUSE) {
+        }  else if (c == F_DECLUSE) {
             parse = typecheck = decluse = true;
         } else if (c == F_SERIALIZEAST) {
             parse = serializeAST = true;
@@ -255,13 +216,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             return outputStem + ".pc";
     }
 
-    public String getFeatureConfigFilename() {
-        return featureConfigFile;
-    }
 
-    public String getincludeStructFilename() {
-        return includeStructFile;
-    }
 
     public FeatureExpr getFilePresenceCondition() {
         if (filePC == null) {
