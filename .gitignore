@@ -29,7 +29,6 @@ tokenstream.txt
 *.dbgSrc
 *.interface
 *.dbginterface
-*.id2i
 .idea
 linux-2.6.33.3
 busybox
@@ -50,8 +49,3 @@ typechef.sh
 TypeChef-*.jar
 casestudies
 pages
-ifdeftoif.sh
-cRefactor.sh
-ifdeftoif_progress.txt
-renamings_Functions.txt
-renamings_StructsAndVars.txt
