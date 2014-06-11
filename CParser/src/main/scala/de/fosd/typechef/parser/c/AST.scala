@@ -68,9 +68,13 @@ sealed abstract class Expr extends AST with CFGStmt
 
 sealed abstract class PrimaryExpr extends Expr
 
-case class Id(name: String) extends PrimaryExpr
+case class Id(name: String) extends PrimaryExpr {
+    override def toString() = "Id(\"" + name + "\")"
+}
 
-case class Constant(value: String) extends PrimaryExpr
+case class Constant(value: String) extends PrimaryExpr {
+    override def toString() = "Constant(\"" + value + "\")"
+}
 
 case class StringLit(name: List[Opt[String]]) extends PrimaryExpr
 
@@ -78,7 +82,9 @@ abstract class PostfixSuffix extends AST
 
 case class SimplePostfixSuffix(t: String) extends PostfixSuffix
 
-case class PointerPostfixSuffix(kind: String, id: Id) extends PostfixSuffix
+case class PointerPostfixSuffix(kind: String, id: Id) extends PostfixSuffix {
+    override def toString() = "PointerPostfixSuffix(\"" + kind + "\"," + id.toString() + ")"
+}
 
 case class FunctionCall(params: ExprList) extends PostfixSuffix {
     //hack to propagate position information
@@ -98,7 +104,9 @@ case class PostfixExpr(p: Expr, s: PostfixSuffix) extends Expr {
     }
 }
 
-case class UnaryExpr(kind: String, e: Expr) extends Expr
+case class UnaryExpr(kind: String, e: Expr) extends Expr {
+    override def toString() = "UnaryExpr(\"" + kind + "\"," + e.toString() + ")"
+}
 
 case class SizeOfExprT(typeName: TypeName) extends Expr
 
@@ -110,15 +118,21 @@ case class PointerDerefExpr(castExpr: Expr) extends Expr
 
 case class PointerCreationExpr(castExpr: Expr) extends Expr
 
-case class UnaryOpExpr(kind: String, castExpr: Expr) extends Expr
+case class UnaryOpExpr(kind: String, castExpr: Expr) extends Expr {
+    override def toString() = "UnaryOpExpr(\"" + kind + "\"," + castExpr.toString() + ")"
+}
 
 case class NAryExpr(e: Expr, others: List[Opt[NArySubExpr]]) extends Expr
 
-case class NArySubExpr(op: String, e: Expr) extends AST
+case class NArySubExpr(op: String, e: Expr) extends AST {
+    override def toString() = "NArySubExpr(\"" + op + "\"," + e.toString() + ")"
+}
 
 case class ConditionalExpr(condition: Expr, thenExpr: Option[Expr], elseExpr: Expr) extends Expr
 
-case class AssignExpr(target: Expr, operation: String, source: Expr) extends Expr
+case class AssignExpr(target: Expr, operation: String, source: Expr) extends Expr {
+    override def toString() = "AssignExpr(" + target.toString + ",\"" + operation + "\"," + source.toString() + ")"
+}
 
 case class ExprList(exprs: List[Opt[Expr]]) extends Expr
 
@@ -172,7 +186,9 @@ abstract sealed class PrimitiveTypeSpecifier() extends TypeSpecifier()
 abstract sealed class OtherSpecifier() extends Specifier()
 
 
-case class OtherPrimitiveTypeSpecifier(typeName: String) extends TypeSpecifier()
+case class OtherPrimitiveTypeSpecifier(typeName: String) extends TypeSpecifier(){
+    override def toString() = "OtherPrimitiveTypeSpecifier(\"" + typeName + "\")"
+}
 
 case class VoidSpecifier() extends PrimitiveTypeSpecifier()
 

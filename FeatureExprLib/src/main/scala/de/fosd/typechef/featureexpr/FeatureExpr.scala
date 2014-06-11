@@ -1,10 +1,10 @@
 package de.fosd.typechef.featureexpr
 
 import java.io._
+import scala.deprecated
 
 
 trait FeatureExpr extends Serializable {
-
     /**
      * x.isSatisfiable(fm) is short for x.and(fm).isSatisfiable
      * but is faster because FM is cached
@@ -21,13 +21,25 @@ trait FeatureExpr extends Serializable {
     def and(that: FeatureExpr): FeatureExpr
     def not(): FeatureExpr
 
+
+    /**
+     * use simplify(b:FeatureExpr) instead
+     */
+    @deprecated("use simplify(b:FeatureExpr) instead", "revision bee6c4f5")
+    def diff(b:FeatureExpr) : FeatureExpr = simplify(b)
     /**
      * Informal: Returns all the information in this that is not present in b.
-     * Formal: (diff(this,b) AND b) implies this
+     * this.simplify(b) is equivialent to this if the context b is guaranteed
+     * Formal: (b implies (this.simplify(b) equiv this))
      * @param b
      * @return
      */
-    def diff(b:FeatureExpr) : FeatureExpr
+    def simplify(b:FeatureExpr) : FeatureExpr
+
+
+    // returns this expression as scala object
+    // The expression def(A)&!def(B)  returns  FeatureExprFactory.createDefinedExternal("A") and FeatureExprFactory.createDefinedExternal("B").not()
+    def toScalaString: String
 
     //equals, hashcode
 
