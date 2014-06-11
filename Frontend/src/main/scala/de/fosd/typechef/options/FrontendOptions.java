@@ -37,15 +37,6 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_IFDEFTOIFNOCHECK = Options.genOptionId();
     private final static char F_FEATURECONFIG = Options.genOptionId();
     private final static char F_DECLUSE = Options.genOptionId();
-    private final static char F_REFEVAL = Options.genOptionId();
-    private final static char F_REFLINk = Options.genOptionId();
-    private final static char F_CANBUILD = Options.genOptionId();
-    private final static char F_REFSTUDY = Options.genOptionId();
-    private final static char F_PREPAREREF = Options.genOptionId();
-    private final static char F_SHOWGUI = Options.genOptionId();
-    private final static char F_WRITEBUILDCONDITION = Options.genOptionId();
-    private final static char F_PROJECTINTERFACE = Options.genOptionId();
-    private final static char F_PRETTYPRINT = Options.genOptionId();
 
     public boolean parse = true,
             typecheck = false,
@@ -54,13 +45,6 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             ifdeftoifnocheck = false,
             decluse = false,
             featureConfig = false,
-            refEval = false,
-            refLink = false,
-            prepareRef = false,
-            canBuild = false,
-            showGui = false,
-            writeBuildCondition = false,
-            writeProjectInterface = false,
             prettyPrint = false,
             writeInterface = false,
             dumpcfg = false,
@@ -83,12 +67,9 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private String filePresenceConditionFile = "";
     private String featureConfigFile = "";
     private String includeStructFile = "";
-    private String refStudy = "";
-    private RefactorType refEvalType = RefactorType.NONE;
     private Function3<FeatureExpr, String, Position, Object> _renderParserError;
     private FeatureExpr filePC = null;
     private FeatureExpr localFM = null;
-    private String linkingInterfaceFile = "";
     private final String serializeTUnitFileExtension = ".tunit";
 
     @Override
@@ -116,15 +97,6 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                 new Option("featureConfig", LongOpt.REQUIRED_ARGUMENT, F_FEATURECONFIG, null,
                         "Make #ifdef to if transformation."),
 
-                new Option("refEval", LongOpt.REQUIRED_ARGUMENT, F_REFEVAL, null, "Apply and verify random refactoring"),
-                new Option("refPrep", LongOpt.NO_ARGUMENT, F_PREPAREREF, null, "Writes out a .ref file containing all found and possible refactorings for this file"),
-                new Option("refLink", LongOpt.REQUIRED_ARGUMENT, F_REFLINk, null, "Apply refactorings also on all linked files."),
-                new Option("canBuild", LongOpt.NO_ARGUMENT, F_CANBUILD, null, "Tests the possibility of building the pretty printed File"),
-                new Option("study", LongOpt.REQUIRED_ARGUMENT, F_REFSTUDY, null, "Defines the used case-study environment"),
-                new Option("writeProjectInterface", LongOpt.NO_ARGUMENT, F_PROJECTINTERFACE, null, "Writes interface for a complete case study." ),
-                new Option("writeBuildCondition", LongOpt.NO_ARGUMENT, F_WRITEBUILDCONDITION, null, "Writes out a .bc file containing the extracted custom build properties of the analyzed file."),
-                new Option("prettyPrint", LongOpt.NO_ARGUMENT, F_PRETTYPRINT, null, "Pretty prints the parsed ast as .pp file."),
-                new Option("showGui", LongOpt.NO_ARGUMENT, F_SHOWGUI, null, "Shows the cRefactor GUI"),
                 new Option("decluse", LongOpt.NO_ARGUMENT, F_DECLUSE, null,
                         "Test the declaration use map."),
 
@@ -208,32 +180,6 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             parse = typecheck = ifdeftoif = ifdeftoifnocheck = true;
         } else if (c == F_DECLUSE) {
             parse = typecheck = decluse = true;
-        } else if (c == F_REFEVAL) {
-            parse = typecheck = refEval = true;
-            final String refEvalArg = g.getOptarg().trim();
-            if (refEvalArg.equalsIgnoreCase(RefactorType.RENAME.toString())) {
-                refEvalType = RefactorType.RENAME;
-            } else if (refEvalArg.equalsIgnoreCase(RefactorType.EXTRACT.toString())) {
-                refEvalType = RefactorType.EXTRACT;
-            } else if (refEvalArg.equalsIgnoreCase(RefactorType.INLINE.toString())) {
-                refEvalType = RefactorType.INLINE;
-            } else {
-                refEvalType = RefactorType.NONE;
-            }
-        } else if (c == F_PREPAREREF) {
-            parse = typecheck = prepareRef = true;
-        } else if (c == F_REFLINk) {
-            refLink = true;
-            checkFileExists(g.getOptarg());
-            linkingInterfaceFile = g.getOptarg();
-        } else if (c == F_PROJECTINTERFACE) {
-            writeProjectInterface = true;
-        } else if (c == F_REFSTUDY) {
-            refStudy = g.getOptarg();
-        } else if (c == F_CANBUILD) {
-            parse = canBuild = true;
-        } else if (c == F_SHOWGUI) {
-            parse = showGui = true;
         } else if (c == F_SERIALIZEAST) {
             parse = serializeAST = true;
         } else if (c == F_REUSEAST) {
@@ -242,10 +188,6 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             recordTiming = true;
         } else if (c == F_DEBUGINTERFACE) {
             writeDebugInterface = true;
-        } else if (c == F_WRITEBUILDCONDITION) {
-            writeBuildCondition = true;
-        } else if (c == F_PRETTYPRINT) {
-            parse = prettyPrint = true;
         } else if (c == 'o') {
             outputStem = g.getOptarg();
         } else if (c == F_FILEPC) {//--filePC
@@ -384,10 +326,6 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
         return parserResults;
     }
 
-    public RefactorType getRefactorType() {
-        return refEvalType;
-    }
-
     public File getErrorXMLFile() {
         if (errorXMLFile == _autoErrorXMLFile)
             return new File(getFile() + ".xml");
@@ -403,15 +341,5 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
         return defaultPC;
     }
 
-    public String getLinkingInterfaceFile() {
-        return linkingInterfaceFile;
-    }
 
-    public String getRefStudy() {
-        return refStudy;
-    }
-
-    public String getPreparedRefactoringsFileName() {
-        return outputStem + ".pr";
-    }
 }
