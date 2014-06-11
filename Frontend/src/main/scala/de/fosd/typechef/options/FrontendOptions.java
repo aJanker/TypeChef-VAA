@@ -30,11 +30,9 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private static final char TY_VERSION = genOptionId();
     private static final char TY_HELP = genOptionId();
     private final static char F_DISABLEPC = Options.genOptionId();
-    private final static char F_DECLUSE = Options.genOptionId();
 
     public boolean parse = true,
             typecheck = false,
-            decluse = false,
             featureConfig = false,
             writeInterface = false,
             dumpcfg = false,
@@ -76,9 +74,6 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
 
                 new Option("dumpcfg", LongOpt.NO_ARGUMENT, F_DUMPCFG, null,
                         "Lex, parse, and dump control flow graph"),
-
-                new Option("decluse", LongOpt.NO_ARGUMENT, F_DECLUSE, null,
-                        "Test the declaration use map."),
 
                 new Option("output", LongOpt.REQUIRED_ARGUMENT, 'o', "file",
                         "Path to output files (no extension, creates .pi, .macrodbg etc files)."),
@@ -138,8 +133,6 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             parse = typecheck = writeInterface = true;
         } else if (c == F_DUMPCFG) {
             parse = dumpcfg = true;
-        }  else if (c == F_DECLUSE) {
-            parse = typecheck = decluse = true;
         } else if (c == F_SERIALIZEAST) {
             parse = serializeAST = true;
         } else if (c == F_REUSEAST) {
