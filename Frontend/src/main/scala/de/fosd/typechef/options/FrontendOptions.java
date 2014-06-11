@@ -45,7 +45,6 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             ifdeftoifnocheck = false,
             decluse = false,
             featureConfig = false,
-            prettyPrint = false,
             writeInterface = false,
             dumpcfg = false,
             doublefree = false,
@@ -63,7 +62,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             defaultPC = true;
     protected File errorXMLFile = null;
     private final File _autoErrorXMLFile = new File(".");
-    String outputStem = "";
+    protected String outputStem = "";
     private String filePresenceConditionFile = "";
     private String featureConfigFile = "";
     private String includeStructFile = "";
