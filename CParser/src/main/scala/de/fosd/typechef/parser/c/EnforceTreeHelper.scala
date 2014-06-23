@@ -1,9 +1,8 @@
 package de.fosd.typechef.parser.c
 
-import org.kiama.rewriting.Rewriter._
-import de.fosd.typechef.conditional.{Opt, One}
+import de.fosd.typechef.conditional.{One, Opt}
 import de.fosd.typechef.error.WithPosition
-import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr}
+import org.kiama.rewriting.Rewriter._
 
 
 /**
@@ -49,35 +48,7 @@ trait EnforceTreeHelper {
         })
         val cast = clone(ast).get.asInstanceOf[T]
         copyPositions(ast, cast)
-        def prepareASTforIfdef[T <: Product](t: T, currentContext: FeatureExpr = FeatureExprFactory.True): T = {
-            val r = alltd(rule {
-                case l: List[Opt[_]] =>
-                    l.flatMap(x => x match {
-                        case o@Opt(ft: FeatureExpr, entry) =>
-                            if (ft.mex(currentContext).isTautology()) {
-                                List()
-                            } else if (ft.implies(currentContext).isTautology()) {
-                                List(prepareASTforIfdef(o, ft))
-                            } else {
-                                List(prepareASTforIfdef(Opt(ft.and(currentContext), entry), ft.and(currentContext)))
-                            }
-                    })
-                case o@One(st: Statement) =>
-                    st match {
-                        case cs: CompoundStatement =>
-                            One(prepareASTforIfdef(st, currentContext))
-                        case k =>
-                            One(CompoundStatement(List(Opt(FeatureExprFactory.True, prepareASTforIfdef(k, currentContext)))))
-                    }
-            })
-            r(t) match {
-                case None =>
-                    t
-                case k =>
-                    k.get.asInstanceOf[T]
-            }
-        }
-        prepareASTforIfdef(cast)
+        cast
     }
 
     // cparser creates dead ast nodes that causes problems in the control flow analysis (grouping of ast nodes etc.)
