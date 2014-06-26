@@ -30,10 +30,10 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private static final char TY_VERSION = genOptionId();
     private static final char TY_HELP = genOptionId();
     private final static char F_DISABLEPC = Options.genOptionId();
-
+    private final File _autoErrorXMLFile = new File(".");
+    private final String serializeTUnitFileExtension = ".tunit";
     public boolean parse = true,
             typecheck = false,
-            featureConfig = false,
             writeInterface = false,
             dumpcfg = false,
             doublefree = false,
@@ -50,13 +50,11 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             printVersion = false,
             defaultPC = true;
     protected File errorXMLFile = null;
-    private final File _autoErrorXMLFile = new File(".");
     private String outputStem = "";
     private String filePresenceConditionFile = "";
     private Function3<FeatureExpr, String, Position, Object> _renderParserError;
     private FeatureExpr filePC = null;
     private FeatureExpr localFM = null;
-    private final String serializeTUnitFileExtension = ".tunit";
 
     @Override
     public List<Options.OptionGroup> getOptionGroups() {
@@ -177,17 +175,15 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
 
     protected void afterParsing() throws OptionException {
         super.afterParsing();
-        if (!featureConfig) {
-            if (getFiles().size() <= 0)
-                throw new OptionException("No file specified.");
-            if (getFiles().size() > 1)
-                throw new OptionException("Multiple files specified. Only one supported.");
+        if (getFiles().size() <= 0)
+            throw new OptionException("No file specified.");
+        if (getFiles().size() > 1)
+            throw new OptionException("Multiple files specified. Only one supported.");
 
-            if (outputStem.length() == 0)
-                outputStem = getFile().replace(".c", "");
-            if (writePI && (lexOutputFile == null || lexOutputFile.length() == 0))
-                lexOutputFile = outputStem + ".pi";
-        }
+        if (outputStem.length() == 0)
+            outputStem = getFile().replace(".c", "");
+        if (writePI && (lexOutputFile == null || lexOutputFile.length() == 0))
+            lexOutputFile = outputStem + ".pi";
     }
 
     public String getFile() {
@@ -208,7 +204,6 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
         else
             return outputStem + ".pc";
     }
-
 
 
     public FeatureExpr getFilePresenceCondition() {

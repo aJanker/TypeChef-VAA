@@ -1,16 +1,14 @@
 package de.fosd.typechef
 
 
-import de.fosd.typechef.parser.c._
-import de.fosd.typechef.typesystem._
-import de.fosd.typechef.crewrite._
 import java.io._
-import parser.TokenReader
-import de.fosd.typechef.options.{FrontendOptionsWithConfigFiles, FrontendOptions, OptionException}
-import de.fosd.typechef.parser.c.CTypeContext
-import de.fosd.typechef.parser.c.TranslationUnit
-import de.fosd.typechef.featureexpr.FeatureExpr
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
+
+import de.fosd.typechef.crewrite._
+import de.fosd.typechef.options.{FrontendOptions, FrontendOptionsWithConfigFiles, OptionException}
+import de.fosd.typechef.parser.TokenReader
+import de.fosd.typechef.parser.c.{CTypeContext, TranslationUnit, _}
+import de.fosd.typechef.typesystem._
 
 object Frontend extends EnforceTreeHelper {
 
@@ -22,7 +20,7 @@ object Frontend extends EnforceTreeHelper {
             try {
                 opt.parseOptions(args)
             } catch {
-                case o: OptionException => if (!opt.isPrintVersion || !opt.featureConfig) throw o
+                case o: OptionException => if (!opt.isPrintVersion) throw o
             }
 
             if (opt.isPrintVersion) {
