@@ -1,5 +1,6 @@
 package de.fosd.typechef.typesystem
 
+import java.util
 import java.util.IdentityHashMap
 
 import de.fosd.typechef.parser.c.{FunctionDef, Expr, AST}
@@ -27,13 +28,13 @@ trait CTypeCache extends CTypeSystemInterface {
 
 
 trait CEnvCache extends CTypeSystemInterface {
-    private var cache: Map[AST, Env] = Map()
+    private val cache: util.IdentityHashMap[AST, Env] = new util.IdentityHashMap()
 
     override protected def addEnv(ast: AST, env: Env) {
-        cache = cache + (ast -> env)
+        cache.put(ast, env)
         super.addEnv(ast, env)
     }
 
-    def lookupEnv(ast: AST) = cache(ast)
+    def lookupEnv(ast: AST) = cache.get(ast)
 }
 
