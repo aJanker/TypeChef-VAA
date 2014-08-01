@@ -1,46 +1,16 @@
 package de.fosd.typechef.typesystem
 
-import scala.collection.JavaConversions._
+import java.util
 import java.util.{Collections, IdentityHashMap}
 
+import de.fosd.typechef.conditional.{Choice, One, Opt, _}
+import de.fosd.typechef.featureexpr.{FeatureExpr, FeatureExprFactory, FeatureModel}
+import de.fosd.typechef.lexer.FeatureExprLib
+import de.fosd.typechef.parser.c.{AtomicNamedDeclarator, BuiltinOffsetof, CastExpr, CompoundStatement, DeclIdentifierList, Declaration, Enumerator, FunctionDef, GnuAsmExpr, GotoStatement, Id, InitDeclaratorI, Initializer, InitializerAssigment, InitializerDesignatorD, LabelStatement, LcurlyInitializer, NestedFunctionDef, NestedNamedDeclarator, OffsetofMemberDesignatorID, StructDeclaration, StructDeclarator, StructOrUnionSpecifier, TypeDefTypeSpecifier, TypeName, VarArgs, _}
 import org.apache.logging.log4j.LogManager
 
-import de.fosd.typechef.conditional._
-import de.fosd.typechef.featureexpr.{FeatureModel, FeatureExprFactory, FeatureExpr}
-import de.fosd.typechef.parser.c._
-import java.util
+import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
-import de.fosd.typechef.lexer.FeatureExprLib
-import de.fosd.typechef.parser.c.Enumerator
-import de.fosd.typechef.parser.c.VarArgs
-import scala.Some
-import de.fosd.typechef.parser.c.TypeDefTypeSpecifier
-import de.fosd.typechef.parser.c.Initializer
-import de.fosd.typechef.conditional.One
-import de.fosd.typechef.parser.c.BuiltinOffsetof
-import de.fosd.typechef.parser.c.LcurlyInitializer
-import de.fosd.typechef.parser.c.Id
-import de.fosd.typechef.parser.c.CompoundStatement
-import de.fosd.typechef.conditional.Opt
-import de.fosd.typechef.parser.c.StructDeclarator
-import de.fosd.typechef.parser.c.AtomicNamedDeclarator
-import de.fosd.typechef.parser.c.GnuAsmExpr
-import de.fosd.typechef.parser.c.StructOrUnionSpecifier
-import de.fosd.typechef.conditional.Choice
-import de.fosd.typechef.parser.c.InitDeclaratorI
-import de.fosd.typechef.parser.c.Declaration
-import de.fosd.typechef.parser.c.InitializerAssigment
-import de.fosd.typechef.parser.c.LabelStatement
-import de.fosd.typechef.parser.c.DeclIdentifierList
-import de.fosd.typechef.parser.c.InitializerDesignatorD
-import de.fosd.typechef.parser.c.StructDeclaration
-import de.fosd.typechef.parser.c.GotoStatement
-import de.fosd.typechef.parser.c.FunctionDef
-import de.fosd.typechef.parser.c.NestedFunctionDef
-import de.fosd.typechef.parser.c.OffsetofMemberDesignatorID
-import de.fosd.typechef.parser.c.TypeName
-import de.fosd.typechef.parser.c.CastExpr
-import de.fosd.typechef.parser.c.NestedNamedDeclarator
 
 
 /**
@@ -766,7 +736,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
         get[GotoStatement](f).foreach(goto =>
             goto.entry.target match {
                 case usage@Id(name) => labelMap.keySet().toArray.foreach(declaration =>
-                    if (declaration.asInstanceOf[Id].name.equals(name) && (goto.feature.equivalentTo(FeatureExprFactory.True) || labelMap.get(declaration).implies(goto.feature).isTautology))
+                    if (declaration.asInstanceOf[Id].name.equals(name) && (goto.feature.equivalentTo(FeatureExprFactory.True) || labelMap.get(declaration).and(goto.feature).isSatisfiable()))
                         addToDeclUseMap(declaration.asInstanceOf[Id], usage))
                 case k => logger.error("Missing GotoStatement: " + k)
             })
