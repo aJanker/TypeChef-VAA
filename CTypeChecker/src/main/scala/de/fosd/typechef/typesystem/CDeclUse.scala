@@ -142,9 +142,18 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     //               if a function declaration exists, we add it as def and the function definition as its use
     //               if no function declaration exists, we add the function definition as def
     override def addDefinition(definition: AST, env: Env, feature: FeatureExpr, isFunctionDeclarator: Boolean = false) {
+        def isKnownFunctionInEnv(id : Id, env: Env) : Boolean =  {
+            val cTypes = ConditionalLib.items(env.varEnv.lookupType(id.name)).filter { x =>
+                feature.equivalentTo(FeatureExprFactory.True) || feature.implies(x._1).isTautology() }
+
+            cTypes.map(_._2).exists {
+                case (CType(CFunction(_,_),_,_,_)) => true
+                case _ => false }
+        }
+
         definition match {
             case id: Id =>
-                if (isFunctionDeclarator) addFunctionDeclaration(env, id, feature)
+                if (isFunctionDeclarator || isKnownFunctionInEnv(id, env)) addFunctionDeclaration(env, id, feature)
                 else putToDeclUseMap(id)
             case _ =>
         }
