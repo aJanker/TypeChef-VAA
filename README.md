@@ -14,4 +14,4 @@ For further details about TypeChef, checkout the original [project site](http://
 License
 -------
 
-TypeChef is published as open source under LGPL 3.0. See [LICENSE](TypeChef/blob/master/LICENSE).
+TypeChef is published as open source under LGPL 3.0. See [LICENSE](LICENSE).
