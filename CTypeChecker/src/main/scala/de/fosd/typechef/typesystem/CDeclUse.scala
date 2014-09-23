@@ -3,10 +3,10 @@ package de.fosd.typechef.typesystem
 import java.util
 import java.util.{Collections, IdentityHashMap}
 
-import de.fosd.typechef.conditional.{Choice, One, Opt, _}
+import de.fosd.typechef.conditional._
 import de.fosd.typechef.featureexpr.{FeatureExpr, FeatureExprFactory, FeatureModel}
 import de.fosd.typechef.lexer.FeatureExprLib
-import de.fosd.typechef.parser.c.{AtomicNamedDeclarator, BuiltinOffsetof, CastExpr, CompoundStatement, DeclIdentifierList, Declaration, Enumerator, FunctionDef, GnuAsmExpr, GotoStatement, Id, InitDeclaratorI, Initializer, InitializerAssigment, InitializerDesignatorD, LabelStatement, LcurlyInitializer, NestedFunctionDef, NestedNamedDeclarator, OffsetofMemberDesignatorID, StructDeclaration, StructDeclarator, StructOrUnionSpecifier, TypeDefTypeSpecifier, TypeName, VarArgs, _}
+import de.fosd.typechef.parser.c._
 import org.apache.logging.log4j.LogManager
 
 import scala.collection.JavaConversions._
@@ -162,7 +162,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     override def addStructDefinition(definition: AST, env: Env, feature: FeatureExpr) {
         definition match {
             case id: Id =>
-                val relevantIds = structUsage.filter(x => x._2.equals(FeatureExprFactory.True) || x._2.implies(feature).isTautology())
+                val relevantIds = structUsage.filter(x => x._1.name.equals(id.name) && x._2.and(feature).isSatisfiable())
                 addDefinition(id, env, feature)
                 relevantIds.foreach(x => {
                     addToDeclUseMap(id, x._1)
