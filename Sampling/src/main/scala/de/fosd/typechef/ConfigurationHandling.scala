@@ -1,97 +1,108 @@
 package de.fosd.typechef
 
 import java.io._
-import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr, SingleFeatureExpr, FeatureModel}
-import scala.io.Source
 import java.util.regex.Pattern
-import scala.Some
-import scala.collection.mutable.ListBuffer
-import de.fosd.typechef.parser.c.{AST, TranslationUnit}
+
 import de.fosd.typechef.conditional._
+import de.fosd.typechef.featureexpr.{FeatureExpr, FeatureExprFactory, FeatureModel, SingleFeatureExpr}
+import de.fosd.typechef.parser.c.{AST, TranslationUnit}
+
+import scala.collection.mutable.ListBuffer
+import scala.io.Source
 
 object ConfigurationHandling {
-    def loadConfigurationsFromCSVFile(csvFile: File, dimacsFile: File,
-                                      ff: KnownFeatures, fm: FeatureModel, fnamePrefix: String = ""):
-    (List[SimpleConfiguration], String) = {
-        var retList: List[SimpleConfiguration] = List()
-
-        // determine the feature ids used by the sat solver from the dimacs file
-        // dimacs format (c stands for comment) is "c 3779 AT76C50X_USB"
-        // we have to pre-set index 0, so that the real indices start with 1
-        var featureNamesTmp: List[String] = List("--dummy--")
-        val featureMap: scala.collection.mutable.HashMap[String, SingleFeatureExpr] = new scala.collection.mutable.HashMap()
-        var currentLine: Int = 1
-
-        for (line: String <- Source.fromFile(dimacsFile).getLines().takeWhile(_.startsWith("c"))) {
-            val lineElements: Array[String] = line.split(" ")
-            if (!lineElements(1).endsWith("$")) {
-                // feature indices ending with $ are artificial and can be ignored here
-                assert(augmentString(lineElements(1)).toInt.equals(currentLine), "\"" + lineElements(1) + "\"" + " != " + currentLine)
-                featureNamesTmp ::= lineElements(2)
-            }
-            currentLine += 1
-        }
-
-        // maintain a hashmap that maps feature names to corresponding feature expressions (SingleFeatureExpr)
-        // we only store those features that occur in the file (keeps configuration small);
-        // the rest is not important for the configuration;
-        val featureNames: Array[String] = featureNamesTmp.reverse.toArray
-        featureNamesTmp = null
-        for (i <- 0.to(featureNames.length - 1)) {
-            val searchResult = ff.features.find(_.feature.equals(fnamePrefix + featureNames(i)))
-            if (searchResult.isDefined) {
-                featureMap.update(featureNames(i), searchResult.get)
+    def saveSerializedConfigurations(tasks: List[Task], featureList: List[SingleFeatureExpr],
+                                     mainDir: File, file: String) {
+        def writeObject(obj: java.io.Serializable, file: File) {
+            try {
+                file.createNewFile()
+                val fileOut: FileOutputStream = new FileOutputStream(file)
+                val out: ObjectOutputStream = new ObjectOutputStream(fileOut)
+                out.writeObject(obj)
+                out.close()
+                fileOut.close()
+            } catch {
+                case i: IOException => i.printStackTrace()
             }
         }
-
-        // parse configurations
-        // format is:
-        // Feature\Product;0;..;N;       // number of Products (N+1)
-        // FeatureA;-;X;....;            // exclusion of FeatureA in Product 0 and inclusion of FeatureA in Product 1
-        // FeatureB                      // additional features
-        // ...
-        val csvLines = Source.fromFile(csvFile).getLines()
-        val numProducts = csvLines.next().split(";").last.toInt + 1
-
-        // create and initialize product configurations array
-        val pconfigurations = new Array[(List[SingleFeatureExpr], List[SingleFeatureExpr])](numProducts)
-        for (i <- 0 to numProducts - 1) {
-            pconfigurations.update(i, (List(), List()))
+        def toJavaList[T](orig: List[T]): java.util.ArrayList[T] = {
+            val javaList: java.util.ArrayList[T] = new java.util.ArrayList[T]
+            for (f <- orig) javaList.add(f)
+            javaList
         }
+        mainDir.mkdirs()
 
-        // iterate over all lines with Features, determine the selection/deselection
-        // in available products and add it to product configurations (true features / false features)
-        while (csvLines.hasNext) {
-            val featureLine = csvLines.next().split(";")
-
-            for (i <- 1 to numProducts) {
-                if (featureMap.contains(featureLine(0))) {
-                    var product = pconfigurations(i - 1)
-                    if (featureLine(i) == "X") {
-                        product = product.copy(_1 = featureMap(featureLine(0)) :: product._1)
-                    } else {
-                        product = product.copy(_2 = featureMap(featureLine(0)) :: product._2)
-                    }
-                    pconfigurations.update(i - 1, product)
+        for ((taskName, configs) <- tasks) {
+            writeObject(toJavaList(configs), new File(mainDir, taskName + ".ser"))
+        }
+    }
+    def loadSerializedConfigurations(featureList: List[SingleFeatureExpr], mainDir: File): List[Task] = {
+        def readObject[T](file: File): T = {
+            try {
+                val fileIn: FileInputStream = new FileInputStream(file)
+                val in: ObjectInputStream = new ObjectInputStream(fileIn)
+                val e: T = in.readObject().asInstanceOf[T]
+                in.close()
+                fileIn.close()
+                e
+            } catch {
+                case i: IOException => {
+                    // do not handle
+                    throw i
                 }
             }
         }
 
-        // create a single configuration from the true features and false features list
-        for (i <- 0 to pconfigurations.length - 1) {
-            val config = new SimpleConfiguration(ff, pconfigurations(i)._1, pconfigurations(i)._2)
+        var taskList: ListBuffer[Task] = ListBuffer()
 
-            // need to check the configuration here again.
-            if (!config.toFeatureExpr.getSatisfiableAssignment(fm, ff.features.toSet, 1 == 1).isDefined) {
-                println("no satisfiable solution for product (" + i + "): " + csvFile)
-            } else {
-                retList ::= config
+        // assert(savedFeatures.equals(toJavaList(featureList.map(_.feature))))
+        for (file <- mainDir.listFiles()) {
+            val fn = file.getName
+            if (fn.endsWith(".ser")) {
+                val configs = readObject[java.util.ArrayList[SimpleConfiguration]](file)
+                val taskName = fn.substring(0, fn.length - ".ser".length)
+                var taskConfigs: scala.collection.mutable.ListBuffer[SimpleConfiguration] = ListBuffer()
+                val iter = configs.iterator()
+                while (iter.hasNext) {
+                    taskConfigs += iter.next()
+                }
+                taskList.+=((taskName, taskConfigs.toList))
             }
         }
-
-        (retList, "Generated Configs: " + retList.size + "\n")
+        taskList.toList
     }
+    def buildConfigurationsSingleConf(tunit: TranslationUnit, ff: KnownFeatures, fm: FeatureModel,
+                                      opt: FamilyBasedVsSampleBasedOptions, configDir: File,
+                                      caseStudy: String, extasks: List[Task]): (String, List[Task]) = {
+        var tasks: List[Task] = List()
+        var log = ""
+        var msg = ""
+        var startTime: Long = 0
 
+        if (extasks.exists(_._1.equals("singleconf"))) {
+            msg = "omitting singleconf generation, because a serialized version was loaded"
+        } else {
+            val configFile = if (caseStudy.equals("linux"))
+                opt.getRootFolder + "Linux_allyes_modified.config"
+            else if (caseStudy.equals("busybox"))
+                opt.getRootFolder + "BusyboxBigConfig.config"
+            else if (caseStudy.equals("openssl"))
+                opt.getRootFolder + "OpenSSL.config"
+            else if (caseStudy.equals("sqlite"))
+                opt.getRootFolder + "SQLite.config"
+            else
+                throw new Exception("unknown case Study, give linux, busybox, openssl, or sqlite")
+            startTime = System.currentTimeMillis()
+            val (configs, logMsg) = ConfigurationHandling.loadConfigurationFromKconfigFile(ff, fm,
+                new File(configFile))
+            tasks :+= Pair("singleconf", configs)
+            msg = "Time for config generation (singleconf): " + (System.currentTimeMillis() - startTime) +
+                " ms\n" + logMsg
+        }
+        println(msg)
+        log = log + msg + "\n"
+        (log, tasks)
+    }
     def loadConfigurationFromKconfigFile(ff: KnownFeatures, fm: FeatureModel,
                                          file: File): (List[SimpleConfiguration], String) = {
         val features = ff.features
@@ -188,104 +199,6 @@ object ConfigurationHandling {
 
         (retList, logMsg)
     }
-
-    def saveSerializedConfigurations(tasks: List[Task], featureList: List[SingleFeatureExpr],
-                                     mainDir: File, file: String) {
-        def writeObject(obj: java.io.Serializable, file: File) {
-            try {
-                file.createNewFile()
-                val fileOut: FileOutputStream = new FileOutputStream(file)
-                val out: ObjectOutputStream = new ObjectOutputStream(fileOut)
-                out.writeObject(obj)
-                out.close()
-                fileOut.close()
-            } catch {
-                case i: IOException => i.printStackTrace()
-            }
-        }
-        def toJavaList[T](orig: List[T]): java.util.ArrayList[T] = {
-            val javaList: java.util.ArrayList[T] = new java.util.ArrayList[T]
-            for (f <- orig) javaList.add(f)
-            javaList
-        }
-        mainDir.mkdirs()
-
-        for ((taskName, configs) <- tasks) {
-            writeObject(toJavaList(configs), new File(mainDir, taskName + ".ser"))
-        }
-    }
-
-    def loadSerializedConfigurations(featureList: List[SingleFeatureExpr], mainDir: File): List[Task] = {
-        def readObject[T](file: File): T = {
-            try {
-                val fileIn: FileInputStream = new FileInputStream(file)
-                val in: ObjectInputStream = new ObjectInputStream(fileIn)
-                val e: T = in.readObject().asInstanceOf[T]
-                in.close()
-                fileIn.close()
-                e
-            } catch {
-                case i: IOException => {
-                    // do not handle
-                    throw i
-                }
-            }
-        }
-
-        var taskList: ListBuffer[Task] = ListBuffer()
-
-        // assert(savedFeatures.equals(toJavaList(featureList.map(_.feature))))
-        for (file <- mainDir.listFiles()) {
-            val fn = file.getName
-            if (fn.endsWith(".ser")) {
-                val configs = readObject[java.util.ArrayList[SimpleConfiguration]](file)
-                val taskName = fn.substring(0, fn.length - ".ser".length)
-                var taskConfigs: scala.collection.mutable.ListBuffer[SimpleConfiguration] = ListBuffer()
-                val iter = configs.iterator()
-                while (iter.hasNext) {
-                    taskConfigs += iter.next()
-                }
-                taskList.+=((taskName, taskConfigs.toList))
-            }
-        }
-        taskList.toList
-    }
-
-
-
-    def buildConfigurationsSingleConf(tunit: TranslationUnit, ff: KnownFeatures, fm: FeatureModel,
-                                      opt: FamilyBasedVsSampleBasedOptions, configDir: File,
-                                      caseStudy: String, extasks: List[Task]): (String, List[Task]) = {
-        var tasks: List[Task] = List()
-        var log = ""
-        var msg = ""
-        var startTime: Long = 0
-
-        if (extasks.exists(_._1.equals("singleconf"))) {
-            msg = "omitting singleconf generation, because a serialized version was loaded"
-        } else {
-            val configFile = if (caseStudy.equals("linux"))
-                opt.getRootFolder + "Linux_allyes_modified.config"
-            else if (caseStudy.equals("busybox"))
-                opt.getRootFolder + "BusyboxBigConfig.config"
-            else if (caseStudy.equals("openssl"))
-                opt.getRootFolder + "OpenSSL.config"
-            else if (caseStudy.equals("sqlite"))
-                opt.getRootFolder + "SQLite.config"
-            else
-                throw new Exception("unknown case Study, give linux, busybox, openssl, or sqlite")
-            startTime = System.currentTimeMillis()
-            val (configs, logMsg) = ConfigurationHandling.loadConfigurationFromKconfigFile(ff, fm,
-                new File(configFile))
-            tasks :+= Pair("singleconf", configs)
-            msg = "Time for config generation (singleconf): " + (System.currentTimeMillis() - startTime) +
-                " ms\n" + logMsg
-        }
-        println(msg)
-        log = log + msg + "\n"
-        (log, tasks)
-    }
-
     def buildConfigurationsPairwise(tunit: TranslationUnit, ff: KnownFeatures, fm: FeatureModel,
                                     opt: FamilyBasedVsSampleBasedOptions, configDir: File,
                                     caseStudy: String, exTasks: List[Task]): (String, List[Task]) = {
@@ -333,7 +246,87 @@ object ConfigurationHandling {
         log = log + msg + "\n"
         (log, tasks)
     }
+    def loadConfigurationsFromCSVFile(csvFile: File, dimacsFile: File,
+                                      ff: KnownFeatures, fm: FeatureModel, fnamePrefix: String = ""):
+    (List[SimpleConfiguration], String) = {
+        var retList: List[SimpleConfiguration] = List()
 
+        // determine the feature ids used by the sat solver from the dimacs file
+        // dimacs format (c stands for comment) is "c 3779 AT76C50X_USB"
+        // we have to pre-set index 0, so that the real indices start with 1
+        var featureNamesTmp: List[String] = List("--dummy--")
+        val featureMap: scala.collection.mutable.HashMap[String, SingleFeatureExpr] = new scala.collection.mutable.HashMap()
+        var currentLine: Int = 1
+
+        for (line: String <- Source.fromFile(dimacsFile).getLines().takeWhile(_.startsWith("c"))) {
+            val lineElements: Array[String] = line.split(" ")
+            if (!lineElements(1).endsWith("$")) {
+                // feature indices ending with $ are artificial and can be ignored here
+                assert(augmentString(lineElements(1)).toInt.equals(currentLine), "\"" + lineElements(1) + "\"" + " != " + currentLine)
+                featureNamesTmp ::= lineElements(2)
+            }
+            currentLine += 1
+        }
+
+        // maintain a hashmap that maps feature names to corresponding feature expressions (SingleFeatureExpr)
+        // we only store those features that occur in the file (keeps configuration small);
+        // the rest is not important for the configuration;
+        val featureNames: Array[String] = featureNamesTmp.reverse.toArray
+        featureNamesTmp = null
+        for (i <- 0.to(featureNames.length - 1)) {
+            val searchResult = ff.features.find(_.feature.equals(fnamePrefix + featureNames(i)))
+            if (searchResult.isDefined) {
+                featureMap.update(featureNames(i), searchResult.get)
+            }
+        }
+
+        // parse configurations
+        // format is:
+        // Feature\Product;0;..;N;       // number of Products (N+1)
+        // FeatureA;-;X;....;            // exclusion of FeatureA in Product 0 and inclusion of FeatureA in Product 1
+        // FeatureB                      // additional features
+        // ...
+        val csvLines = Source.fromFile(csvFile).getLines()
+        val numProducts = csvLines.next().split(";").last.toInt + 1
+
+        // create and initialize product configurations array
+        val pconfigurations = new Array[(List[SingleFeatureExpr], List[SingleFeatureExpr])](numProducts)
+        for (i <- 0 to numProducts - 1) {
+            pconfigurations.update(i, (List(), List()))
+        }
+
+        // iterate over all lines with Features, determine the selection/deselection
+        // in available products and add it to product configurations (true features / false features)
+        while (csvLines.hasNext) {
+            val featureLine = csvLines.next().split(";")
+
+            for (i <- 1 to numProducts) {
+                if (featureMap.contains(featureLine(0))) {
+                    var product = pconfigurations(i - 1)
+                    if (featureLine(i) == "X") {
+                        product = product.copy(_1 = featureMap(featureLine(0)) :: product._1)
+                    } else {
+                        product = product.copy(_2 = featureMap(featureLine(0)) :: product._2)
+                    }
+                    pconfigurations.update(i - 1, product)
+                }
+            }
+        }
+
+        // create a single configuration from the true features and false features list
+        for (i <- 0 to pconfigurations.length - 1) {
+            val config = new SimpleConfiguration(ff, pconfigurations(i)._1, pconfigurations(i)._2)
+
+            // need to check the configuration here again.
+            if (!config.toFeatureExpr.getSatisfiableAssignment(fm, ff.features.toSet, 1 == 1).isDefined) {
+                println("no satisfiable solution for product (" + i + "): " + csvFile)
+            } else {
+                retList ::= config
+            }
+        }
+
+        (retList, "Generated Configs: " + retList.size + "\n")
+    }
     def buildConfigurationsCodecoverageNH(tunit: TranslationUnit, ff: KnownFeatures, fm: FeatureModel,
                                           configDir: File, caseStudy: String, exTasks: List[Task])
     : (String, List[Task]) = {
@@ -503,6 +496,10 @@ object ConfigurationHandling {
      * Returns a set of enabled, disabled and not occoring features from a configuration file.
      */
     def getFeaturesFromConfiguration(@SuppressWarnings(Array("unchecked")) file: File, fm: FeatureModel = FeatureExprFactory.empty, features: Set[SingleFeatureExpr] = Set()): (List[SingleFeatureExpr], List[SingleFeatureExpr], List[SingleFeatureExpr]) = {
+        if (!file.exists()) {
+            return (List(), List(), List())
+        }
+
         val correctFeatureModelIncompatibility = false
         var ignoredFeatures = 0
         var changedAssignment = 0
