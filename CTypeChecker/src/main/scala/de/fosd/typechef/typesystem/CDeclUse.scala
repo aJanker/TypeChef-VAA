@@ -178,7 +178,9 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
             if (!originalDecl.eq(newDecl)) {
                 putToDeclUseMap(newDecl)
                 addToDeclUseMap(newDecl, originalDecl)
-                declUseMap.get(originalDecl).foreach(x => addToDeclUseMap(newDecl, x))
+                val usages = declUseMap.get(originalDecl)
+                if (usages != null)
+                    usages.foreach(x => addToDeclUseMap(newDecl, x))
                 declUseMap.remove(originalDecl)
             }
         }
