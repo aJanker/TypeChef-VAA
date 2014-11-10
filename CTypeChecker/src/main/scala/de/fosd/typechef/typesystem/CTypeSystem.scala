@@ -657,7 +657,6 @@ trait CTypeSystem extends CTypes with CEnv with CDeclTyping with CTypeEnv with C
                  * CDeclUse:
                  * Add typdef usage to usages.
                  */
-                //addTypeUse(name, env, expr)
                 val declExpr = env.typedefEnv.whenDefined(name.name)
                 if ((expr andNot declExpr).isSatisfiable())
                     reportTypeError(expr andNot declExpr, "Type " + name.name + " not defined. (defined only in context " + declExpr + ")", specifier, Severity.TypeLookupError)

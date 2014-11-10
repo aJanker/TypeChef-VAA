@@ -14,6 +14,23 @@ import java.util.List;
 
 
 public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
+    public boolean parse = true,
+            typecheck = false,
+            ifdeftoif = false,
+            decluse = false,
+            writeInterface = false,
+            dumpcfg = false,
+            serializeAST = false,
+            reuseAST = false,
+            writeDebugInterface = false,
+            recordTiming = false,
+            parserStatistics = false,
+            parserResults = true,
+            writePI = false,
+            printInclude = false,
+            printVersion = false,
+            defaultPC = true;
+    
     private final static char F_PARSE = Options.genOptionId();
     private final static char F_INTERFACE = Options.genOptionId();
     private final static char F_WRITEPI = Options.genOptionId();
@@ -27,28 +44,12 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_HIDEPARSERRESULTS = Options.genOptionId();
     private final static char F_BDD = Options.genOptionId();
     private final static char F_ERRORXML = Options.genOptionId();
+    private static final char TY_DEBUG_INCLUDES = genOptionId();
     private static final char TY_VERSION = genOptionId();
     private static final char TY_HELP = genOptionId();
     private final static char F_DISABLEPC = Options.genOptionId();
     private final File _autoErrorXMLFile = new File(".");
     private final String serializeTUnitFileExtension = ".tunit";
-    public boolean parse = true,
-            typecheck = false,
-            writeInterface = false,
-            dumpcfg = false,
-            doublefree = false,
-            uninitializedmemory = false,
-            xfree = false,
-            danglingswitchcode = false,
-            serializeAST = false,
-            reuseAST = false,
-            writeDebugInterface = false,
-            recordTiming = false,
-            parserStatistics = false,
-            parserResults = true,
-            writePI = false,
-            printVersion = false,
-            defaultPC = true;
     protected File errorXMLFile = null;
     private String outputStem = "";
     private String filePresenceConditionFile = "";
@@ -106,6 +107,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                         "Print parser statistics.")
         ));
         r.add(new OptionGroup("Misc", 1000,
+                new Option("printIncludes", LongOpt.NO_ARGUMENT, TY_DEBUG_INCLUDES, null,
+                        "Prints gathered include information for debugging"),
                 new Option("version", LongOpt.NO_ARGUMENT, TY_VERSION, null,
                         "Prints version number"),
                 new Option("help", LongOpt.NO_ARGUMENT, TY_HELP, null,
@@ -161,6 +164,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                 checkFileWritable(g.getOptarg());
                 errorXMLFile = new File(g.getOptarg());
             }
+        } else if (c == TY_DEBUG_INCLUDES) { // --printInclude
+            printInclude = true;
         } else if (c == TY_VERSION) { // --version
             printVersion = true;
         } else if (c == TY_HELP) {//--help
@@ -278,6 +283,24 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     public boolean isPrintVersion() {
         return printVersion;
     }
+
+    public boolean isPrintIncludes() { return printInclude; }
+
+    public void printInclude() {
+        System.out.println("Included headers:");
+        for (String header: this.getIncludedHeaders()) {
+            System.out.println("  "+header);
+        }
+        System.out.println("System Include Paths:");
+        for (String dir: this.getIncludePaths()) {
+            System.out.println("  "+dir);
+        }
+        System.out.println("Quote Include Paths:");
+        for (String dir: this.getQuoteIncludePath()) {
+            System.out.println("  "+dir);
+        }
+    }
+
 
     public boolean getUseDefaultPC() {
         return defaultPC;

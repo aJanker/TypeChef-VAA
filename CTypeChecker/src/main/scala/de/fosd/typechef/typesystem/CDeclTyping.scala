@@ -150,7 +150,6 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
                 }
                 else {
                     types = types :+ One(CStruct(id.name, isUnion).toCType)
-                }
             case StructOrUnionSpecifier(isUnion, None, members, _, _) =>
                 if (hasTransparentUnionAttribute(specifiers))
                     types = types :+ One(CIgnore().toCType) //ignore transparent union for now
@@ -206,13 +205,15 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
             types = types :+ sign(CLong())
         if (has(ShortSpecifier()))
             types = types :+ sign(CShort())
+        if (has(Int128Specifier()))
+            types = types :+ sign(CInt128())
         if (has(DoubleSpecifier()) && has(LongSpecifier()))
             types = types :+ One(CLongDouble().toCType)
         if (has(DoubleSpecifier()) && !has(LongSpecifier()))
             types = types :+ One(CDouble().toCType)
         if (has(FloatSpecifier()))
             types = types :+ One(CFloat().toCType)
-        if ((isSigned || isUnsigned || has(IntSpecifier())) && !has(ShortSpecifier()) && !has(LongSpecifier()) && !has(CharSpecifier()))
+        if ((isSigned || isUnsigned || has(IntSpecifier())) && !has(ShortSpecifier()) && !has(LongSpecifier())  && !has(Int128Specifier()) && !has(CharSpecifier()))
             types = types :+ sign(CInt())
         if (has(OtherPrimitiveTypeSpecifier("_Bool")))
             types = types :+ One(CBool().toCType)
@@ -481,12 +482,6 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
             case p@ParameterDeclarationD(specifiers, decl, _) =>
                 Opt(f, getDeclaratorType(decl, constructType(specifiers, featureExpr and f, env, p), featureExpr and f, env))
             case p@ParameterDeclarationAD(specifiers, decl, _) =>
-                /*for (Opt(g, StructOrUnionSpecifier(isUnion, Some(id), None, _, _)) <- specifiers) {
-                    addStructDeclUse(id, env, isUnion, featureExpr)
-                }
-                for (Opt(g, TypeDefTypeSpecifier(name)) <- specifiers) {
-                    addTypeUse(name, env, featureExpr)
-                }*/
                 Opt(f, getAbstractDeclaratorType(decl, constructType(specifiers, featureExpr and f, env, p), featureExpr and f, env))
             case VarArgs() => Opt(f, One(CVarArgs().toCType))
         }

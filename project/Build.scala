@@ -10,7 +10,7 @@ object BuildSettings {
     import Dependencies._
 
     val buildOrganization = "de.fosd.typechef"
-    val buildVersion = "0.3.6"
+    val buildVersion = "0.3.7"
     val buildScalaVersion = "2.10.4"
 
     val testEnvironment = Seq(junit, junitInterface, scalatest, scalacheck)
@@ -40,7 +40,9 @@ object BuildSettings {
                 else Nil
         },
 
-        crossScalaVersions := Seq("2.9.1", "2.9.2", "2.10.4"),
+        //crossScalaVersions := Seq("2.9.1", "2.9.2", "2.10.4"),
+
+        conflictWarning := ConflictWarning.disable,
 
         libraryDependencies ++= testEnvironment,
 
@@ -165,9 +167,7 @@ object TypeChef extends Build {
         ctypechecker,
         javaparser,
         crewrite,
-        errorlib,
-        frontend,
-        sampling
+        frontend
         )
 
     lazy val featureexpr = Project(
@@ -234,13 +234,6 @@ object TypeChef extends Build {
         settings = buildSettings ++
             Seq(libraryDependencies <+= scalaVersion(kiamaDependency(_)))
     ) dependsOn(cparser % "test->test;compile->compile", ctypechecker, conditionallib, errorlib)
-
-    lazy val sampling = Project(
-        "Sampling",
-        file("Sampling"),
-        settings = buildSettings ++
-            Seq(libraryDependencies <+= scalaVersion(kiamaDependency(_)))
-    ) dependsOn (frontend)
 
 
     def kiamaDependency(scalaVersion: String, testOnly: Boolean = false) = {

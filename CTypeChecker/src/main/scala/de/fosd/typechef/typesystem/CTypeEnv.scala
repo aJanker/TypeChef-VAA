@@ -4,7 +4,7 @@ import _root_.de.fosd.typechef.parser.c._
 import _root_.de.fosd.typechef.conditional._
 import _root_.de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr}
 
-trait CTypeEnv extends CTypes with CTypeSystemInterface with CEnv with CDeclTyping /*with CBuiltIn*/ {
+trait CTypeEnv extends CTypes with CTypeSystemInterface with CEnv with CDeclTyping {
 
 
     /**
@@ -96,8 +96,6 @@ trait CTypeEnv extends CTypes with CTypeSystemInterface with CEnv with CDeclTypi
                 addStructDefinition(i, initEnv, featureExpr)
             }
             var env = initEnv.updateStructEnv(initEnv.structEnv.addIncomplete(i, isUnion, featureExpr, initEnv.scope))
-            /*println("Before: " + initEnv.structEnv.getId(name, isUnion))
-            println("After: " + env.structEnv.getId(name, isUnion) + "\n")*/
             attributes.foreach(x => addDefinition(x.entry, env))
             val members = parseStructMembers(attributes, featureExpr, env)
 

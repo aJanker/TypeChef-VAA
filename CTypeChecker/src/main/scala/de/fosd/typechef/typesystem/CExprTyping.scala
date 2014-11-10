@@ -313,11 +313,10 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                         t
 
                     case LcurlyInitializer(inits) => One(CCompound().toCType.toObj) //TODO more specific checks, currently just use CCompound which can be cast into any structure or array
-                    case GnuAsmExpr(_, _, _, stuff) =>
-                        val expressions = getExpressions(stuff)
-                        expressions.foreach(x => getExprTypeRec(x, featureExpr, env))
+                    case a:GnuAsmExpr =>
                         One(CIgnore()) //don't care about asm now
                     case BuiltinOffsetof(typename, offsetDesignators) =>
+                        // no type checking, but tracking of def-use relationship as far as reasonably possible
                         typename.specifiers.foreach(x => {
                             x match {
                                 case Opt(ft, TypeDefTypeSpecifier(name)) =>
@@ -326,6 +325,7 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                                     offsetDesignators.foreach(x => x match {
                                         case Opt(ft, OffsetofMemberDesignatorID(offsetId: Id)) =>
                                             addStructUse(offsetId, ft, env, i.name, isUnion)
+                                        case _ =>
                                     })
                                     addStructDeclUse(i, env, isUnion, ft)
                                 case _ =>

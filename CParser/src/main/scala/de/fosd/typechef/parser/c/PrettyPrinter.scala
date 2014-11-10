@@ -28,21 +28,16 @@ object PrettyPrinter {
     case class Nest(n: Int, d: Doc) extends Doc
 
     implicit def string(s: String): Doc = Text(s)
-    /** Determines whether the doc has some content other than spaces
+
+    /**
+      * Determines whether doc has some content other than spaces.
       */
     def hasContent(doc: Doc): Boolean = {
         doc match {
-            case Empty => false
-            case Text(s: String) =>
-                var i = 0;
-                var foundNonWsChar = false;
-                while (!foundNonWsChar && i < s.size) {
-                    foundNonWsChar = !s.charAt(i).isWhitespace
-                    i = i + 1
-                }
-                foundNonWsChar
-            case Cons(a, b) => hasContent(a) || hasContent(b)
-            case _ => true
+            case Empty           => false
+            case Text(s: String) => !s.forall(_.isWhitespace)
+            case Cons(a, b)      => hasContent(a) || hasContent(b)
+            case _               => true
         }
     }
 
@@ -186,9 +181,9 @@ object PrettyPrinter {
         implicit def prettyCond(a: Conditional[_]): Doc = ppConditional(a, list_feature_expr)
         implicit def prettyOptStr(a: Opt[String]): Doc = optConditionalStr(a, list_feature_expr)
 
-        // this method separates Opt elements of an input list variability-aware
-        // problem is that when having for instance a function with one mandatory and one optional
-        // parameter, e.g.,
+        // Variability-aware version of sep. Annotates sep with an #ifdef computed from
+        // two Opt nodes of subsequent elements of l.
+        // e.g.,
         // void foo( int a
         // #ifdef B
         // , int B
@@ -197,8 +192,8 @@ object PrettyPrinter {
         // the standard sep function prints out the comma between both parameters without an
         // annotation. Further processing of the output will lead to an error.
         // This function prints out separated lists with annotated commas solving that problem.
-        def sepVaware(l: List[Opt[AST]], selem: String, breakselem: Doc = space) = {
-            var res: Doc = if (l.isEmpty) Empty else l.head
+        def sepVaware[T](l: List[Opt[T]], selem: String, toDoc: Opt[T] => Doc, breakselem: Doc = space) = {
+            var res: Doc = if (l.isEmpty) Empty else toDoc(l.head)
             var combCtx: FeatureExpr = if (l.isEmpty) FeatureExprFactory.True else l.head.feature
 
             for (celem <- l.drop(1)) {
@@ -206,19 +201,22 @@ object PrettyPrinter {
 
                 // separation element is never present
                 if (selemfexp.isContradiction())
-                    res = res ~ breakselem ~ prettyOpt(celem)
+                    res = res ~ breakselem ~ toDoc(celem)
 
                 // separation element is always present
                 else if (selemfexp.isTautology())
-                    res = res ~ selem ~ breakselem ~ prettyOpt(celem)
+                    res = res ~ selem ~ breakselem ~ toDoc(celem)
 
                 // separation element is sometimes present
                 else {
-                    res = res * "#if" ~~ selemfexp.toTextExpr * selem * "#endif" * prettyOpt(celem)
+                    if (hasContent(selem))
+                        res = res * "#if" ~~ selemfexp.toTextExpr * selem * "#endif" * toDoc(celem)
+                    else
+                        res = res * toDoc(celem)
                 }
 
                 // add current feature expression as it might influence the addition of selem for
-                // the remaint elements of the input list l
+                // the remaining elements of l
                 combCtx = combCtx.or(celem.feature)
             }
 
@@ -266,9 +264,9 @@ object PrettyPrinter {
             val r: Doc = if (l.isEmpty) Empty else l.head
             l.drop(1).foldLeft(r)(s(_, _))
         }
-        def commaSep(l: List[Opt[AST]]) = sepVaware(l, ",")
+        def commaSep(l: List[Opt[AST]]) = sepVaware(l, ",", prettyOpt)
         def pointSep(l: List[Opt[AST]]) = sep(l, _ ~ "." ~ _)
-        def spaceSep(l: List[Opt[AST]]) = sepVaware(l, " ")
+        def spaceSep(l: List[Opt[AST]]) = sepVaware(l, " ", prettyOpt)
         def opt(o: Option[AST]): Doc = if (o.isDefined) o.get else Empty
         def optExt(o: Option[AST], ext: (Doc) => Doc): Doc = if (o.isDefined) ext(o.get) else Empty
         def optCondExt(o: Option[Conditional[AST]], ext: (Doc) => Doc): Doc = if (o.isDefined) ext(o.get) else Empty
@@ -332,7 +330,10 @@ object PrettyPrinter {
         def handleIdOrStringGroup(value: Any): Doc = {
             def addOptionalIdOrStringToDoc(a: Doc, b: Opt[AST]): Doc = {
                 val docb = prettyOpt(b)
-                (if (docb == Empty) a else a ~ ", " ~ b)
+                if (docb == Empty)
+                    a
+                else
+                    a ~ ", " ~ b
             }
             value match {
                 case None => Empty
@@ -349,8 +350,7 @@ object PrettyPrinter {
             case TranslationUnit(ext) => sep(ext, _ * _)
             case Id(name) => name
             case Constant(v) => v
-            case StringLit(v) =>
-                sepsVaware(v, "")
+            case StringLit(v) => sepVaware(v, "", prettyOptStr)
             case SimplePostfixSuffix(t) => t
             case PointerPostfixSuffix(kind, id) => kind ~ id
             case FunctionCall(params) => "(" ~ params ~ ")"
@@ -369,7 +369,7 @@ object PrettyPrinter {
             case NArySubExpr(op: String, e: Expr) => op ~~ e
             case ConditionalExpr(condition: Expr, thenExpr, elseExpr: Expr) => "(" ~ condition ~~ "?" ~~ opt(thenExpr) ~~ ":" ~~ elseExpr ~ ")"
             case AssignExpr(target: Expr, operation: String, source: Expr) => "(" ~ target ~~ operation ~~ source ~ ")"
-            case ExprList(exprs) => sepVaware(exprs, ",")
+            case ExprList(exprs) => sepVaware(exprs, ",", prettyOpt)
 
             case CompoundStatement(innerStatements) =>
                 block(sep(innerStatements, _ * _))
@@ -401,6 +401,7 @@ object PrettyPrinter {
             case IntSpecifier() => "int"
             case FloatSpecifier() => "float"
             case LongSpecifier() => "long"
+            case Int128Specifier() => "__int128"
             case CharSpecifier() => "char"
             case DoubleSpecifier() => "double"
 
@@ -423,7 +424,7 @@ object PrettyPrinter {
             case CompoundAttribute(inner) => "(" ~ sep(inner, _ ~ "," ~~ _) ~ ")"
 
             case Declaration(declSpecs, init) =>
-                sep(declSpecs, _ ~~ _) ~~ sepVaware(init, ",") ~ ";"
+                sep(declSpecs, _ ~~ _) ~~ sepVaware(init, ",", prettyOpt) ~ ";"
 
             case InitDeclaratorI(declarator, lst, Some(i)) =>
                 if (!lst.isEmpty) {
@@ -450,7 +451,7 @@ object PrettyPrinter {
                 sep(pointers, _ ~ _) ~ "(" ~ sep(attr, _ ~~ _) ~~ nestedDecl ~ ")" ~ sep(extensions, _ ~ _)
 
             case DeclIdentifierList(idList) => "(" ~ commaSep(idList) ~ ")"
-            case DeclParameterDeclList(parameterDecls) => "(" ~ sepVaware(parameterDecls, ",") ~ ")"
+            case DeclParameterDeclList(parameterDecls) => "(" ~ sepVaware(parameterDecls, ",", prettyOpt) ~ ")"
             case DeclArrayAccess(expr) => "[" ~ opt(expr) ~ "]"
             case Initializer(initializerElementLabel, expr: Expr) => opt(initializerElementLabel) ~~ expr
             case Pointer(specifier) =>
@@ -463,7 +464,7 @@ object PrettyPrinter {
             case ParameterDeclarationD(specifiers, decl, attr) => spaceSep(specifiers) ~~ decl ~~ sep(attr, _ ~~ _)
             case ParameterDeclarationAD(specifiers, decl, attr) => spaceSep(specifiers) ~~ decl ~~ sep(attr, _ ~~ _)
             case VarArgs() => "..."
-            case EnumSpecifier(id, Some(enums)) => "enum" ~~ opt(id) ~~ block(sepVaware(enums, ",", line))
+            case EnumSpecifier(id, Some(enums)) => "enum" ~~ opt(id) ~~ block(sepVaware(enums, ",", prettyOpt, line))
             case EnumSpecifier(Some(id), None) => "enum" ~~ id
             case Enumerator(id, Some(init)) => id ~~ "=" ~~ init
             case Enumerator(id, None) => id
@@ -487,7 +488,7 @@ object PrettyPrinter {
             case GnuAsmExpr(isVolatile: Boolean, isGoto: Boolean, expr: StringLit, stuff) =>
                 val ret =
                     stuff match {
-                        // c.f de.fosd.typechef.parser.c.CParser.gnuAsmExpr
+                        // cf. de.fosd.typechef.parser.c.CParser.gnuAsmExpr
                         case Some(de.fosd.typechef.parser.~(
                         part1,
                         Some(de.fosd.typechef.parser.~(part21, part22)))) =>
