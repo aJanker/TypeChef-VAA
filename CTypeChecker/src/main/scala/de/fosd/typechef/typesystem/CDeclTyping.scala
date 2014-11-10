@@ -148,7 +148,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
                 if (hasTransparentUnionAttribute(specifiers)) {
                     types = types :+ One(CIgnore().toCType) //ignore transparent union for now
                 }
-                else {
+                else
                     types = types :+ One(CStruct(id.name, isUnion).toCType)
             case StructOrUnionSpecifier(isUnion, None, members, _, _) =>
                 if (hasTransparentUnionAttribute(specifiers))
