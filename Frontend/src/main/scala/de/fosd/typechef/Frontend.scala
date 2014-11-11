@@ -218,6 +218,7 @@ object Frontend extends EnforceTreeHelper {
                         stopWatch.start("deadstore")
                         sa.deadStore()
                     }
+                    sa.errors
                 }
 
             }

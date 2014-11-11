@@ -34,6 +34,8 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
 
     import CastHelper._
 
+    def leak() = bdd
+
     def or(that: FeatureExpr): FeatureExpr = {
         if (that == FeatureExprFactory.True) FeatureExprFactory.True
         else FExprBuilder.or(this, asBDDFeatureExpr(that))
