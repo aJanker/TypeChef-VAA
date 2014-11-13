@@ -34,6 +34,7 @@ class CAnalysisOptions extends FeatureModelOptions with ICTypeSysOptions with IC
     private val Scfginnonvoidfunc = SecurityOption("cfginnonvoidfunction", "Issue a warning when control flow in non-void function reaches no return statement", false)
     private val Sstdlibfuncreturn = SecurityOption("checkstdlibfuncreturn", "Issue a warning when the return value of a standard library function is not check for its error values", false)
     private val Sdeadstore = SecurityOption("deadstore", "Issue a warning when values stored to variables are never read afterwards", false)
+    private val Sinteractiondegree = SecurityOption("interactionDegree", "Calculates the interaction degree. The interaction degree is the number of variables that need to be set to reproduce the problem", false)
 
 
     val opts: List[SecurityOption] = List(
@@ -60,6 +61,7 @@ class CAnalysisOptions extends FeatureModelOptions with ICTypeSysOptions with IC
     override def warning_cfg_in_non_void_func: Boolean = Scfginnonvoidfunc.isSelected
     override def warning_stdlib_func_return: Boolean = Sstdlibfuncreturn.isSelected
     override def warning_dead_store: Boolean = Sdeadstore.isSelected
+    override def interaction_degree: Boolean = Sinteractiondegree.isSelected
 
     override protected def getOptionGroups: java.util.List[Options.OptionGroup] = {
         val r: java.util.List[Options.OptionGroup] = super.getOptionGroups

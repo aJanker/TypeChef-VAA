@@ -218,7 +218,11 @@ object Frontend extends EnforceTreeHelper {
                         stopWatch.start("deadstore")
                         sa.deadStore()
                     }
-                    sa.errors
+
+                    if (opt.interaction_degree) {
+                        stopWatch.start("interactiondegree")
+                        sa.interactionDegree()
+                    }
                 }
 
             }
