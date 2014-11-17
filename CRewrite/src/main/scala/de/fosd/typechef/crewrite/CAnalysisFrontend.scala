@@ -439,14 +439,17 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
         err
     }
 
-    def interactionDegree() = {
+    def interactionDegree() : (List[(Opt[Statement], Int)], List[(Opt[AST], Int, TypeChefError)]) = {
         // calculate the interaction degree of each statement itself
-        val stmtsDegrees = filterAllASTElems[Statement](tunit).flatMap(stmt => {
+        val stmtsDegrees: List[(Opt[Statement], Int)] = filterAllASTElems[Statement](tunit).flatMap(stmt => {
             val stmtFExpr = env.featureExpr(stmt)
-            Some((stmt, stmtFExpr, calculateInteractionDegree(stmtFExpr)))
+            Some((Opt(stmtFExpr, stmt), calculateInteractionDegree(stmtFExpr)))
         })
 
-        val errDegrees = List()
+        val errDegrees : List[(Opt[AST], Int, TypeChefError)] = errNodes.flatMap(node => {
+            val stmtFExpr = node._2.feature
+            Some(node._2, calculateInteractionDegree(stmtFExpr), node._1)
+        })
 
 
         (stmtsDegrees, errDegrees)
