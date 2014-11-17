@@ -62,7 +62,7 @@ trait ICAnalysisOptions {
     // see: http://en.wikipedia.org/wiki/Dead_store and "clang -cc1 -analyze -analyzer-checker-help"
     def warning_dead_store = false
 
-    // -A interaction degree
+    // -A interactiondegree
     def interaction_degree = false
 }
 

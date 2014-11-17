@@ -34,11 +34,11 @@ class CAnalysisOptions extends FeatureModelOptions with ICTypeSysOptions with IC
     private val Scfginnonvoidfunc = SecurityOption("cfginnonvoidfunction", "Issue a warning when control flow in non-void function reaches no return statement", false)
     private val Sstdlibfuncreturn = SecurityOption("checkstdlibfuncreturn", "Issue a warning when the return value of a standard library function is not check for its error values", false)
     private val Sdeadstore = SecurityOption("deadstore", "Issue a warning when values stored to variables are never read afterwards", false)
-    private val Sinteractiondegree = SecurityOption("interactionDegree", "Calculates the interaction degree. The interaction degree is the number of variables that need to be set to reproduce the problem", false)
+    private val Sinteractiondegree = SecurityOption("interactiondegree", "Calculates the interaction degree. The interaction degree is the number of variables that need to be set to reproduce the problem", false)
 
 
     val opts: List[SecurityOption] = List(
-        Apointersign, Aintegeroverflow, Aimplicitcoercion, Alongdesignator, Aimplicitidentifier, Aconflictinglinkage, Avolatile, Aconst, Achar, Sdoublefree, Sxfree, Sunitializedmemory, Scasetermination, Sdanglingswitchcode, Scfginnonvoidfunc, Sstdlibfuncreturn, Sdeadstore
+        Apointersign, Aintegeroverflow, Aimplicitcoercion, Alongdesignator, Aimplicitidentifier, Aconflictinglinkage, Avolatile, Aconst, Achar, Sdoublefree, Sxfree, Sunitializedmemory, Scasetermination, Sdanglingswitchcode, Scfginnonvoidfunc, Sstdlibfuncreturn, Sdeadstore, Sinteractiondegree
     )
 
 
