@@ -458,9 +458,14 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
     def writeErrorDegress(errorDegrees: List[(Opt[AST], Int, TypeChefError)], writer: Writer) = {
         errorDegrees.foreach(entry => {
             writeDegree((entry._1, entry._2), writer)
-            writer.write("\tError: ")
+            writer.write(" \tPriror Statemnet: ")
+            writer.write(findPriorASTElem[Statement](entry._1.entry, env) match {
+                case Some(x) => PrettyPrinter.print(x)
+                case None => "Non found. "
+            })
+            writer.write(" \tError: ")
             writer.write(entry._3.toString)
-            writer.write("\n")
+            writer.write("\n==\n")
         })
     }
 
@@ -472,7 +477,6 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
     }
 
     private def writeDegree(stmtDegree: (Opt[AST], Int), writer: Writer) = {
-        println("degree: " +  stmtDegree._2)
         writer.write(stmtDegree._2.toString)
         writer.write(" \tFeature: ")
         writer.write(stmtDegree._1.feature.toString)
