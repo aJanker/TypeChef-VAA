@@ -2,7 +2,7 @@
 package de.fosd.typechef.crewrite
 
 import de.fosd.typechef.featureexpr._
-import java.io.StringWriter
+import java.io.{Writer, FileWriter, StringWriter}
 import de.fosd.typechef.featureexpr.bdd.BDDFeatureExpr
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem._
@@ -453,6 +453,30 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
 
 
         (stmtsDegrees, errDegrees)
+    }
+
+    def writeErrorDegress(errorDegrees: List[(Opt[AST], Int, TypeChefError)], writer: Writer) = {
+        errorDegrees.foreach(entry => {
+            writeDegree((entry._1, entry._2), writer)
+            writer.write("\tError: ")
+            writer.write(entry._3.toString)
+            writer.write("\n")
+        })
+    }
+
+    def writeStatementDegrees(stmtsDegrees: List[(Opt[Statement], Int)], writer: Writer) = {
+        stmtsDegrees.foreach(entry => {
+            writeDegree(entry, writer)
+            writer.write("\n")
+        })
+    }
+
+    private def writeDegree(stmtDegree: (Opt[AST], Int), writer: Writer) = {
+        writer.write(stmtDegree._2)
+        writer.write("\tFeature: ")
+        writer.write(stmtDegree._1.feature.toString)
+        writer.write("\tStatment: ")
+        writer.write(PrettyPrinter.print(stmtDegree._1.entry))
     }
 
     private def calculateInteractionDegree(fexpr: FeatureExpr): Int = {

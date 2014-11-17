@@ -221,7 +221,15 @@ object Frontend extends EnforceTreeHelper {
 
                     if (opt.interaction_degree) {
                         stopWatch.start("interactiondegree")
-                        sa.interactionDegree()
+                        val degrees = sa.interactionDegree()
+
+                        //write interaction degress
+                        val stmtWriter = new FileWriter(new File(opt.getStmtInteractionDegreeFilename))
+                        val errorWriter = new FileWriter(new File(opt.getErrorStmtInteractionDegreeFilename))
+                        sa.writeStatementDegrees(degrees._1, stmtWriter)
+                        sa.writeErrorDegress(degrees._2, errorWriter)
+                        stmtWriter.close()
+                        errorWriter.close()
                     }
                 }
 

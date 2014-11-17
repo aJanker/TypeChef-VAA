@@ -252,6 +252,14 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
         return outputStem + ".cfg";
     }
 
+    public String getStmtInteractionDegreeFilename() {
+        return outputStem + ".stmt.degree";
+    }
+
+    public String getErrorStmtInteractionDegreeFilename() {
+        return outputStem + ".stmt.error.degree";
+    }
+
     public String getCCFGDotFilename() {
         return outputStem + ".cfg.dot";
     }
