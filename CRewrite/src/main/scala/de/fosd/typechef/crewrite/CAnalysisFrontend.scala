@@ -272,10 +272,12 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
                         case None =>
                         case Some(x) => {
                             if (h.isSatisfiable(fm)) {
-                                val xdecls = udm.get(x)
+                                var xdecls = udm.get(x)
                                 var idecls = udm.get(i)
                                 if (idecls == null)
                                     idecls = List(i)
+                                if (xdecls == null)
+                                    xdecls = List(x)
                                 for (ei <- idecls)
                                     if (xdecls.exists(_.eq(ei))) {
                                         err ::= new TypeChefError(Severity.Warning, h, "warning: Variable " + x.name + " is freed although not dynamically allocted!", x, "")
