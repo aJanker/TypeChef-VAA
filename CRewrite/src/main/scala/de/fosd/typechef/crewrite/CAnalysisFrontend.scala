@@ -474,9 +474,9 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
     private def writeDegree(stmtDegree: (Opt[AST], Int), writer: Writer) = {
         println("degree: " +  stmtDegree._2)
         writer.write(stmtDegree._2)
-        writer.write("\tFeature: ")
+        writer.write(" \tFeature: ")
         writer.write(stmtDegree._1.feature.toString)
-        writer.write("\tStatment: ")
+        writer.write(" \tStatment: ")
         writer.write(PrettyPrinter.print(stmtDegree._1.entry))
     }
 
