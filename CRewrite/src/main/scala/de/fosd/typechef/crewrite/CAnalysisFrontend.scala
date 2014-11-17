@@ -467,11 +467,12 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
     def writeStatementDegrees(stmtsDegrees: List[(Opt[Statement], Int)], writer: Writer) = {
         stmtsDegrees.foreach(entry => {
             writeDegree(entry, writer)
-            writer.write("\n")
+            writer.write("\n==\n")
         })
     }
 
     private def writeDegree(stmtDegree: (Opt[AST], Int), writer: Writer) = {
+        println("degree: " +  stmtDegree._2)
         writer.write(stmtDegree._2)
         writer.write("\tFeature: ")
         writer.write(stmtDegree._1.feature.toString)
