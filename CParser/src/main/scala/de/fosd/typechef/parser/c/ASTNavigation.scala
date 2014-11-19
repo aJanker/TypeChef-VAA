@@ -144,8 +144,8 @@ trait ASTNavigation {
     def filterAllASTElems[T <: AST](a: Any)(implicit m: ClassManifest[T]): List[T] = {
         a match {
             case p: Product if (m.erasure.isInstance(p)) => List(p.asInstanceOf[T]) ++
-                p.productIterator.toList.flatMap(filterASTElems[T])
-            case l: List[_] => l.flatMap(filterASTElems[T])
+                p.productIterator.toList.flatMap(filterAllASTElems[T])
+            case l: List[_] => l.flatMap(filterAllASTElems[T])
             case p: Product => p.productIterator.toList.flatMap(filterASTElems[T])
             case _ => List()
         }
