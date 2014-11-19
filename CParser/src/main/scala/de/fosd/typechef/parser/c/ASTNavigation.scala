@@ -146,7 +146,7 @@ trait ASTNavigation {
             case p: Product if (m.erasure.isInstance(p)) => List(p.asInstanceOf[T]) ++
                 p.productIterator.toList.flatMap(filterAllASTElems[T])
             case l: List[_] => l.flatMap(filterAllASTElems[T])
-            case p: Product => p.productIterator.toList.flatMap(filterASTElems[T])
+            case p: Product => p.productIterator.toList.flatMap(filterAllASTElems[T])
             case _ => List()
         }
     }
