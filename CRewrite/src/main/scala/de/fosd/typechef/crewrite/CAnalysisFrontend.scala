@@ -484,7 +484,7 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
         writer.write(stmtDegree._1.feature.toString)
         writer.write(" \tStatment: ")
         writer.write(PrettyPrinter.print(stmtDegree._1.entry))
-        writer.write(" \AST: ")
+        writer.write(" \tAST: ")
         writer.write(stmtDegree._1.entry.toString)
     }
 
