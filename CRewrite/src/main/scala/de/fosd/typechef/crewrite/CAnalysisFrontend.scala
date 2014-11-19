@@ -445,7 +445,8 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
         // calculate the interaction degree of each statement itself
         val stmtsDegrees: List[(Opt[Statement], Int)] = filterAllASTElems[Statement](tunit).flatMap(stmt => {
             val stmtFExpr = env.featureExpr(stmt)
-            Some((Opt(stmtFExpr, stmt), calculateInteractionDegree(stmtFExpr)))
+            if (filterAllASTElems[Statement](stmt).isEmpty) Some((Opt(stmtFExpr, stmt), calculateInteractionDegree(stmtFExpr)))
+            else None
         })
 
         val errDegrees : List[(Opt[AST], Int, TypeChefError)] = errNodes.flatMap(node => {
