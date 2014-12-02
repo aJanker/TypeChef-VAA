@@ -450,8 +450,8 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
         })
 
         val errDegrees : List[(Opt[AST], Int, TypeChefError)] = errNodes.flatMap(node => {
-            val stmtFExpr = node._2.feature
-            Some(node._2, calculateInteractionDegree(stmtFExpr), node._1)
+            val stmtFExpr = env.featureExpr(node._2.entry)
+            Some((Opt(stmtFExpr, node._2.entry), calculateInteractionDegree(stmtFExpr), node._1))
         })
 
 
@@ -468,14 +468,14 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
             })
             writer.write(" \tError: ")
             writer.write(entry._3.toString)
-            writer.write("\n==\n")
+            writer.write("\n==========\n")
         })
     }
 
     def writeStatementDegrees(stmtsDegrees: List[(Opt[Statement], Int)], writer: Writer) = {
         stmtsDegrees.foreach(entry => {
             writeDegree(entry, writer)
-            writer.write("\n==\n")
+            writer.write("\n==========\n")
         })
     }
 
@@ -499,6 +499,7 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
         //also does not consider the feature model
 
         val bdd = fexpr.asInstanceOf[BDDFeatureExpr]
+        // val simpleBDD = bdd.simplify(bdd).asInstanceOf[BDDFeatureExpr]
         val allsat = bdd.leak().allsat().asInstanceOf[util.LinkedList[Array[Byte]]]
 
         if (allsat.isEmpty) 0
