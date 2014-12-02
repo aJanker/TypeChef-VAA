@@ -441,17 +441,17 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
         err
     }
 
-    def interactionDegree() : (List[(Opt[Statement], Int)], List[(Opt[AST], Int, TypeChefError)]) = {
+    def interactionDegree(fm : FeatureExpr = FeatureExprFactory.True) : (List[(Opt[Statement], Int)], List[(Opt[AST], Int, TypeChefError)]) = {
         // calculate the interaction degree of each statement itself
         val stmtsDegrees: List[(Opt[Statement], Int)] = filterAllASTElems[Statement](tunit).flatMap(stmt => {
             val stmtFExpr = env.featureExpr(stmt)
-            if (filterAllASTElems[Statement](stmt).size == 1) Some((Opt(stmtFExpr, stmt), calculateInteractionDegree(stmtFExpr)))
+            if (filterAllASTElems[Statement](stmt).size == 1) Some((Opt(stmtFExpr, stmt), calculateInteractionDegree(stmtFExpr, fm)))
             else None
         })
 
         val errDegrees : List[(Opt[AST], Int, TypeChefError)] = errNodes.flatMap(node => {
             val stmtFExpr = env.featureExpr(node._2.entry)
-            Some((Opt(stmtFExpr, node._2.entry), calculateInteractionDegree(stmtFExpr), node._1))
+            Some((Opt(stmtFExpr, node._2.entry), calculateInteractionDegree(stmtFExpr, fm), node._1))
         })
 
 
@@ -489,7 +489,7 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
         writer.write(stmtDegree._1.entry.toString)
     }
 
-    private def calculateInteractionDegree(fexpr: FeatureExpr): Int = {
+    private def calculateInteractionDegree(fexpr: FeatureExpr, fm: FeatureExpr = FeatureExprFactory.True): Int = {
         //interaction degree is the smallest number of variables that need to be set to reproduce the problem
         //we use the shortest path in a BDD as simple way of computing this
 
@@ -499,8 +499,8 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
         //also does not consider the feature model
 
         val bdd = fexpr.asInstanceOf[BDDFeatureExpr]
-        // val simpleBDD = bdd.simplify(bdd).asInstanceOf[BDDFeatureExpr]
-        val allsat = bdd.leak().allsat().asInstanceOf[util.LinkedList[Array[Byte]]]
+        val simpleBDD = bdd.simplify(fm).asInstanceOf[BDDFeatureExpr]
+        val allsat = simpleBDD.leak().allsat().asInstanceOf[util.LinkedList[Array[Byte]]]
 
         if (allsat.isEmpty) 0
         else allsat.map(_.count(_ >= 0)).min
