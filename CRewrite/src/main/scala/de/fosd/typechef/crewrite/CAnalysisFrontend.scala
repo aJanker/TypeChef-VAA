@@ -8,6 +8,7 @@ import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem._
 import de.fosd.typechef.error.{Severity, TypeChefError}
 import de.fosd.typechef.parser.c.SwitchStatement
+import org.apache.tools.ant.util.StringUtils
 import scala.collection.JavaConversions._
 import java.util
 import de.fosd.typechef.parser.c.FunctionDef
@@ -459,8 +460,15 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
 
             interactionDegrees(simplify)
         } else {
-            // TODO Implement
-            def simplify(feature : BDDFeatureExpr) : BDDFeatureExpr = feature
+            val parser = new FeatureExprParser()
+            val simpleFM = Source.fromFile(simplifyFM).getLines.foldLeft(FeatureExprFactory.True)((f, l) => {
+                if (l.matches("\\s*")) f
+                else f and parser.parse(l)
+            })
+
+            def simplify(feature : BDDFeatureExpr) : BDDFeatureExpr =
+                feature.simplify(simpleFM).asInstanceOf[BDDFeatureExpr]
+
             interactionDegrees(simplify)
         }
     }

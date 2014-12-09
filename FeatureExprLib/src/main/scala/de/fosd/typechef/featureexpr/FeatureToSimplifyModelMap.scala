@@ -18,10 +18,11 @@ object FeatureToSimplifyModelMap {
         if (featureToSimpleModelMap.nonEmpty) clear()
 
         var currentName : String = null
+        val parser = new FeatureExprParser()
 
         for (line <- Source.fromFile(simplifyFM).getLines) {
             if (line.startsWith(itemIdentifier)) currentName = line.substring(itemIdentifier.length)
-            else add(currentName, new FeatureExprParser().parse(line))
+            else add(currentName, parser.parse(line))
         }
 
         featureToSimpleModelMap
