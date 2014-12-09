@@ -5,12 +5,13 @@ import java.io._
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
 import de.fosd.typechef.crewrite._
+import de.fosd.typechef.featureexpr.{FeatureExprParser, FeatureExprFactory}
 import de.fosd.typechef.options.{FrontendOptions, FrontendOptionsWithConfigFiles, OptionException}
 import de.fosd.typechef.parser.TokenReader
 import de.fosd.typechef.parser.c.{CTypeContext, TranslationUnit, _}
 import de.fosd.typechef.typesystem._
 
-object Frontend extends EnforceTreeHelper {
+object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNavigation {
 
 
     def main(args: Array[String]) {
@@ -149,7 +150,6 @@ object Frontend extends EnforceTreeHelper {
                 // some dataflow analyses require typing information
                 val ts = new CTypeSystemFrontend(ast, fullFM, opt) with CTypeCache with CDeclUse
 
-
                 /** I did some experiments with the TypeChef FeatureModel of Linux, in case I need the routines again, they are saved here. */
                 //Debug_FeatureModelExperiments.experiment(fm_ts)
 
@@ -221,7 +221,7 @@ object Frontend extends EnforceTreeHelper {
 
                     if (opt.interaction_degree) {
                         stopWatch.start("interactiondegree")
-                        val degrees = sa.interactionDegree(opt.getLocalFeatureModel)
+                        val degrees = sa.getInteractionDegrees(opt.getSimplifyFM)
 
                         //write interaction degress
                         val stmtWriter = new FileWriter(new File(opt.getStmtInteractionDegreeFilename))

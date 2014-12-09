@@ -48,6 +48,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private static final char TY_VERSION = genOptionId();
     private static final char TY_HELP = genOptionId();
     private final static char F_DISABLEPC = Options.genOptionId();
+    private final static char F_SIMPLIFYFM = Options.genOptionId();
     private final File _autoErrorXMLFile = new File(".");
     private final String serializeTUnitFileExtension = ".tunit";
     protected File errorXMLFile = null;
@@ -56,6 +57,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private Function3<FeatureExpr, String, Position, Object> _renderParserError;
     private FeatureExpr filePC = null;
     private FeatureExpr localFM = null;
+    private File simplifyFM = null;
 
     @Override
     public List<Options.OptionGroup> getOptionGroups() {
@@ -90,7 +92,9 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                         "Reuse serialized .ast instead of parsing, if availabe."),
                 new Option("recordTiming", LongOpt.NO_ARGUMENT, F_RECORDTIMING, null,
                         "Report times for all phases."),
-
+                new Option("simplifyFM", LongOpt.REQUIRED_ARGUMENT, F_SIMPLIFYFM, null,
+                        "Use an additional feature model or extracted configuration presence condition for an more" +
+                                " efficient interaction degree calculation"),
                 new Option("filePC", LongOpt.REQUIRED_ARGUMENT, F_FILEPC, "file",
                         "Presence condition for the file (format like --featureModelFExpr). Default 'file.pc'."),
                 new Option("bdd", LongOpt.NO_ARGUMENT, F_BDD, null,
@@ -171,6 +175,9 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
         } else if (c == TY_HELP) {//--help
             printUsage();
             printVersion = true;
+        } else if (c == F_SIMPLIFYFM) {
+            checkFileExists(g.getOptarg());
+            simplifyFM = new File(g.getOptarg());
         } else
             return super.interpretOption(c, g);
 
@@ -203,11 +210,15 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
         return outputStem + ".dbginterface";
     }
 
-    String getFilePresenceConditionFilename() {
+    public String getFilePresenceConditionFilename() {
         if (filePresenceConditionFile.length() > 0)
             return filePresenceConditionFile;
         else
             return outputStem + ".pc";
+    }
+
+    public File getSimplifyFM() {
+        return simplifyFM;
     }
 
 

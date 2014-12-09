@@ -14,6 +14,8 @@ import de.fosd.typechef.parser.c.FunctionDef
 import de.fosd.typechef.parser.c.TranslationUnit
 import de.fosd.typechef.conditional.Opt
 
+import scala.io.Source
+
 
 sealed abstract class CAnalysisFrontend(tunit: TranslationUnit) extends CFGHelper {
 
@@ -441,19 +443,42 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
         err
     }
 
-    def interactionDegree(fm : FeatureExpr = FeatureExprFactory.True) : (List[(Opt[Statement], Int)], List[(Opt[AST], Int, TypeChefError)]) = {
+    def getInteractionDegrees(simplifyFM : java.io.File ) : (List[(Opt[Statement], Int)], List[(Opt[AST], Int, TypeChefError)]) = {
+        if (simplifyFM.getName.endsWith(".model")) {
+            val simplifyModel = FeatureToSimplifyModelMap.fill(simplifyFM)
+
+            def simplify(feature : BDDFeatureExpr) : BDDFeatureExpr = {
+                val simpleFM = feature.collectDistinctFeatureObjects.foldLeft(FeatureExprFactory.True)((f, s) => {
+                    simplifyModel.get(s.feature) match {
+                        case Some(l) => l.foldLeft(f)(_ and _)
+                        case _ => f
+                    }
+                })
+                feature.simplify(simpleFM).asInstanceOf[BDDFeatureExpr]
+            }
+
+            interactionDegrees(simplify)
+        } else {
+            // TODO Implement
+            def simplify(feature : BDDFeatureExpr) : BDDFeatureExpr = feature
+            interactionDegrees(simplify)
+        }
+    }
+
+    private def interactionDegrees(simplify : BDDFeatureExpr => BDDFeatureExpr) : (List[(Opt[Statement], Int)], List[(Opt[AST], Int, TypeChefError)]) = {
         // calculate the interaction degree of each statement itself
         val stmtsDegrees: List[(Opt[Statement], Int)] = filterAllASTElems[Statement](tunit).flatMap(stmt => {
-            val stmtFExpr = env.featureExpr(stmt)
-            if (filterAllASTElems[Statement](stmt).size == 1) Some((Opt(stmtFExpr, stmt), calculateInteractionDegree(stmtFExpr, fm)))
+            val stmtFExpr = env.featureExpr(stmt).asInstanceOf[BDDFeatureExpr]
+
+            if (filterAllASTElems[Statement](stmt).size == 1)
+                Some((Opt(stmtFExpr, stmt), calculateInteractionDegree(stmtFExpr, simplify)))
             else None
         })
 
         val errDegrees : List[(Opt[AST], Int, TypeChefError)] = errNodes.flatMap(node => {
-            val stmtFExpr = env.featureExpr(node._2.entry)
-            Some((Opt(stmtFExpr, node._2.entry), calculateInteractionDegree(stmtFExpr, fm), node._1))
+            val stmtFExpr = env.featureExpr(node._2.entry).asInstanceOf[BDDFeatureExpr]
+            Some((Opt(stmtFExpr, node._2.entry), calculateInteractionDegree(stmtFExpr, simplify), node._1))
         })
-
 
         (stmtsDegrees, errDegrees)
     }
@@ -489,18 +514,14 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
         writer.write(stmtDegree._1.entry.toString)
     }
 
-    private def calculateInteractionDegree(fexpr: FeatureExpr, fm: FeatureExpr = FeatureExprFactory.True): Int = {
+    private def calculateInteractionDegree(fExpr: BDDFeatureExpr, simplify : BDDFeatureExpr => BDDFeatureExpr): Int = {
         //interaction degree is the smallest number of variables that need to be set to reproduce the problem
         //we use the shortest path in a BDD as simple way of computing this
 
         //this does not always return the optimal solution, because variable ordering matters!
         //for example (fa and fb) or (fa andNot fb and fc) or (fa.not and fb) will produce a result 2 instead of 1
-
-        //also does not consider the feature model
-
-        val bdd = fexpr.asInstanceOf[BDDFeatureExpr]
-        val simpleBDD = bdd.simplify(fm).asInstanceOf[BDDFeatureExpr]
-        val allsat = simpleBDD.leak().allsat().asInstanceOf[util.LinkedList[Array[Byte]]]
+        val simpleFexpr = simplify(fExpr)
+        val allsat = simpleFexpr.leak().allsat().asInstanceOf[util.LinkedList[Array[Byte]]]
 
         if (allsat.isEmpty) 0
         else allsat.map(_.count(_ >= 0)).min
