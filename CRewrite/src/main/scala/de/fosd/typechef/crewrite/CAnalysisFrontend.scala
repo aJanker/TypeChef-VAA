@@ -455,9 +455,10 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
             println("got simpleMap")
             def simplify(feature : BDDFeatureExpr) : BDDFeatureExpr = {
                 println("trying to simplify " + feature.toTextExpr)
+                val parser = new FeatureExprParser()
                 val simpleFM = feature.collectDistinctFeatureObjects.foldLeft(FeatureExprFactory.True)((f, s) => {
                     simplifyModel.get(s.feature) match {
-                        case Some(l) => l.foldLeft(f)(_ and _)
+                        case Some(l) => l.foldLeft(f)(_ and parser.parse(_))
                         case _ => f
                     }
                 })
