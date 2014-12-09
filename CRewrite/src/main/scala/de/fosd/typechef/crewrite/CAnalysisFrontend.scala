@@ -445,7 +445,11 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
     }
 
     def getInteractionDegrees(simplifyFM : java.io.File ) : (List[(Opt[Statement], Int)], List[(Opt[AST], Int, TypeChefError)]) = {
-        if (simplifyFM.getName.endsWith(".model")) {
+
+        if (simplifyFM == null) {
+            def simplify(feature : BDDFeatureExpr) : BDDFeatureExpr = feature
+            interactionDegrees(simplify)
+        } else if (simplifyFM.getName.endsWith(".model")) {
             val simplifyModel = FeatureToSimplifyModelMap.fill(simplifyFM)
 
             def simplify(feature : BDDFeatureExpr) : BDDFeatureExpr = {
