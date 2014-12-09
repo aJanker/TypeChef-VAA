@@ -450,11 +450,8 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
             def simplify(feature : BDDFeatureExpr) : BDDFeatureExpr = feature
             interactionDegrees(simplify)
         } else if (simplifyFM.getName.endsWith(".model")) {
-            println("start simplify")
             val simplifyModel = FeatureToSimplifyModelMap.fill(simplifyFM)
-            println("got simpleMap")
             def simplify(feature : BDDFeatureExpr) : BDDFeatureExpr = {
-                println("trying to simplify " + feature.toTextExpr)
                 val parser = new FeatureExprParser()
                 val simpleFM = feature.collectDistinctFeatureObjects.foldLeft(FeatureExprFactory.True)((f, s) => {
                     simplifyModel.get(s.feature) match {
@@ -462,9 +459,7 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
                         case _ => f
                     }
                 })
-                println("got simpleFM")
                 val result = feature.simplify(simpleFM).asInstanceOf[BDDFeatureExpr]
-                println("simplified")
                 result
             }
 
