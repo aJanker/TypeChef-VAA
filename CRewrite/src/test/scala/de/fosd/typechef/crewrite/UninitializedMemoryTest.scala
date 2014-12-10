@@ -1,13 +1,13 @@
 package de.fosd.typechef.crewrite
 
-import org.junit.Test
-import org.scalatest.matchers.ShouldMatchers
+import de.fosd.typechef.conditional.Opt
 import de.fosd.typechef.featureexpr.FeatureExprFactory
 import de.fosd.typechef.parser.c._
-import de.fosd.typechef.typesystem.{CTypeCache, CDeclUse, CTypeSystemFrontend}
-import de.fosd.typechef.conditional.Opt
+import de.fosd.typechef.typesystem.{CDeclUse, CTypeCache, CTypeSystemFrontend}
+import org.junit.Test
+import org.scalatest.Matchers
 
-class UninitializedMemoryTest extends TestHelper with ShouldMatchers with CFGHelper with EnforceTreeHelper {
+class UninitializedMemoryTest extends TestHelper with Matchers with CFGHelper with EnforceTreeHelper {
 
     private def getKilledVariables(code: String) = {
         val a = parseFunctionDef(code)
@@ -39,29 +39,29 @@ class UninitializedMemoryTest extends TestHelper with ShouldMatchers with CFGHel
 
     @Test def test_variables() {
         getKilledVariables("void foo(){ int a; }") should be(Map())
-        getKilledVariables("void foo(){ int a = 2; }") should be(Map(Id("a") -> FeatureExprFactory.True))
-        getKilledVariables("void foo(){ int a, b = 1; }") should be(Map(Id("b") -> FeatureExprFactory.True))
-        getKilledVariables("void foo(){ int a = 1, b; }") should be(Map(Id("a") -> FeatureExprFactory.True))
+        getKilledVariables("void foo(){ int a = 2; }") should be(Map((Id("a"), FeatureExprFactory.True)))
+        getKilledVariables("void foo(){ int a, b = 1; }") should be(Map((Id("b"), FeatureExprFactory.True)))
+        getKilledVariables("void foo(){ int a = 1, b; }") should be(Map((Id("a"), FeatureExprFactory.True)))
         getKilledVariables("void foo(){ int *a; }") should be(Map())
-        getKilledVariables("void foo(){ int a; a = 2; }") should be(Map(Id("a") -> FeatureExprFactory.True))
+        getKilledVariables("void foo(){ int a; a = 2; }") should be(Map((Id("a"), FeatureExprFactory.True)))
         getKilledVariables("void foo(){ int a[5]; }") should be(Map())
-        getKilledVariables( """void foo(){
+        getKilledVariables("""void foo(){
               #ifdef A
               int a;
               #endif
               }""".stripMargin) should be(Map())
-        getGeneratedVariables("void foo(){ int a; }") should be(Map(Id("a") -> FeatureExprFactory.True))
+        getGeneratedVariables("void foo(){ int a; }") should be(Map((Id("a"), FeatureExprFactory.True)))
         getGeneratedVariables("void foo(){ int a = 2; }") should be(Map())
-        getGeneratedVariables("void foo(){ int a, b = 1; }") should be(Map(Id("a") -> FeatureExprFactory.True))
-        getGeneratedVariables("void foo(){ int a = 1, b; }") should be(Map(Id("b") -> FeatureExprFactory.True))
-        getGeneratedVariables("void foo(){ int *a; }") should be(Map(Id("a") -> FeatureExprFactory.True))
+        getGeneratedVariables("void foo(){ int a, b = 1; }") should be(Map((Id("a"), FeatureExprFactory.True)))
+        getGeneratedVariables("void foo(){ int a = 1, b; }") should be(Map((Id("b"), FeatureExprFactory.True)))
+        getGeneratedVariables("void foo(){ int *a; }") should be(Map((Id("a"), FeatureExprFactory.True)))
         getGeneratedVariables("void foo(int a){ a = 2; }") should be(Map())
-        getGeneratedVariables("void foo(){ int a[5]; }") should be(Map(Id("a") -> FeatureExprFactory.True))
-        getGeneratedVariables( """void foo(){
+        getGeneratedVariables("void foo(){ int a[5]; }") should be(Map((Id("a"), FeatureExprFactory.True)))
+        getGeneratedVariables("""void foo(){
               #ifdef A
               int a;
               #endif
-              }""".stripMargin) should be(Map(Id("a") -> fa))
+              }""".stripMargin) should be(Map((Id("a"), fa)))
     }
 
     @Test def test_uninitialized_memory_simple() {

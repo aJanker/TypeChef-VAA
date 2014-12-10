@@ -35,7 +35,7 @@ class PPFilesTest extends TestHelper {
     def checkPositionInformation(ast: Product): List[Product] = {
         assert(ast != null)
         var nodeswithoutposition: List[Product] = List()
-        val checkpos = everywherebu(query {
+        val checkpos = everywherebu(query[Product] {
             case a: AST => if (!a.hasPosition) nodeswithoutposition ::= a
         })
         checkpos(ast)
@@ -60,7 +60,7 @@ class PPFilesTest extends TestHelper {
         parseFile("boa/ip.pi")
     }
 
-    @Test
+    @Test@Ignore("this tests needs a lot of stack space and will result in a stack overflow in kiama if not started with more memory")
     def testLineEditPi() {
         parseFile("other/lineedit.pi")
     }

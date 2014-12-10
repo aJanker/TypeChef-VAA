@@ -1,53 +1,11 @@
 package de.fosd.typechef.typesystem
 
 
-import de.fosd.typechef.conditional._
-import ConditionalLib._
-import _root_.de.fosd.typechef.parser.c._
-import _root_.de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr}
-import de.fosd.typechef.parser.c.AttributeSequence
-import de.fosd.typechef.parser.c.PlainParameterDeclaration
-import de.fosd.typechef.parser.c.UnsignedSpecifier
-import de.fosd.typechef.parser.c.EnumSpecifier
-import de.fosd.typechef.parser.c.VarArgs
-import scala.Some
-import de.fosd.typechef.parser.c.TypeDefTypeSpecifier
-import de.fosd.typechef.parser.c.VoidSpecifier
-import de.fosd.typechef.parser.c.DoubleSpecifier
-import de.fosd.typechef.conditional.One
-import de.fosd.typechef.parser.c.DeclParameterDeclList
-import de.fosd.typechef.parser.c.Pointer
-import de.fosd.typechef.parser.c.CharSpecifier
-import de.fosd.typechef.parser.c.Id
-import de.fosd.typechef.parser.c.ShortSpecifier
-import de.fosd.typechef.conditional.Opt
-import de.fosd.typechef.parser.c.TypeOfSpecifierU
-import de.fosd.typechef.parser.c.LongSpecifier
-import de.fosd.typechef.parser.c.GnuAttributeSpecifier
-import de.fosd.typechef.parser.c.StructInitializer
-import de.fosd.typechef.parser.c.ParameterDeclarationAD
-import de.fosd.typechef.parser.c.StructDeclarator
-import de.fosd.typechef.parser.c.TypedefSpecifier
-import de.fosd.typechef.parser.c.AtomicNamedDeclarator
-import de.fosd.typechef.parser.c.OtherPrimitiveTypeSpecifier
-import de.fosd.typechef.parser.c.StructOrUnionSpecifier
-import de.fosd.typechef.parser.c.ExternSpecifier
-import de.fosd.typechef.conditional.Choice
-import de.fosd.typechef.parser.c.AtomicAttribute
-import de.fosd.typechef.parser.c.DeclArrayAccess
-import de.fosd.typechef.parser.c.Declaration
-import de.fosd.typechef.parser.c.NestedAbstractDeclarator
-import de.fosd.typechef.parser.c.DeclIdentifierList
-import de.fosd.typechef.parser.c.TypeOfSpecifierT
-import de.fosd.typechef.parser.c.SignedSpecifier
-import de.fosd.typechef.parser.c.StructDeclaration
-import de.fosd.typechef.parser.c.IntSpecifier
-import de.fosd.typechef.parser.c.ParameterDeclarationD
-import de.fosd.typechef.parser.c.TypeName
-import de.fosd.typechef.parser.c.AtomicAbstractDeclarator
-import de.fosd.typechef.parser.c.NestedNamedDeclarator
-import de.fosd.typechef.parser.c.FloatSpecifier
+import _root_.de.fosd.typechef.featureexpr.{FeatureExpr, FeatureExprFactory}
+import de.fosd.typechef.conditional.ConditionalLib._
+import de.fosd.typechef.conditional.{Choice, One, Opt, _}
 import de.fosd.typechef.error._
+import de.fosd.typechef.parser.c.{AtomicAbstractDeclarator, AtomicAttribute, AtomicNamedDeclarator, AttributeSequence, CharSpecifier, DeclArrayAccess, DeclIdentifierList, DeclParameterDeclList, Declaration, DoubleSpecifier, EnumSpecifier, ExternSpecifier, FloatSpecifier, GnuAttributeSpecifier, Id, IntSpecifier, LongSpecifier, NestedAbstractDeclarator, NestedNamedDeclarator, OtherPrimitiveTypeSpecifier, ParameterDeclarationAD, ParameterDeclarationD, PlainParameterDeclaration, Pointer, ShortSpecifier, SignedSpecifier, StructDeclaration, StructDeclarator, StructInitializer, StructOrUnionSpecifier, TypeDefTypeSpecifier, TypeName, TypeOfSpecifierT, TypeOfSpecifierU, TypedefSpecifier, UnsignedSpecifier, VarArgs, VoidSpecifier, _}
 
 /**
  * parsing types from declarations (top level declarations, parameters, etc)
@@ -98,14 +56,14 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
      * remove when problem is fixed
      */
     protected def filterDeadSpecifiers[T](l: List[Opt[T]], ctx: FeatureExpr): List[Opt[T]] =
-        l.filter(o => ((o.feature) and ctx).isSatisfiable)
+        l.filter(o => ((o.condition) and ctx).isSatisfiable)
 
 
     def constructType(specifiers: List[Opt[Specifier]], featureExpr: FeatureExpr, env: Env, locationForErrorMsg: AST): Conditional[CType] = {
         val specifiersFiltered = filterDeadSpecifiers(specifiers, featureExpr)
         //unwrap variability
         val exploded: Conditional[List[Specifier]] = explodeOptList(specifiersFiltered)
-        Conditional.combine(exploded.mapf(featureExpr, (ctx, specList) => constructTypeOne(specList, ctx, env, locationForErrorMsg))) simplify (featureExpr)
+        ConditionalLib.combine(exploded.vmap(featureExpr, (ctx, specList) => constructTypeOne(specList, ctx, env, locationForErrorMsg))) simplify (featureExpr)
     }
 
 
@@ -114,7 +72,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
         specifiers.exists(isTransparentUnionAttribute(_, FeatureExprFactory.True))
 
     private def hasTransparentUnionAttributeOpt(specifiers: List[Opt[Specifier]]): Boolean =
-        specifiers.exists(o => isTransparentUnionAttribute(o.entry, o.feature))
+        specifiers.exists(o => isTransparentUnionAttribute(o.entry, o.condition))
 
     private def isTransparentUnionAttribute(specifier: Specifier, featureContext: FeatureExpr): Boolean =
         specifier match {
@@ -156,16 +114,13 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
                 else
                     types = types :+ One(CAnonymousStruct(parseStructMembers(members.getOrElse(Nil), featureExpr, env), isUnion).toCType)
             case e@TypeDefTypeSpecifier(i@Id(typedefname)) => {
-
-                /**
-                 * CDeclUse:
-                 * Add typedef usage to usages.
-                 */
+                // CDeclUse: Add typedef usage to usages.
                 addTypeUse(i, env, featureExpr)
+
                 val typedefEnvironment = env.typedefEnv
                 //typedef name can be shadowed by variable
                 val shadow = env.varEnv(typedefname).simplify(featureExpr)
-                types = types :+ shadow.mapfr(featureExpr, {
+                types = types :+ shadow.vflatMap(featureExpr, {
                     case (f, t) if t.isUnknown => //normal case: there is no variable by that name
                         if (typedefEnvironment contains typedefname) typedefEnvironment(typedefname)
                         else One(reportTypeError(f, "type not defined " + typedefname, e, Severity.Crash).toCType) //should not occur, because the parser should reject this already. exceptions could be caused by local type declarations
@@ -213,7 +168,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
             types = types :+ One(CDouble().toCType)
         if (has(FloatSpecifier()))
             types = types :+ One(CFloat().toCType)
-        if ((isSigned || isUnsigned || has(IntSpecifier())) && !has(ShortSpecifier()) && !has(LongSpecifier())  && !has(Int128Specifier()) && !has(CharSpecifier()))
+        if ((isSigned || isUnsigned || has(IntSpecifier())) && !has(ShortSpecifier()) && !has(LongSpecifier()) && !has(Int128Specifier()) && !has(CharSpecifier()))
             types = types :+ sign(CInt())
         if (has(OtherPrimitiveTypeSpecifier("_Bool")))
             types = types :+ One(CBool().toCType)
@@ -250,7 +205,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
     private def noInitCheck = (a: Expr, b: Conditional[CType], c: FeatureExpr, d: Env) => {}
 
 
-    protected def checkStructCompletenessC(ctype: Conditional[CType], expr: FeatureExpr, env: Env, where: AST, checkedStructs: List[String] = Nil): Unit = ctype mapf(expr, {
+    protected def checkStructCompletenessC(ctype: Conditional[CType], expr: FeatureExpr, env: Env, where: AST, checkedStructs: List[String] = Nil): Unit = ctype vmap(expr, {
         (f, t) => checkStructCompleteness(t, f, env, where, checkedStructs)
     })
 
@@ -278,7 +233,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
      * under which condition is modifier extern defined?
      */
     def getIsExtern(list: List[Opt[Specifier]]): FeatureExpr =
-        list.filter(_.entry == ExternSpecifier()).map(_.feature).fold(FeatureExprFactory.False)(_ or _)
+        list.filter(_.entry == ExternSpecifier()).map(_.condition).fold(FeatureExprFactory.False)(_ or _)
 
     /**
      * get a list of all declared variables from a declaration.
@@ -356,24 +311,13 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
             case EnumSpecifier(optId, Some(enums)) =>
                 for (Opt(f2, enum) <- enums) {
                     enum.assignment.map(checkEnumInitializer(_, f and f2 and featureExpr, localEnv))
-
-                    /**
-                     * CDeclUse:
-                     * Add enum member Ids to Declarations
-                     */
-                    addDefinition(enum.id, env, f and f2 and featureExpr)
+                    addDefinition(enum.id, env, f and f2 and featureExpr) // CDeclUse: Add enum member Ids to Declarations
                     localEnv = localEnv.addVar(enum.id.name, featureExpr and f and f2, enum, One(CSigned(CInt()).toCType), KEnumVar, env.scope, One(NoLinkage))
                     result = (enum.id.name, featureExpr and f and f2, enum, One(CSigned(CInt()).toCType), KEnumVar, One(NoLinkage)) :: result
                 }
             //recurse into structs
             case EnumSpecifier(Some(i: Id), None) =>
-
-                /**
-                 * CDeclUse:
-                 * Add enum usage to usages
-                 */
-                addEnumUse(i, env, featureExpr)
-                result
+                addEnumUse(i, env, featureExpr) // CDeclUse: Add enum usage to usages
             case StructOrUnionSpecifier(_, _, fields, _, _) =>
                 for (Opt(f2, structDeclaration) <- fields.getOrElse(Nil))
                     result = result ++ enumDeclarations(structDeclaration.qualifierList, featureExpr and f and f2, structDeclaration, env)
@@ -447,7 +391,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
     }
 
     private def decorateDeclaratorExt(t: Conditional[CType], extensions: List[Opt[DeclaratorExtension]], featureExpr: FeatureExpr, env: Env, oldStyleParameterTypes: ConditionalTypeMap = null): Conditional[CType] =
-        conditionalFoldRightFR(extensions.reverse, t, featureExpr,
+        vfoldRight(extensions.reverse, t, featureExpr,
             (fexpr: FeatureExpr, ext: DeclaratorExtension, rtype: CType) => ext match {
                 case o@DeclIdentifierList(idList) =>
                     if (!idList.isEmpty && oldStyleParameterTypes == null)
@@ -473,7 +417,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
         )
 
     private def decorateDeclaratorPointer(t: Conditional[CType], pointers: List[Opt[Pointer]]): Conditional[CType] =
-        ConditionalLib.conditionalFoldRight(pointers, t, (a: Pointer, b: CType) => b.map(CPointer(_)))
+        ConditionalLib.vfoldRightS(pointers, t, (a: Pointer, b: CType) => b.map(CPointer(_)))
 
 
     private def getParameterTypes(parameterDecls: List[Opt[ParameterDeclaration]], featureExpr: FeatureExpr, env: Env): List[Opt[CType]] = {
@@ -485,7 +429,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
                 Opt(f, getAbstractDeclaratorType(decl, constructType(specifiers, featureExpr and f, env, p), featureExpr and f, env))
             case VarArgs() => Opt(f, One(CVarArgs().toCType))
         }
-        Conditional.flatten(r)
+        ConditionalLib.flatten(r)
     }
 
     def addStructDeclarationToEnv(e: StructDeclaration, featureExpr: FeatureExpr, env: Env): Env;
@@ -592,7 +536,7 @@ trait CDeclTyping extends CTypes with CEnv with CTypeSystemInterface with CDeclU
     protected def getStaticCondition(specifiers: List[Opt[Specifier]]): FeatureExpr = getSpecifierCondition(specifiers, StaticSpecifier())
     protected def getExternCondition(specifiers: List[Opt[Specifier]]): FeatureExpr = getSpecifierCondition(specifiers, ExternSpecifier())
     protected def getSpecifierCondition(specifiers: List[Opt[Specifier]], specifier: Specifier): FeatureExpr =
-        specifiers.filter(_.entry == specifier).foldLeft(FeatureExprFactory.False)((f, o) => f or o.feature)
+        specifiers.filter(_.entry == specifier).foldLeft(FeatureExprFactory.False)((f, o) => f or o.condition)
 
     /**
      * linkage depends on previous identifiers in scope, on the scope (file level or not) and the specifiers

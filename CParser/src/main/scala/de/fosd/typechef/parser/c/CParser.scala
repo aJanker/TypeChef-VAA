@@ -41,9 +41,7 @@ class CParser(featureModel: FeatureModel = null, debugOutput: Boolean = false) e
     }
 
     def externalList: MultiParser[List[Opt[ExternalDef]]] =
-        repOpt(externalDef, "externalDef") ^^ {
-            Conditional.flatten(_)
-        }
+        repOpt(externalDef, "externalDef") ^^ ConditionalLib.flatten
 
     def externalDef: MultiParser[Conditional[ExternalDef]] =
     // first part (with lookahead) only for error reporting, i.e.don 't try to parse anything else after a typedef
@@ -309,9 +307,7 @@ class CParser(featureModel: FeatureModel = null, debugOutput: Boolean = false) e
     //    private def compoundStatementCond: MultiParser[Conditional[CompoundStatement]] = compoundStatement ^^ {One(_)}
 
     def statementList: MultiParser[List[Opt[Statement]]] =
-        repOpt(compoundDeclaration | statement, "statement") ^^ {
-            Conditional.flatten(_)
-        }
+        repOpt(compoundDeclaration | statement, "statement") ^^ ConditionalLib.flatten
 
     def statement: MultiParser[Conditional[Statement]] = (SEMI ^^ {
         _ => EmptyStatement()
@@ -585,7 +581,7 @@ class CParser(featureModel: FeatureModel = null, debugOutput: Boolean = false) e
     def stringConst: MultiParser[StringLit] =
         (rep1(token("string literal", _.isString))
             ^^ {
-            (list: List[Opt[AbstractToken]]) => StringLit(list.map(o => Opt(o.feature, o.entry.getText)))
+            (list: List[Opt[AbstractToken]]) => StringLit(list.map(o => Opt(o.condition, o.entry.getText)))
         })
 
     def numConst: MultiParser[Constant] =
