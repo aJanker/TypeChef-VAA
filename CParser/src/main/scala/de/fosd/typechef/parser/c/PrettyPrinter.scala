@@ -231,10 +231,10 @@ object PrettyPrinter {
 
         def sepsVaware(l: List[Opt[String]], selem: String, breakselem: Doc = space) = {
             var res: Doc = if (l.isEmpty) Empty else l.head
-            var combCtx: FeatureExpr = if (l.isEmpty) FeatureExprFactory.True else l.head.feature
+            var combCtx: FeatureExpr = if (l.isEmpty) FeatureExprFactory.True else l.head.condition
 
             for (celem <- l.drop(1)) {
-                val selemfexp = combCtx.and(celem.feature)
+                val selemfexp = combCtx.and(celem.condition)
 
                 // separation element is never present
                 if (selemfexp.isContradiction())
@@ -254,7 +254,7 @@ object PrettyPrinter {
 
                 // add current feature expression as it might influence the addition of selem for
                 // the remaint elements of the input list l
-                combCtx = combCtx.or(celem.feature)
+                combCtx = combCtx.or(celem.condition)
             }
 
             res

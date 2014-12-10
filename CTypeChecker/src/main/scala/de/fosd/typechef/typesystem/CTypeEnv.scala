@@ -79,29 +79,11 @@ trait CTypeEnv extends CTypes with CTypeSystemInterface with CEnv with CDeclTypi
              * Struct declaration to an existing struct forward declaration in a context where
              * Struct declaration context implies forward declaration context
              */
+
             val isAlreadyDefined = initEnv.structEnv.whenHasDefinitionWithId(name, isUnion)
             addStructRedeclaration(initEnv, i, featureExpr and isAlreadyDefined, isUnion)
             addStructDefinition(i, initEnv, featureExpr andNot isAlreadyDefined) //CDeclUse: Struct declaration
 
-            // println(initEnv.structEnv.getId(name, isUnion))
-            val isAlreadyDefined = initEnv.structEnv.someDefinition(name, isUnion, featureExpr)
-            val isDefinedInImpliedContext = initEnv.structEnv.someImpliedDefinition(name, isUnion, featureExpr)
-            //println(isDefinedInImpliedContext)
-            if (!isAlreadyDefined && isDefinedInImpliedContext) {
-                /**
-                 * CDeclUse:
-                 * Struct declaration to an existing struct forward declaration in a context where
-                 * Struct declaration context implies forward declaration context
-                 */
-                addStructRedeclaration(initEnv, i, featureExpr, isUnion)
-            }
-            if (!isAlreadyDefined) {
-                /**
-                 * CDeclUse:
-                 * Struct declaration
-                 */
-                addStructDefinition(i, initEnv, featureExpr)
-            }
             //for parsing the inner members, the struct itself is available incomplete
             var env = initEnv.updateStructEnv(initEnv.structEnv.addIncomplete(i, isUnion, featureExpr, initEnv.scope))
             attributes.foreach(x => addDefinition(x.entry, env))
