@@ -482,7 +482,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         (stmtsDegrees, warnDegrees, errDegrees)
     }
 
-    def writeWarnDegrees(warnDegrees : List[(Int, TypeChefError)], writer: Writer) = {
+    def writeWarningDegrees(warnDegrees : List[(Int, TypeChefError)], writer: Writer) = {
         warnDegrees.foreach(entry => {
             writer.write(entry._1)
             writer.write(" \tFeature: ")
