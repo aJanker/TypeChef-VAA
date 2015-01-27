@@ -246,9 +246,6 @@ sealed abstract class MonotoneFW[T](env: ASTEnv, val fm: FeatureModel) extends I
         // remove them and filter out values from unsatisfiable paths.
         res.distinct.filter { case (_, fexp) => fexp.isSatisfiable(fm) }
     }
-
-    def in(a: AST) = if (isForward) getValues(a, {_._1} ) else getValues(a, { _._2 } )
-    def out(a: AST) = if (isForward) getValues(a, {_._2} ) else getValues(a, { _._1 } )
 }
 
 // specialization of MonotoneFW for Ids (Var); helps to reduce code cloning, i.e., cloning of t2T, ...

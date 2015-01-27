@@ -53,7 +53,7 @@ class CInterAnalysisFrontend(tunit: TranslationUnit, fm: FeatureModel = FeatureE
 }
 
 // TODO: refactoring different dataflow analyses into a composite will reduce code: handling of invalid paths, error printing ...
-class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend with CDeclUse, fm: FeatureModel = FeatureExprFactory.empty) extends CAnalysisFrontend(tunit) with IntraCFG {
+class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend with CDeclUse, fm: FeatureModel = FeatureExprFactory.empty) extends CAnalysisFrontend(tunit) with IntraCFG {
 
     private lazy val udm = ts.getUseDeclMap
     private lazy val dum = ts.getDeclUseMap
@@ -105,7 +105,6 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
                             err ::= new TypeChefError(Severity.Warning, fi, "warning: Variable " + i.name + " is a dead store!", i, "")
                             errNodes ::= (err.last, Opt(env.featureExpr(i), i))
                         }
-                    }
                     case Some((x, z)) => {
                         if (! z.isTautology(fm)) {
                             var xdecls = getDecls(x)
@@ -165,16 +164,17 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
             if (g.size > 0) {
                 val in = df.in(s)
 
-            for (((i, _), h) <- in)
-                g.find { case ((t, _), _) => t == i } match {
-                    case None =>
-                    case Some(((x, _), _)) => {
-                        if (h.isSatisfiable(fm)) {
-                            var xdecls = getDecls(x)
-                            var idecls = getDecls(i)
-                            for (ei <- idecls)
-                                if (xdecls.exists(_.eq(ei)))
-                                    err ::= new TypeChefError(Severity.Warning, h, "warning: Variable " + x.name + " is freed multiple times!", x, "")
+                for (((i, _), h) <- in)
+                    g.find { case ((t, _), _) => t == i} match {
+                        case None =>
+                        case Some(((x, _), _)) => {
+                            if (h.isSatisfiable(fm)) {
+                                var xdecls = getDecls(x)
+                                var idecls = getDecls(i)
+                                for (ei <- idecls)
+                                    if (xdecls.exists(_.eq(ei)))
+                                        err ::= new TypeChefError(Severity.Warning, h, "warning: Variable " + x.name + " is freed multiple times!", x, "")
+                            }
                         }
                     }
             }

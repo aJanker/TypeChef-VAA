@@ -185,7 +185,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
 
                 if (opt.staticanalyses) {
                     println("#static analysis")
-                    val sa = new CIntraAnalysisFrontend(ast, ts.asInstanceOf[CTypeSystemFrontend with CTypeCache with CDeclUse], fullFM)
+                    val sa = new CIntraAnalysisFrontendF(ast, ts.asInstanceOf[CTypeSystemFrontend with CTypeCache with CDeclUse], fullFM)
                     if (opt.warning_double_free) {
                         stopWatch.start("doublefree")
                         sa.doubleFree()

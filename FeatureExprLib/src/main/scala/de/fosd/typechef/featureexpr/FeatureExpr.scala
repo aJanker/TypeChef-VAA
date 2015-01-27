@@ -27,14 +27,6 @@ trait FeatureExpr extends Serializable {
      */
     @deprecated("use simplify(b:FeatureExpr) instead", "revision bee6c4f5")
     def diff(b:FeatureExpr) : FeatureExpr = simplify(b)
-    /**
-     * Informal: Returns all the information in this that is not present in b.
-     * this.simplify(b) is equivialent to this if the context b is guaranteed
-     * Formal: (b implies (this.simplify(b) equiv this))
-     * @param b
-     * @return
-     */
-    def simplify(b:FeatureExpr) : FeatureExpr
 
 
     // returns this expression as scala object
