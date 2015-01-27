@@ -5,6 +5,7 @@ import java.io._
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
 import de.fosd.typechef.crewrite._
+import de.fosd.typechef.error.Severity
 import de.fosd.typechef.featureexpr.{FeatureExprParser, FeatureExprFactory}
 import de.fosd.typechef.options.{FrontendOptions, FrontendOptionsWithConfigFiles, OptionException}
 import de.fosd.typechef.parser.TokenReader
@@ -185,6 +186,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
 
                 if (opt.staticanalyses) {
                     println("#static analysis")
+
                     val sa = new CIntraAnalysisFrontendF(ast, ts.asInstanceOf[CTypeSystemFrontend with CTypeCache with CDeclUse], fullFM)
                     if (opt.warning_double_free) {
                         stopWatch.start("doublefree")
@@ -225,9 +227,11 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
 
                         //write interaction degress
                         val stmtWriter = new FileWriter(new File(opt.getStmtInteractionDegreeFilename))
+                        val warningWriter = new FileWriter(new File(opt.getWarningStmtInteractionDegreeFilename))
                         val errorWriter = new FileWriter(new File(opt.getErrorStmtInteractionDegreeFilename))
                         sa.writeStatementDegrees(degrees._1, stmtWriter)
-                        sa.writeErrorDegress(degrees._2, errorWriter)
+                        sa.writeWarningDegrees(degrees._2, warningWriter)
+                        sa.writeErrorDegrees(degrees._3, errorWriter)
                         stmtWriter.close()
                         errorWriter.close()
                     }

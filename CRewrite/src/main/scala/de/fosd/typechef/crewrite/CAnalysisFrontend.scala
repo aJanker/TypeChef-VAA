@@ -422,7 +422,8 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         err
     }
 
-    def getInteractionDegrees(simplifyFM : java.io.File ) : (List[(Opt[Statement], Int)], List[(Opt[AST], Int, TypeChefError)]) = {
+    def getInteractionDegrees(simplifyFM : java.io.File ) : (List[(Opt[Statement], Int)],
+        List[(Int, TypeChefError)], List[(Opt[AST], Int, TypeChefError)]) = {
 
         if (simplifyFM == null) {
             def simplify(feature : BDDFeatureExpr) : BDDFeatureExpr = feature
@@ -456,7 +457,8 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         }
     }
 
-    private def interactionDegrees(simplify : BDDFeatureExpr => BDDFeatureExpr) : (List[(Opt[Statement], Int)], List[(Opt[AST], Int, TypeChefError)]) = {
+    private def interactionDegrees(simplify : BDDFeatureExpr => BDDFeatureExpr) : (List[(Opt[Statement], Int)],
+        List[(Int, TypeChefError)], List[(Opt[AST], Int, TypeChefError)]) = {
         // calculate the interaction degree of each statement itself
         val stmtsDegrees: List[(Opt[Statement], Int)] = filterAllASTElems[Statement](tunit).flatMap(stmt => {
             val stmtFExpr = env.featureExpr(stmt).asInstanceOf[BDDFeatureExpr]
@@ -466,15 +468,33 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
             else None
         })
 
+        val warnDegrees: List[(Int, TypeChefError)] =
+            ts.getASTerrors(false).filter(Set(Severity.Warning, Severity.SecurityWarning) contains _.severity).flatMap(warning => {
+               val warnFEXpr = warning.condition.asInstanceOf[BDDFeatureExpr] //TODO add ast element
+               Some(calculateInteractionDegree(warnFEXpr, simplify), warning)
+            })
+
         val errDegrees : List[(Opt[AST], Int, TypeChefError)] = errNodes.flatMap(node => {
             val stmtFExpr = env.featureExpr(node._2.entry).asInstanceOf[BDDFeatureExpr]
             Some((Opt(stmtFExpr, node._2.entry), calculateInteractionDegree(stmtFExpr, simplify), node._1))
         })
 
-        (stmtsDegrees, errDegrees)
+        (stmtsDegrees, warnDegrees, errDegrees)
     }
 
-    def writeErrorDegress(errorDegrees: List[(Opt[AST], Int, TypeChefError)], writer: Writer) = {
+    def writeWarnDegrees(warnDegrees : List[(Int, TypeChefError)], writer: Writer) = {
+        warnDegrees.foreach(entry => {
+            writer.write(entry._1)
+            writer.write(" \tFeature: ")
+            writer.write(entry._2.condition.toString)
+
+            writer.write(" \tError: ")
+            writer.write(entry._2.toString)
+            writer.write("\n==========\n")
+        })
+    }
+
+    def writeErrorDegrees(errorDegrees: List[(Opt[AST], Int, TypeChefError)], writer: Writer) = {
         errorDegrees.foreach(entry => {
             writeDegree((entry._1, entry._2), writer)
             writer.write(" \tPriror Statemnet: ")

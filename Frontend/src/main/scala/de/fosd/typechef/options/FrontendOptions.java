@@ -273,6 +273,10 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
         return outputStem + ".stmt.degree";
     }
 
+    public String getWarningStmtInteractionDegreeFilename() {
+        return outputStem + ".stmt.warn.degree";
+    }
+
     public String getErrorStmtInteractionDegreeFilename() {
         return outputStem + ".stmt.error.degree";
     }
