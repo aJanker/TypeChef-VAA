@@ -41,6 +41,15 @@ trait FeatureExpr extends Serializable {
     // The expression def(A)&!def(B)  returns  FeatureExprFactory.createDefinedExternal("A") and FeatureExprFactory.createDefinedExternal("B").not()
     def toScalaString: String
 
+    /**
+     * Informal: Returns all the information in this that is not present in b.
+     * this.simplify(b) is equivialent to this if the context b is guaranteed
+     * Formal: (b implies (this.simplify(b) equiv this))
+     * @param b
+     * @return
+     */
+    def simplify(b:FeatureExpr) : FeatureExpr
+
     //equals, hashcode
 
 

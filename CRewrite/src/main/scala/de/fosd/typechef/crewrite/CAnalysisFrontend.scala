@@ -34,7 +34,7 @@ class CInterAnalysisFrontend(tunit: TranslationUnit, fm: FeatureModel = FeatureE
 
         def lookupFExpr(e: AST): FeatureExpr = e match {
             case o if env.isKnown(o) => env.featureExpr(o)
-            case e: ExternalDef => externalDefFExprs.get(e).getOrElse(FeatureExprFactory.True)
+            case e: ExternalDef => externalDefFExprs.getOrElse(e, FeatureExprFactory.True)
             case _ => FeatureExprFactory.True
         }
 
@@ -57,6 +57,11 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
 
     private lazy val udm = ts.getUseDeclMap
     private lazy val dum = ts.getDeclUseMap
+
+    private def getDecls(key: Id): List[Id] = {
+        if (! udm.containsKey(key)) List(key)
+        else udm.get(key).filter { d => env.featureExpr(d) and env.featureExpr(key) isSatisfiable fm }
+    }
 
     private val fanalyze = fdefs.map {
         x => (x, getAllSucc(x, env).filterNot {x => x._1.isInstanceOf[FunctionDef]})
@@ -82,11 +87,9 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
     private def deadStore(fa: (FunctionDef, List[(AST, List[Opt[AST]])])): List[TypeChefError] = {
         var err: List[TypeChefError] = List()
 
-        val df = new Liveness(fa._1, env, udm, FeatureExprFactory.empty)
+        val df = new Liveness(env, udm, FeatureExprFactory.empty)
 
         val nss = fa._2.map(_._1)
-
-        println("analyzing " + fa._1.getName + " with " + nss.size + " cfg stmts and " + fa._2.map(_._2.size).sum + " succs")
 
         for (s <- nss) {
             for ((i, fi) <- df.kill(s)) {
@@ -97,22 +100,16 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
                 if (dum.containsKey(i) && dum.get(i).size > 0) {}
                 else out.find {case (t, _) => t == i} match {
                     case None => {
-                        var idecls = udm.get(i)
-                        if (idecls == null)
-                            idecls = List(i)
-                        if (idecls.exists(isPartOf(_, fa._1)))  {
+                        var idecls = getDecls(i)
+                        if (idecls.exists(isPartOf(_, fa._1)))
                             err ::= new TypeChefError(Severity.Warning, fi, "warning: Variable " + i.name + " is a dead store!", i, "")
                             errNodes ::= (err.last, Opt(env.featureExpr(i), i))
                         }
                     }
                     case Some((x, z)) => {
-                        if (!z.isTautology(fm)) {
-                            var xdecls = udm.get(x)
-                            if (xdecls == null)
-                                xdecls = List(x)
-                            var idecls = udm.get(i)
-                            if (idecls == null)
-                                idecls = List(i)
+                        if (! z.isTautology(fm)) {
+                            var xdecls = getDecls(x)
+                            var idecls = getDecls(i)
                             for (ei <- idecls) {
                                 // with isPartOf we reduce the number of false positives, since we only check local variables and function parameters.
                                 // an assignment to a global variable might be used in another function
@@ -159,7 +156,7 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
         var err: List[TypeChefError] = List()
         var errNode: List[AST] = List()
 
-        val df = new DoubleFree(env, dum, udm, FeatureExprFactory.empty, fa._1, casestudy)
+        val df = new DoubleFree(env, dum, udm, FeatureExprFactory.empty, casestudy)
 
         val nss = fa._2.map(_._1).filterNot(x => x.isInstanceOf[FunctionDef])
 
@@ -168,23 +165,16 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
             if (g.size > 0) {
                 val in = df.in(s)
 
-                for (((i, _), h) <- in)
-                    g.find {case ((t, _), _) => t == i} match {
-                        case None =>
-                        case Some(((x, _), _)) => {
-                            if (h.isSatisfiable(fm)) {
-                                var xdecls = udm.get(x)
-                                if (xdecls == null)
-                                    xdecls = List(x)
-                                var idecls = udm.get(i)
-                                if (idecls == null)
-                                    idecls = List(i)
-                                for (ei <- idecls)
-                                    if (xdecls.exists(_.eq(ei))) {
-                                        err ::= new TypeChefError(Severity.Warning, h, "warning: Variable " + x.name + " is freed multiple times!", x, "")
-                                        errNodes ::= (err.last, Opt(h, x))
-                                }
-                            }
+            for (((i, _), h) <- in)
+                g.find { case ((t, _), _) => t == i } match {
+                    case None =>
+                    case Some(((x, _), _)) => {
+                        if (h.isSatisfiable(fm)) {
+                            var xdecls = getDecls(x)
+                            var idecls = getDecls(i)
+                            for (ei <- idecls)
+                                if (xdecls.exists(_.eq(ei)))
+                                    err ::= new TypeChefError(Severity.Warning, h, "warning: Variable " + x.name + " is freed multiple times!", x, "")
                         }
                     }
             }
@@ -211,7 +201,7 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
     private def uninitializedMemory(fa: (FunctionDef, List[(AST, List[Opt[AST]])])): List[TypeChefError] = {
         var err: List[TypeChefError] = List()
 
-        val um = new UninitializedMemory(env, dum, udm, FeatureExprFactory.empty, fa._1)
+        val um = new UninitializedMemory(env, dum, udm, FeatureExprFactory.empty)
         val nss = fa._2.map(_._1).filterNot(x => x.isInstanceOf[FunctionDef])
 
         for (s <- nss) {
@@ -224,12 +214,8 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
                         case None =>
                         case Some(((x, _), _)) => {
                             if (h.isSatisfiable(fm)) {
-                                var xdecls = udm.get(x)
-                                if (xdecls == null)
-                                    xdecls = List(x)
-                                var idecls = udm.get(i)
-                                if (idecls == null)
-                                    idecls = List(i)
+                                var xdecls = getDecls(x)
+                                var idecls = getDecls(i)
                                 for (ei <- idecls)
                                     if (xdecls.exists(_.eq(ei))) {
                                         err ::= new TypeChefError(Severity.Warning, h, "warning: Variable " + x.name + " is used uninitialized!", x, "")
@@ -262,7 +248,7 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
     private def xfree(fa: (FunctionDef, List[(AST, List[Opt[AST]])])): List[TypeChefError] = {
         var err: List[TypeChefError] = List()
 
-        val xf = new XFree(env, dum, udm, FeatureExprFactory.empty, fa._1, "")
+        val xf = new XFree(env, dum, udm, FeatureExprFactory.empty, "")
         val nss = fa._2.map(_._1).filterNot(x => x.isInstanceOf[FunctionDef])
 
         for (s <- nss) {
@@ -275,12 +261,8 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
                         case None =>
                         case Some(x) => {
                             if (h.isSatisfiable(fm)) {
-                                var xdecls = udm.get(x)
-                                var idecls = udm.get(i)
-                                if (idecls == null)
-                                    idecls = List(i)
-                                if (xdecls == null)
-                                    xdecls = List(x)
+                                val xdecls = getDecls(x)
+                                var idecls = getDecls(i)
                                 for (ei <- idecls)
                                     if (xdecls.exists(_.eq(ei))) {
                                         err ::= new TypeChefError(Severity.Warning, h, "warning: Variable " + x.name + " is freed although not dynamically allocted!", x, "")
@@ -392,9 +374,9 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
     private def stdLibFuncReturn(fa: (FunctionDef, List[(AST, List[Opt[AST]])])): List[TypeChefError] = {
         var err: List[TypeChefError] = List()
         val cl: List[StdLibFuncReturn] = List(
-            //new StdLibFuncReturn_EOF(env, dum, udm, fm, fa._1),
+            //new StdLibFuncReturn_EOF(env, dum, udm, fm),
 
-            new StdLibFuncReturn_Null(env, dum, udm, FeatureExprFactory.empty, fa._1)
+            new StdLibFuncReturn_Null(env, dum, udm, FeatureExprFactory.empty)
         )
 
         for ((s, _) <- fa._2) {
@@ -420,12 +402,8 @@ class CIntraAnalysisFrontend(tunit: TranslationUnit, ts: CTypeSystemFrontend wit
                         case None =>
                         case Some((k@(x, _), _)) => {
                             if (fi.isSatisfiable(fm)) {
-                                var xdecls = udm.get(x)
-                                if (xdecls == null)
-                                    xdecls = List(x)
-                                var edecls = udm.get(e)
-                                if (edecls == null)
-                                    edecls = List(e)
+                                var xdecls = getDecls(x)
+                                var edecls = getDecls(e)
 
                                 for (ee <- edecls) {
                                     val kills = cle.kill(s)

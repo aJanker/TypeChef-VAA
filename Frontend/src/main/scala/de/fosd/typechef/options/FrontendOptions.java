@@ -26,6 +26,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             recordTiming = false,
             parserStatistics = false,
             parserResults = true,
+            simplifyPresenceConditions = false,
             writePI = false,
             printInclude = false,
             printVersion = false,
@@ -41,6 +42,7 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_RECORDTIMING = Options.genOptionId();
     private final static char F_FILEPC = Options.genOptionId();
     private final static char F_PARSERSTATS = Options.genOptionId();
+    private final static char F_SIMPLIFYPRESENCECONDITIONS = Options.genOptionId();
     private final static char F_HIDEPARSERRESULTS = Options.genOptionId();
     private final static char F_BDD = Options.genOptionId();
     private final static char F_ERRORXML = Options.genOptionId();
@@ -108,7 +110,9 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
                 new Option("hideparserresults", LongOpt.NO_ARGUMENT, F_HIDEPARSERRESULTS, null,
                         "Do not show parser results."),
                 new Option("parserstatistics", LongOpt.NO_ARGUMENT, F_PARSERSTATS, null,
-                        "Print parser statistics.")
+                        "Print parser statistics."),
+                new Option("simplifyPresenceConditions", LongOpt.NO_ARGUMENT, F_SIMPLIFYPRESENCECONDITIONS, null,
+                "Simplify presence conditions after parsing.")
         ));
         r.add(new OptionGroup("Misc", 1000,
                 new Option("printIncludes", LongOpt.NO_ARGUMENT, TY_DEBUG_INCLUDES, null,
@@ -155,6 +159,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             parserResults = false;
         } else if (c == F_PARSERSTATS) {
             parserStatistics = true;
+        } else if (c == F_SIMPLIFYPRESENCECONDITIONS) {
+            simplifyPresenceConditions = true;
         } else if (c == F_WRITEPI) {
             writePI = true;
         } else if (c == F_DISABLEPC) {
@@ -286,6 +292,10 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
 
     public void setRenderParserError(Function3<FeatureExpr, String, Position, Object> r) {
         _renderParserError = r;
+    }
+
+    public boolean simplifyPresenceConditions() {
+        return simplifyPresenceConditions;
     }
 
     public boolean printParserResult() {

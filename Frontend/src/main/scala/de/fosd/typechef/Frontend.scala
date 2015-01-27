@@ -160,7 +160,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
 
                     stopWatch.start("typechecking")
                     println("#type checking")
-                    ts.checkAST()
+                    ts.checkAST(printResults = true)
                     ts.errors.map(errorXML.renderTypeError)
                 }
                 if (opt.writeInterface) {
