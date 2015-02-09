@@ -484,7 +484,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
 
     def writeWarningDegrees(warnDegrees : List[(Int, TypeChefError)], writer: Writer) = {
         warnDegrees.foreach(entry => {
-            writer.write(entry._1)
+            writer.write(entry._1.toString)
             writer.write(" \tFeature: ")
             writer.write(entry._2.condition.toString)
 
@@ -497,7 +497,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
     def writeErrorDegrees(errorDegrees: List[(Opt[AST], Int, TypeChefError)], writer: Writer) = {
         errorDegrees.foreach(entry => {
             writeDegree((entry._1, entry._2), writer)
-            writer.write(" \tPriror Statemnet: ")
+            writer.write(" \tPriror Statement: ")
             writer.write(findPriorASTElem[Statement](entry._1.entry, env) match {
                 case Some(x) => PrettyPrinter.print(x)
                 case None => "Non found. "
