@@ -222,6 +222,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                     }
 
                     if (opt.interaction_degree) {
+                        println("#calculate degrees")
                         stopWatch.start("interactiondegree")
                         val degrees = sa.getInteractionDegrees(opt.getSimplifyFM)
 
