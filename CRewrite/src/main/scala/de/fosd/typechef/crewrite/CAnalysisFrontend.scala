@@ -208,7 +208,10 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         val um = new UninitializedMemory(env, dum, udm, FeatureExprFactory.empty)
         val nss = fa._2.map(_._1).filterNot(x => x.isInstanceOf[FunctionDef])
 
+        println("nss size" + nss.size)
+
         for (s <- nss) {
+            println("checking s " +  s)
             val g = um.getRelevantIdUsages(s)
             if (g.size > 0) {
                 val in = um.in(s)
