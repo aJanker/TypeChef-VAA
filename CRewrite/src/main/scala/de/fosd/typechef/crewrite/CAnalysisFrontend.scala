@@ -89,7 +89,11 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
 
         val df = new Liveness(env, udm, FeatureExprFactory.empty)
 
+        println("got liveness")
+
         val nss = fa._2.map(_._1)
+
+        println("Analyse size: " +nss.size)
 
         for (s <- nss) {
             for ((i, fi) <- df.kill(s)) {
