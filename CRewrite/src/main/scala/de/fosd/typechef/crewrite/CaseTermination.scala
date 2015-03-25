@@ -9,9 +9,6 @@ import de.fosd.typechef.conditional.Opt
 // MSC17-C
 class CaseTermination(env: ASTEnv) extends IntraCFG {
     def isTerminating(c: CaseStatement): Boolean = {
-
-        println("checking " + c)
-
         // get all successor elements of the case statement
         // and filter out other case statements, as fall through (case after case)
         // is allowed in this analysis
