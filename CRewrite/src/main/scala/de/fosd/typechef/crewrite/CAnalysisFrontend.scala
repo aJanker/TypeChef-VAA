@@ -185,8 +185,6 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         err
     }
 
-
-
     def uninitializedMemory(): Boolean = {
         println(fanalyze.size)
         val err = fanalyze.flatMap(uninitializedMemory)

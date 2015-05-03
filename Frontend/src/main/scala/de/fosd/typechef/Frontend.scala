@@ -138,6 +138,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                 val parserMain = new ParserMain(new CParser(smallFM))
                 ast = parserMain.parserMain(in, opt, fullFM)
                 ast = prepareAST[TranslationUnit](ast)
+                // checkPositionInformation(ast)
 
                 if (ast != null && opt.serializeAST) {
                     stopWatch.start("serialize")
