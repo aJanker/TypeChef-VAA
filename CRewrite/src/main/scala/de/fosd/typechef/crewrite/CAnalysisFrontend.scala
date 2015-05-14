@@ -158,7 +158,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         var err: List[TypeChefError] = List()
         var errNode: List[AST] = List()
 
-        val df = new DoubleFree(env, dum, udm, FeatureExprFactory.empty, casestudy)
+        val df = new DoubleFree(env, dum, udm, FeatureExprFactory.empty, fa._1, casestudy)
 
         val nss = fa._2.map(_._1).filterNot(x => x.isInstanceOf[FunctionDef])
 

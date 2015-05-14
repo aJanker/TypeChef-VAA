@@ -109,8 +109,8 @@ class ReachingDefinitions(env: ASTEnv, dum: DeclUseMap, udm: UseDeclMap, fm: Fea
     protected def b = l
     protected def combinationOperator(l1: L, l2: L) = union(l1, l2)
 
-    //  in(a) = for p in pred(a) r = r + out(p)
-    // out(a) = gen(a) + (in(a) - kill(a))
-    protected def infunction(a: AST): L = combinator(a)
-    protected def outfunction(a: AST): L = f_l(a)
+
+    protected def isForward = true
+
+    solve()
 }
