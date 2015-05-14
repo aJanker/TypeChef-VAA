@@ -4,6 +4,7 @@ package de.fosd.typechef.crewrite
 import de.fosd.typechef.featureexpr._
 import java.io.{Writer, FileWriter, StringWriter}
 import de.fosd.typechef.featureexpr.bdd.BDDFeatureExpr
+import de.fosd.typechef.lexer.FeatureExprLib
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem._
 import de.fosd.typechef.error.{Severity, TypeChefError}
@@ -92,7 +93,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
 
         val nss = fa._2.map(_._1)
 
-        println("Analyse size: " +nss.size)
+        // println("Analyse size: " +nss.size)
 
         for (s <- nss) {
             for ((i, fi) <- df.kill(s)) {
@@ -435,6 +436,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
             interactionDegrees(simplify)
         } else if (simplifyFM.getName.endsWith(".model")) {
             val simplifyModel = FeatureToSimplifyModelMap.fill(simplifyFM)
+
             def simplify(feature : BDDFeatureExpr) : BDDFeatureExpr = {
                 val parser = new FeatureExprParser()
                 val simpleFM = feature.collectDistinctFeatureObjects.foldLeft(FeatureExprFactory.True)((f, s) => {
@@ -448,8 +450,15 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
             }
 
             interactionDegrees(simplify)
+        } else if(simplifyFM.getName.endsWith(".dimacs")) {
+            val simplifyModel = FeatureExprLib.featureModelFactory.createFromDimacsFile(Source.fromFile(simplifyFM))
+
+            def simplify(feature : BDDFeatureExpr) : BDDFeatureExpr = feature
+
+            interactionDegrees(simplify)
         } else {
             val parser = new FeatureExprParser()
+
             val simpleFM = Source.fromFile(simplifyFM).getLines.foldLeft(FeatureExprFactory.True)((f, l) => {
                 if (l.matches("\\s*")) f
                 else f and parser.parse(l)
