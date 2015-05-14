@@ -452,7 +452,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
             interactionDegrees(simplify)
         } else if(simplifyFM.getName.endsWith(".dimacs")) {
             val simplifyModel = FeatureExprLib.featureModelFactory.createFromDimacsFile(Source.fromFile(simplifyFM))
-            simplifyModel.
+
             def simplify(feature : BDDFeatureExpr) : BDDFeatureExpr = feature
 
             interactionDegrees(simplify)
