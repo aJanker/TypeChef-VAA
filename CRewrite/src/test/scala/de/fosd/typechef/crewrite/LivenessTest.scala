@@ -18,7 +18,7 @@ class LivenessTest extends EnforceTreeHelper with TestHelper with Matchers with 
         val ts = new CTypeSystemFrontend(TranslationUnit(List(Opt(FeatureExprFactory.True, a)))) with CDeclUse
         assert(ts.checkASTSilent, "typecheck fails!")
         val udm = ts.getUseDeclMap
-        val lv = new Liveness(env, udm, FeatureExprFactory.empty)
+        val lv = new Liveness(env, udm, FeatureExprFactory.empty, a)
 
         for (s <- ss) {
             println(PrettyPrinter.print(s) + "  uses: " + lv.gen(s) + "   defines: " + lv.kill(s) +
@@ -28,20 +28,20 @@ class LivenessTest extends EnforceTreeHelper with TestHelper with Matchers with 
     }
 
     private def runDefinesExample(code: String) = {
-        val a = parseStmt(code)
-        val lv = new Liveness(CASTEnv.createASTEnv(a), null, null)
+        val a = prepareAST[FunctionDef](parseFunctionDef(code))
+        val lv = new Liveness(CASTEnv.createASTEnv(a), null, null, a)
         lv.kill(a).map {case (x, f) => (x, f)}
     }
 
     private def runUsesExample(code: String) = {
-        val a = parseStmt(code)
-        val lv = new Liveness(CASTEnv.createASTEnv(a), null, null)
+        val a = prepareAST[FunctionDef](parseFunctionDef(code))
+        val lv = new Liveness(CASTEnv.createASTEnv(a), null, null, a)
         lv.gen(a).map {case (x, f) => (x, f)}
     }
 
     private def runDeclaresExample(code: String) = {
-        val a = parseDecl(code)
-        val lv = new Liveness(CASTEnv.createASTEnv(a), null, null)
+        val a = prepareAST[FunctionDef](parseFunctionDef(code))
+        val lv = new Liveness(CASTEnv.createASTEnv(a), null, null, a)
         lv.declaresVar(a).map {case (x, f) => (x, f)}
     }
 

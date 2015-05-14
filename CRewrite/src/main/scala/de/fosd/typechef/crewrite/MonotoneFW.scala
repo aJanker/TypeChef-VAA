@@ -1,6 +1,5 @@
 package de.fosd.typechef.crewrite
 
-import de.fosd.typechef.crewrite._
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem.{DeclUseMap, UseDeclMap}
 import de.fosd.typechef.featureexpr.{FeatureModel, FeatureExpr}
