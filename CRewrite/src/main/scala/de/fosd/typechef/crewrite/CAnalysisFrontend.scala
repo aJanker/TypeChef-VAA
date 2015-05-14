@@ -74,7 +74,6 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
 
 
     def deadStore(): Boolean = {
-        println(fanalyze.size)
         val err = fanalyze.flatMap(deadStore)
 
         if (err.isEmpty) {
@@ -187,7 +186,6 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
     }
 
     def uninitializedMemory(): Boolean = {
-        println(fanalyze.size)
         val err = fanalyze.flatMap(uninitializedMemory)
 
         if (err.isEmpty) {
@@ -206,8 +204,6 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
 
         val um = new UninitializedMemory(env, dum, udm, FeatureExprFactory.empty, fa._1)
         val nss = fa._2.map(_._1).filterNot(x => x.isInstanceOf[FunctionDef])
-
-        println("nss size" + nss.size)
 
         for (s <- nss) {
             val g = um.getRelevantIdUsages(s)
@@ -351,7 +347,6 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
 
     private def caseTermination(fa: (FunctionDef, List[(AST, List[Opt[AST]])])): List[TypeChefError] = {
         val casestmts = filterAllASTElems[CaseStatement](fa._1)
-        println(casestmts.size)
         val ct = new CaseTermination(env)
 
         casestmts.filterNot(ct.isTerminating).map {
@@ -403,7 +398,6 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
                 val g = cle.getUsedVariables(s)
                 val in = cle.in(s)
                 for (((e, _), fi) <- in) {
-                    println("s", PrettyPrinter.print(s), "in", in, "g", g, "u", cle.uses(s))
                     g.find {case ((t, _), _) => t == e} match {
                         case None =>
                         case Some((k@(x, _), _)) => {
