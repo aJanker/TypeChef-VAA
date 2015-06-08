@@ -92,7 +92,6 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
 
         val nss = fa._2.map(_._1)
 
-        // println("Analyse size: " +nss.size)
 
         for (s <- nss) {
             for ((i, fi) <- df.kill(s)) {
@@ -104,10 +103,11 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
                 else out.find {case (t, _) => t == i} match {
                     case None => {
                         var idecls = getDecls(i)
-                        if (idecls.exists(isPartOf(_, fa._1)))
+                        if (idecls.exists(isPartOf(_, fa._1))) {
                             err ::= new TypeChefError(Severity.Warning, fi, "warning: Variable " + i.name + " is a dead store!", i, "")
                             errNodes ::= (err.last, Opt(env.featureExpr(i), i))
                         }
+                    }
                     case Some((x, z)) => {
                         if (! z.isTautology(fm)) {
                             var xdecls = getDecls(x)
