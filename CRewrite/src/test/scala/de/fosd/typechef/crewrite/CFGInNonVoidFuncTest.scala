@@ -13,7 +13,7 @@ class CFGInNonVoidFuncTest extends TestHelper with Matchers with CFGHelper with 
         val tunit = prepareAST[TranslationUnit](parseTranslationUnit(code))
         val ts = new CTypeSystemFrontend(tunit) with CTypeCache with CDeclUse
         assert(ts.checkASTSilent, "typecheck fails!")
-        val cf = new CIntraAnalysisFrontend(tunit, ts)
+        val cf = new CIntraAnalysisFrontendF(tunit, ts)
         cf.cfgInNonVoidFunc()
     }
 

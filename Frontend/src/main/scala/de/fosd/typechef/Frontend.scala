@@ -155,7 +155,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                 /** I did some experiments with the TypeChef FeatureModel of Linux, in case I need the routines again, they are saved here. */
                 //Debug_FeatureModelExperiments.experiment(fm_ts)
 
-                if (opt.typecheck || opt.writeInterface) {
+                if (opt.typecheck || opt.writeInterface || opt.typechecksa) {
                     //PrCDeclUseoductGeneration.typecheckProducts(fm,fm_ts,ast,opt,
                     //logMessage=("Time for lexing(ms): " + (t2-t1) + "\nTime for parsing(ms): " + (t3-t2) + "\n"))
                     //ProductGeneration.estimateNumberOfVariants(ast, fm_ts)
@@ -184,7 +184,6 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                     val dotwriter = new DotGraph(new FileWriter(new File(opt.getCCFGDotFilename)))
                     cf.writeCFG(opt.getFile, new ComposedWriter(List(dotwriter, writer)))
                 }
-
                 if (opt.staticanalyses) {
                     println("#static analysis")
 
@@ -238,6 +237,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         errorWriter.close()
                     }
                 }
+
 
             }
 

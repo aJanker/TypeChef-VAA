@@ -11,7 +11,7 @@ class DeadStoreTest extends TestHelper with Matchers with CFGHelper with Enforce
         val tunit = prepareAST[TranslationUnit](parseTranslationUnit(code))
         val ts = new CTypeSystemFrontend(tunit) with CTypeCache with CDeclUse
         assert(ts.checkASTSilent, "typecheck fails!")
-        val df = new CIntraAnalysisFrontend(tunit, ts)
+        val df = new CIntraAnalysisFrontendF(tunit, ts)
         df.deadStore()
     }
 

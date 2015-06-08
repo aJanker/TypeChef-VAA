@@ -332,7 +332,6 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
     }
 
     def caseTermination(): Boolean = {
-        println(fanalyze.size)
         val err = fanalyze.flatMap(caseTermination)
 
         if (err.isEmpty) {

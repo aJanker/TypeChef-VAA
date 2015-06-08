@@ -11,7 +11,7 @@ class DoubleFreeTest extends TestHelper with Matchers with CFGHelper with Enforc
     // check freed pointers
     private def getFreedMem(code: String) = {
         val a = parseFunctionDef(code)
-        val df = new DoubleFree(CASTEnv.createASTEnv(a), null, null, null, "")
+        val df = new DoubleFree(CASTEnv.createASTEnv(a), null, null, null, null, "")
         df.gen(a).map {case ((x, _), f) => (x, f)}
     }
 
@@ -19,7 +19,7 @@ class DoubleFreeTest extends TestHelper with Matchers with CFGHelper with Enforc
         val tunit = prepareAST[TranslationUnit](parseTranslationUnit(code))
         val ts = new CTypeSystemFrontend(tunit) with CTypeCache with CDeclUse
         assert(ts.checkASTSilent, "typecheck fails!")
-        val df = new CIntraAnalysisFrontend(tunit, ts)
+        val df = new CIntraAnalysisFrontendF(tunit, ts)
         df.doubleFree()
     }
 
