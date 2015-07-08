@@ -1,9 +1,10 @@
 package de.fosd.typechef.crewrite
 
+import de.fosd.typechef.conditional.Opt
+import de.fosd.typechef.featureexpr.{FeatureExpr, FeatureModel}
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem.{DeclUseMap, UseDeclMap}
-import de.fosd.typechef.featureexpr.{FeatureModel, FeatureExpr}
-import de.fosd.typechef.conditional.Opt
+import org.kiama.attribution.Attribution.circular
 
 // this abstract class provides a standard implementation of
 // the monotone framework, a general framework for dataflow analyses
@@ -29,14 +30,6 @@ import de.fosd.typechef.conditional.Opt
 //              successor determination
 // fm: FeatureModel; feature model used for filtering out false positives
 sealed abstract class MonotoneFW[T](val f: FunctionDef, env: ASTEnv, val fm: FeatureModel) extends IntraCFG with CFGHelper {
-
-    // result of pred/succ computation
-    // classic control flow computation returns List[CFGStmt]
-    // the Opt stores the condition under which the CFGStmt element is the predecessor/successor of the input element
-    type NextNodeList = List[Opt[CFGStmt]]
-
-    //list of pairs from ASTNode to a list of conditional successors/predecessors (multiple possible)
-    type SuccessorRelationship= List[(AST, NextNodeList)]
 
     // dataflow, such as identifiers (type Id) may have different declarations
     // (alternative types). so we track alternative elements here using two
@@ -126,8 +119,6 @@ sealed abstract class MonotoneFW[T](val f: FunctionDef, env: ASTEnv, val fm: Fea
     type PGT = T
     protected def l = Map[T, FeatureExpr]()
 
-    protected def isForward: Boolean
-
     private def diff(l: L, l2: L): L = {
         var curl = l
         for ((e, fexp) <- l2) {
@@ -166,9 +157,9 @@ sealed abstract class MonotoneFW[T](val f: FunctionDef, env: ASTEnv, val fm: Fea
     //  flowR => successor (backward analysis);
     //           result elements flow from successor to predecessor
     // we don't reverse the order here but keep the names for flow and flowR consistent with the book
-    protected def F(e: AST): NextNodeList
-    protected def flow(e: AST): NextNodeList = pred(e, env)
-    protected def flowR(e: AST): NextNodeList = succ(e, env)
+    protected def F(e: AST): CFG
+    protected def flow(e: AST): CFG = pred(e, env)
+    protected def flowR(e: AST): CFG = succ(e, env)
 
     // we compute the flow on the fly and FunctionDef represents our only element in E (extremal labels),
     // i.e., FunctionDef is the "last" and the "first" element (label) in flow resp. flowR (see F definition)
@@ -208,10 +199,32 @@ sealed abstract class MonotoneFW[T](val f: FunctionDef, env: ASTEnv, val fm: Fea
     //      in          |      (combinator)  ∧       (f_l)
     //    x++;          | flow (pred)        | flowR (succ)
     //      out         ∨      (f_l)         |       (combinator)
+    protected def circle(e: AST): L = combinator(e)
+    protected def point(e: AST): L = f_l(e)
 
-    // we implement our own fixpoint computation which computes for each cfgstmt the desired dataflow property upfront
-    // this does not allow to selectively compute dataflow properties for a single cfgstmt.
-    // TODO should be fixed with an improved version using kiama's attribute grammars.
+    protected val combinator: AST => L = {
+        circular[AST, L](b) {
+            case _: E => i
+            case a =>
+                val fl = F(a)
+                fl.foldLeft[L](b)((r: L, s: Opt[AST]) => combinationOperator(r, updateFeatureExprOfMonotoneElements(point(s.entry), s.condition)))
+        }
+    }
+
+    protected val f_l: AST => L = {
+        circular[AST, L](b) {
+            case _: E => i
+            case a =>
+                var res = combinator(a)
+                res = diff(res, mapGenKillElements2MonotoneElements(kill(a)))
+
+                res = union(res, mapGenKillElements2MonotoneElements(gen(a)))
+                res
+        }
+    }
+
+    protected def isForward: Boolean
+
     def solve(): Unit = {
         if (f == null)
             return
@@ -228,7 +241,7 @@ sealed abstract class MonotoneFW[T](val f: FunctionDef, env: ASTEnv, val fm: Fea
         do {
             changed = false
             for ((cfgstmt, fl) <- flow) {
-                val ((_, cold), (_, fold)) = memo.lookup(cfgstmt).get
+                var ((cchanged, cold), (fchanged, fold)) = memo.lookup(cfgstmt).get
 
                 var cnew = cold
 
@@ -253,7 +266,7 @@ sealed abstract class MonotoneFW[T](val f: FunctionDef, env: ASTEnv, val fm: Fea
                 // in the first iterations of the loop fnew is usually
                 // empty; to ensure that the transfer function is called
                 // at least once for cfgstmt we add fnew.size == 0
-                if (fnew.size == 0 || fold != fnew) {
+                if (cchanged || fchanged || fold != fnew) {
 
                     val g = gen(cfgstmt)
                     val k = kill(cfgstmt)
@@ -261,8 +274,8 @@ sealed abstract class MonotoneFW[T](val f: FunctionDef, env: ASTEnv, val fm: Fea
                     fnew = union(fnew, mapGenKillElements2MonotoneElements(g))
                 }
 
-                val cchanged = cold != cnew
-                val fchanged = fold != fnew
+                cchanged = cold != cnew
+                fchanged = fold != fnew
 
                 changed |= cchanged | fchanged
 
@@ -270,7 +283,6 @@ sealed abstract class MonotoneFW[T](val f: FunctionDef, env: ASTEnv, val fm: Fea
             }
         } while (changed)
     }
-
 
     private def getValues(a: AST, f: R => CPR) = {
         val r = memo.lookup(a)
@@ -291,6 +303,29 @@ sealed abstract class MonotoneFW[T](val f: FunctionDef, env: ASTEnv, val fm: Fea
 
     def in(a: AST) = if (isForward) getValues(a, {_._1} ) else getValues(a, { _._2 } )
     def out(a: AST) = if (isForward) getValues(a, {_._2} ) else getValues(a, { _._1 } )
+
+    protected def outfunction(a: AST): L = ???
+
+    def outfix(a: AST) = {
+        val o = outfunction(a)
+
+        val res: List[(T, FeatureExpr)] = o.toList.map { x => (getOriginal(x._1), x._2) }
+
+        // joining values from different paths can lead to duplicates.
+        // remove them and filter out values from unsatisfiable paths.
+        res.distinct.filter { case (_, fexp) => fexp.isSatisfiable(fm) }
+    }
+
+    protected def infunction(a: AST): L = ???
+
+    def infix(a: AST) = {
+        val i = infunction(a)
+
+        val res: List[(T, FeatureExpr)] = i.toList.map { x => (getOriginal(x._1), x._2) }
+        // joining values from different paths can lead to duplicates.
+        // remove them and filter out values from unsatisfiable paths.
+        res.distinct.filter { case (_, fexp) => fexp.isSatisfiable(fm) }
+    }
 }
 
 // specialization of MonotoneFW for Ids (Var); helps to reduce code cloning, i.e., cloning of t2T, ...
@@ -341,7 +376,7 @@ abstract class MonotoneFWId(f: FunctionDef, env: ASTEnv, udm: UseDeclMap, fm: Fe
 
 // specialization of MonotoneFW for Ids with Labels (Var* x Lab*)
 // we use as label System.identityHashCode of the tracked variables
-abstract class MonotoneFWIdLab(env: ASTEnv, dum: DeclUseMap, udm: UseDeclMap, fm: FeatureModel, f: FunctionDef) extends MonotoneFW[(Id, Int)](f, env, fm) {
+abstract class MonotoneFWIdLab(f: FunctionDef, env: ASTEnv, dum: DeclUseMap, udm: UseDeclMap, fm: FeatureModel) extends MonotoneFW[(Id, Int)](f, env, fm) {
     // add annotation to elements of a List[PGT]
     // this function is used to add feature expression information to set generated by gen and kill
     protected def addAnnotations(in: List[PGT]): L = {

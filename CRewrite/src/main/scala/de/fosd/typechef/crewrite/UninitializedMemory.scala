@@ -1,10 +1,9 @@
 package de.fosd.typechef.crewrite
 
-import org.kiama.rewriting.Rewriter._
-
+import de.fosd.typechef.featureexpr.FeatureModel
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem.{DeclUseMap, UseDeclMap}
-import de.fosd.typechef.featureexpr.FeatureModel
+import org.kiama.rewriting.Rewriter._
 
 // implements a simple analysis of uninitialized memory
 // https://www.securecoding.cert.org/confluence/display/seccode/EXP33-C.+Do+not+reference+uninitialized+memory
@@ -26,7 +25,7 @@ import de.fosd.typechef.featureexpr.FeatureModel
 // i  = ∅             // empty is ok
 // E  = {FunctionDef} // see MonotoneFW
 // F  = flow
-class UninitializedMemory(env: ASTEnv, dum: DeclUseMap, udm: UseDeclMap, fm: FeatureModel, f: FunctionDef) extends MonotoneFWIdLab(env, dum, udm, fm, f) with IntraCFG with CFGHelper with ASTNavigation with UsedDefinedDeclaredVariables {
+class UninitializedMemory(env: ASTEnv, dum: DeclUseMap, udm: UseDeclMap, fm: FeatureModel, f: FunctionDef) extends MonotoneFWIdLab(f, env, dum, udm, fm) with IntraCFG with CFGHelper with ASTNavigation with UsedDefinedDeclaredVariables {
 
     // returns all arguments (no references!) for a given AST (CFGStmt)
     def getRelevantIdUsages(a: AST): L = {

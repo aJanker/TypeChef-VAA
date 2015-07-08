@@ -1,11 +1,10 @@
 package de.fosd.typechef.crewrite
 
-import org.kiama.rewriting.Rewriter._
-
+import de.fosd.typechef.conditional.Opt
 import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureModel}
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem._
-import de.fosd.typechef.conditional.Opt
+import org.kiama.rewriting.Rewriter._
 
 // https://www.securecoding.cert.org/confluence/display/seccode/ERR33-C.+Detect+and+handle+standard+library+errors
 // ERR33-C
@@ -26,7 +25,7 @@ import de.fosd.typechef.conditional.Opt
 // i  = ??
 // E  = {FunctionDef} // see MonotoneFW
 // F  = ??
-sealed abstract class StdLibFuncReturn(env: ASTEnv, dum: DeclUseMap, udm: UseDeclMap, fm: FeatureModel, f: FunctionDef) extends MonotoneFWIdLab(env, dum, udm, fm, f) with UsedDefinedDeclaredVariables {
+sealed abstract class StdLibFuncReturn(env: ASTEnv, dum: DeclUseMap, udm: UseDeclMap, fm: FeatureModel, f: FunctionDef) extends MonotoneFWIdLab(f, env, dum, udm, fm) with UsedDefinedDeclaredVariables {
     // list of standard library functions and their possible error returns
     // taken from above website
     val function: List[String]
