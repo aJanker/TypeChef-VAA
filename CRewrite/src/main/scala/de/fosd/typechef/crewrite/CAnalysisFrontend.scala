@@ -1,21 +1,18 @@
 
 package de.fosd.typechef.crewrite
 
+import java.io.{StringWriter, Writer}
+import java.util
+
+import de.fosd.typechef.conditional.Opt
+import de.fosd.typechef.error.{Severity, TypeChefError}
 import de.fosd.typechef.featureexpr._
-import java.io.{Writer, FileWriter, StringWriter}
 import de.fosd.typechef.featureexpr.bdd.BDDFeatureExpr
 import de.fosd.typechef.lexer.FeatureExprLib
-import de.fosd.typechef.parser.c._
+import de.fosd.typechef.parser.c.{FunctionDef, SwitchStatement, TranslationUnit, _}
 import de.fosd.typechef.typesystem._
-import de.fosd.typechef.error.{Severity, TypeChefError}
-import de.fosd.typechef.parser.c.SwitchStatement
-import org.apache.tools.ant.util.StringUtils
-import scala.collection.JavaConversions._
-import java.util
-import de.fosd.typechef.parser.c.FunctionDef
-import de.fosd.typechef.parser.c.TranslationUnit
-import de.fosd.typechef.conditional.Opt
 
+import scala.collection.JavaConversions._
 import scala.io.Source
 
 
@@ -60,7 +57,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
     private lazy val dum = ts.getDeclUseMap
 
     private def getDecls(key: Id): List[Id] = {
-        if (! udm.containsKey(key)) List(key)
+        if (! udm.containsKey(key))  List(key)
         else udm.get(key).filter { d => env.featureExpr(d) and env.featureExpr(key) isSatisfiable fm }
     }
 
@@ -109,23 +106,22 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
                         }
                     }
                     case Some((x, z)) => {
-                        if (! z.isTautology(fm)) {
-                            var xdecls = getDecls(x)
-                            var idecls = getDecls(i)
-                            for (ei <- idecls) {
-                                // with isPartOf we reduce the number of false positives, since we only check local variables and function parameters.
-                                // an assignment to a global variable might be used in another function
-                                if (isPartOf(ei, fa._1) && xdecls.exists(_.eq(ei))) {
-                                    err ::= new TypeChefError(Severity.Warning, z.not(), "warning: Variable " + i.name + " is a dead store!", i, "")
-                                    errNodes ::= (err.last, Opt(env.featureExpr(i), i))
+                         if (fi.implies(z).not().isSatisfiable(fm)) {
+                                val xdecls = getDecls(x)
+                                val idecls = getDecls(i)
+                                for (ei <- idecls) {
+                                    // with isPartOf we reduce the number of false positives, since we only check local variables and function parameters.
+                                    // an assignment to a global variable might be used in another function
+                                    if (isPartOf(ei, fa._1) && xdecls.exists(_.eq(ei))) {
+                                        err ::= new TypeChefError(Severity.Warning, fi.and(z.not()), "warning: Variable " + i.name + " is a dead store!", i, "")
+                                        errNodes ::=(err.last, Opt(env.featureExpr(i), i))
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-        }
-
         err
     }
 
