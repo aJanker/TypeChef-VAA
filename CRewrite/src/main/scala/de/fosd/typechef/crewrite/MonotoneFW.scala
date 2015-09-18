@@ -425,7 +425,7 @@ abstract class MonotoneFWIdLab(f: FunctionDef, env: ASTEnv, dum: DeclUseMap, udm
                     if (dum.containsKey(x))
                         for (tu <- dum.get(x)) {
                             if (cachePGT.lookup(tu).isEmpty)
-                                cachePGT.update(tu, ((tu, System.identityHashCode(x)), env.featureExpr(tu)))
+                                cachePGT.update(tu, ((tu, System.identityHashCode(tu)), env.featureExpr(tu)))
                             res = res + cachePGT.lookup(tu).get
                         }
                 }
