@@ -1,9 +1,8 @@
 package de.fosd.typechef.options
 
-import de.fosd.typechef.typesystem.{LinuxDefaultOptions, ICTypeSysOptions}
-import gnu.getopt.{Getopt, LongOpt}
-import scala.Predef.String
 import de.fosd.typechef.crewrite.ICAnalysisOptions
+import de.fosd.typechef.typesystem.{ICTypeSysOptions, LinuxDefaultOptions}
+import gnu.getopt.{Getopt, LongOpt}
 
 /**
  * options for the type system and additional security analysis
@@ -31,7 +30,7 @@ class CAnalysisOptions extends FeatureModelOptions with ICTypeSysOptions with IC
     private val Sunitializedmemory = SecurityOption("uninitializedmemory", "Issue a warning when the value of a non-initialized variable is used", false)
     private val Scasetermination = SecurityOption("casetermination", "Issue a warning when statements following a case block within a switch aren't terminated using a break statement", false)
     private val Sdanglingswitchcode = SecurityOption("danglingswitchcode", "Issue a warning when code in a switch statement doesn't occur within the control flow of a case or default statement", false)
-    private val Scfginnonvoidfunc = SecurityOption("cfginnonvoidfunction", "Issue a warning when control flow in non-void function reaches no return statement", false)
+    private val Scfginnonvoidfunc = SecurityOption("3", "Issue a warning when control flow in non-void function reaches no return statement", false)
     private val Sstdlibfuncreturn = SecurityOption("checkstdlibfuncreturn", "Issue a warning when the return value of a standard library function is not check for its error values", false)
     private val Sdeadstore = SecurityOption("deadstore", "Issue a warning when values stored to variables are never read afterwards", false)
     private val Sinteractiondegree = SecurityOption("interactiondegree", "Calculates the interaction degree. The interaction degree is the number of variables that need to be set to reproduce the problem", false)

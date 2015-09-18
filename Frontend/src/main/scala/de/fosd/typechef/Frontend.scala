@@ -5,8 +5,6 @@ import java.io._
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
 import de.fosd.typechef.crewrite._
-import de.fosd.typechef.error.Severity
-import de.fosd.typechef.featureexpr.{FeatureExprParser, FeatureExprFactory}
 import de.fosd.typechef.options.{FrontendOptions, FrontendOptionsWithConfigFiles, OptionException}
 import de.fosd.typechef.parser.TokenReader
 import de.fosd.typechef.parser.c.{CTypeContext, TranslationUnit, _}
@@ -236,6 +234,8 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         stmtWriter.close()
                         errorWriter.close()
                     }
+
+                    println(PrettyPrinter.print(ast))
                 }
 
 
