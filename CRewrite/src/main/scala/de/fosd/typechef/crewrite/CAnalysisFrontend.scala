@@ -68,7 +68,16 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
     var errors: List[TypeChefError] = List()
     var errNodes: List[(TypeChefError, Opt[AST])] = List()
 
+    def calculateCFGEdgeDegree(simplifyFM : java.io.File) : List[(CFGStmt, Int)] = {
+        val simplification = getSimplifcation(simplifyFM)
+        def getDegreeFromEdges(x : (FunctionDef, List[(AST, CFG)])) =
+            x._2.flatMap(entry =>
+                entry._2.map(cfgStmt =>
+                    (cfgStmt.entry, calculateInteractionDegree(cfgStmt.condition.asInstanceOf[BDDFeatureExpr], simplification))))
 
+
+        fanalyze.flatMap(getDegreeFromEdges)
+    }
 
     def deadStore(): Boolean = {
         val err = fanalyze.flatMap(deadStore)
@@ -447,47 +456,36 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         err
     }
 
-    def getInteractionDegrees(simplifyFM : java.io.File ) : (List[(Opt[Statement], Int)],
-        List[(Int, TypeChefError)], List[(Opt[AST], Int, TypeChefError)]) = {
-
-        if (simplifyFM == null) {
-            def simplify(feature : BDDFeatureExpr) : BDDFeatureExpr = feature
-            interactionDegrees(simplify)
-        } else if (simplifyFM.getName.endsWith(".model")) {
+    private def getSimplifcation(simplifyFM : java.io.File) = (feature : BDDFeatureExpr) =>  {
+        if (simplifyFM == null) feature
+        else if (simplifyFM.getName.endsWith(".model")) {
             val simplifyModel = FeatureToSimplifyModelMap.fill(simplifyFM)
-
-            def simplify(feature : BDDFeatureExpr) : BDDFeatureExpr = {
-                val parser = new FeatureExprParser()
-                val simpleFM = feature.collectDistinctFeatureObjects.foldLeft(FeatureExprFactory.True)((f, s) => {
-                    simplifyModel.get(s.feature) match {
-                        case Some(l) => l.foldLeft(f)(_ and parser.parse(_))
-                        case _ => f
-                    }
-                })
-                val result = feature.simplify(simpleFM).asInstanceOf[BDDFeatureExpr]
-                result
-            }
-
-            interactionDegrees(simplify)
+            val parser = new FeatureExprParser()
+            val simpleFM = feature.collectDistinctFeatureObjects.foldLeft(FeatureExprFactory.True)((f, s) => {
+                simplifyModel.get(s.feature) match {
+                    case Some(l) => l.foldLeft(f)(_ and parser.parse(_))
+                    case _ => f
+                }
+            })
+            feature.simplify(simpleFM).asInstanceOf[BDDFeatureExpr]
         } else if(simplifyFM.getName.endsWith(".dimacs")) {
             val simplifyModel = FeatureExprLib.featureModelFactory.createFromDimacsFile(Source.fromFile(simplifyFM))
-
-            def simplify(feature : BDDFeatureExpr) : BDDFeatureExpr = feature
-
-            interactionDegrees(simplify)
+            // feature.simplify(simplifyModel).asInstanceOf[BDDFeatureExpr]
+            feature
         } else {
             val parser = new FeatureExprParser()
-
             val simpleFM = Source.fromFile(simplifyFM).getLines.foldLeft(FeatureExprFactory.True)((f, l) => {
                 if (l.matches("\\s*")) f
                 else f and parser.parse(l)
             })
 
-            def simplify(feature : BDDFeatureExpr) : BDDFeatureExpr =
-                feature.simplify(simpleFM).asInstanceOf[BDDFeatureExpr]
-
-            interactionDegrees(simplify)
+            feature.simplify(simpleFM).asInstanceOf[BDDFeatureExpr]
         }
+    }
+
+    def getInteractionDegrees(simplifyFM : java.io.File ) : (List[(Opt[Statement], Int)],
+        List[(Int, TypeChefError)], List[(Opt[AST], Int, TypeChefError)]) = {
+        interactionDegrees(getSimplifcation(simplifyFM))
     }
 
     private def interactionDegrees(simplify : BDDFeatureExpr => BDDFeatureExpr) : (List[(Opt[Statement], Int)],

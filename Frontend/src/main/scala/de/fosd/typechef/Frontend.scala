@@ -186,6 +186,9 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                     println("#static analysis")
 
                     val sa = new CIntraAnalysisFrontendF(ast, ts.asInstanceOf[CTypeSystemFrontend with CTypeCache with CDeclUse], fullFM)
+
+
+
                     if (opt.warning_double_free) {
                         stopWatch.start("doublefree")
                         sa.doubleFree()
@@ -219,6 +222,16 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         sa.deadStore()
                     }
 
+                    if (opt.cfg_interaction_degree) {
+                        val cfgEdgeDegrees = sa.calculateCFGEdgeDegree(opt.getSimplifyFM)
+                        val writer = new FileWriter(new File(opt.getCFGDegreeFilename))
+                        cfgEdgeDegrees.foreach(cfgEdgeDegree =>  {
+                            println(cfgEdgeDegree._2 + "\t" + cfgEdgeDegree._1 + "\n")
+                            writer.write(cfgEdgeDegree._2 + "\t" + cfgEdgeDegree._1 + "\n")
+                        })
+                        writer.close()
+                    }
+
                     if (opt.interaction_degree) {
                         println("#calculate degrees")
                         stopWatch.start("interactiondegree")
@@ -234,8 +247,6 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         stmtWriter.close()
                         errorWriter.close()
                     }
-
-                    println(PrettyPrinter.print(ast))
                 }
 
 
