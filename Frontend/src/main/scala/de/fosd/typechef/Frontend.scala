@@ -225,10 +225,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                     if (opt.cfg_interaction_degree) {
                         val cfgEdgeDegrees = sa.calculateCFGEdgeDegree(opt.getSimplifyFM)
                         val writer = new FileWriter(new File(opt.getCFGDegreeFilename))
-                        cfgEdgeDegrees.foreach(cfgEdgeDegree =>  {
-                            println(cfgEdgeDegree._2 + "\t" + cfgEdgeDegree._1 + "\n")
-                            writer.write(cfgEdgeDegree._2 + "\t" + cfgEdgeDegree._1 + "\n")
-                        })
+                        cfgEdgeDegrees.foreach(cfgEdgeDegree =>  writer.write(cfgEdgeDegree._2 + "\t" + cfgEdgeDegree._1 + "\n"))
                         writer.close()
                     }
 
@@ -255,8 +252,12 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
         }
         stopWatch.start("done")
         errorXML.write()
-        if (opt.recordTiming)
+        if (opt.recordTiming) {
+            val writer = new FileWriter(new File(opt.getStopWatchFilename))
+            writer.write(stopWatch.toString)
+            writer.close()
             println(stopWatch)
+        }
 
     }
 

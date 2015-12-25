@@ -274,7 +274,11 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     }
 
     public String getCFGDegreeFilename() {
-        return outputStem + ".cfgdegree";
+        return getOutputStem() + ".cfgdegree";
+    }
+
+    public String getStopWatchFilename() {
+        return getOutputStem() + ".astimes";
     }
 
     public String getWarningStmtInteractionDegreeFilename() {

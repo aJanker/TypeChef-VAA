@@ -75,7 +75,6 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
                 entry._2.map(cfgStmt =>
                     (cfgStmt.entry, calculateInteractionDegree(cfgStmt.condition.asInstanceOf[BDDFeatureExpr], simplification))))
 
-
         fanalyze.flatMap(getDegreeFromEdges)
     }
 
