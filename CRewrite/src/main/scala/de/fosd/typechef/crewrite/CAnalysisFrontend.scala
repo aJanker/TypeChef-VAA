@@ -212,47 +212,21 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         val gen = um.gen(fa._1)
         val kill = um.kill(fa._1)
 
-        println("gen " + gen)
-        println("kill " + kill)
-
-        gen.foreach(x => println("GenPos: " + x._1 + " " + x._1._1.getPositionFrom)) // + " " + env.parent(x._1._1) + " " + env.parent(env.parent(x._1._1) )))
-        kill.foreach(x => println("KillPos: " + x._1 + " " + x._1._1.getPositionFrom)) // + " " + env.parent(x._1._1) + " "+ env.parent(env.parent(x._1._1))))
-
-
-        println(nss)
-
         for (s <- nss) {
-            println("s: " +  s + " " + s.getPositionFrom)
-            println(env.featureExpr(s))
             val g = um.getRelevantIdUsages(s)
-
-            println("Relevant:" + g)
-            g.toMap.keys.foreach(k => println(k._1.getPositionFrom))
-            println("stop")
 
             if (g.size > 0) {
                 val in = um.in(s)
-
-                println("in:" + in)
-                in.foreach(k => println(k._1._1 + " " + k._1._1.getPositionFrom))
 
                 for (((i, _), h) <- in)
                     g.find {case ((t, _), _) => t == i} match {
                         case None =>
                         case Some(((x, _), _)) => {
                             if (h.isSatisfiable(fm)) {
-
                                 val xdecls = getDecls(x)
                                 val idecls = getDecls(i)
                                 for (ei <- idecls)
                                     if (xdecls.exists(_.eq(ei))) {
-                                        /*println("x: " +x)
-                                        println(x.getPositionFrom)
-                                        println(env.featureExpr(x))
-                                        println("i: " + i)
-                                        println(i.getPositionFrom)
-                                        println(env.featureExpr(i))*/
-                                        println("error!")
                                         err ::= new TypeChefError(Severity.Warning, h, "warning: Variable " + x.name + " is used uninitialized!", x, "")
                                         errNodes ::= (err.last, Opt(h, i))
                                     }
