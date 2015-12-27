@@ -285,7 +285,7 @@ sealed abstract class MonotoneFW[T](val f: FunctionDef, env: ASTEnv, val fm: Fea
 
     private def getValues(a: AST, f: R => CPR) = {
         val r = memo.lookup(a)
-        r.get._1._2.foreach(x => x._1)
+        // r.get._1._2.foreach(x => x._1)
 
         if (r.isDefined) {
             var res = List[(T, FeatureExpr)]()
