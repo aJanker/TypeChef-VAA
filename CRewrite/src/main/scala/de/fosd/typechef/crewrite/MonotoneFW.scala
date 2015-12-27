@@ -231,9 +231,6 @@ sealed abstract class MonotoneFW[T](val f: FunctionDef, env: ASTEnv, val fm: Fea
 
         // initialize solution
         val flow = if (isForward) getAllPred(f, env) else getAllSucc(f, env)
-        println("flow")
-        flow.foreach(println(_))
-        println("flowend")
         for (cfgstmt <- flow map { _._1 })
             memo.update(cfgstmt, ((true, l), (true, l)))
 
@@ -288,11 +285,7 @@ sealed abstract class MonotoneFW[T](val f: FunctionDef, env: ASTEnv, val fm: Fea
 
     private def getValues(a: AST, f: R => CPR) = {
         val r = memo.lookup(a)
-
-        println("r" + r)
-        println(r.isDefined)
         r.get._1._2.foreach(x => x._1)
-        println("andi")
 
         if (r.isDefined) {
             var res = List[(T, FeatureExpr)]()
@@ -423,19 +416,13 @@ abstract class MonotoneFWIdLab(f: FunctionDef, env: ASTEnv, dum: DeclUseMap, udm
         res = res + cachePGT.lookup(i).get
 
         if (isKill) {
-            println(i.getPositionFrom)
-            println(udm.containsKey(i))
-            udm.get(i).foreach(x=>println(x.getPositionFrom))
             if (udm.containsKey(i))
                 for (x <- udm.get(i)) {
                     if (cachePGT.lookup(x).isEmpty)
                         cachePGT.update(x, ((x, System.identityHashCode(x)), env.featureExpr(x)))
                     val lookup = cachePGT.lookup(x).get
-                    println("lookup" + lookup)
                     res = res + lookup
-                    println("resaftlook " + res)
 
-                    println("dum" + dum.containsKey(x))
                     if (dum.containsKey(x))
                         for (tu <- dum.get(x)) {
                             if (cachePGT.lookup(tu).isEmpty)
@@ -445,7 +432,6 @@ abstract class MonotoneFWIdLab(f: FunctionDef, env: ASTEnv, dum: DeclUseMap, udm
                 }
         }
 
-        println("res " + res)
         res
     }
 }
