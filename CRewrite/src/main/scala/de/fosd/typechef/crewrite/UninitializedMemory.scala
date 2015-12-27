@@ -66,9 +66,7 @@ class UninitializedMemory(env: ASTEnv, dum: DeclUseMap, udm: UseDeclMap, fm: Fea
         val assignments = manytd(query[AST] {
             case InitDeclaratorI(AtomicNamedDeclarator(_, i: Id, _), _, Some(_)) => res ++= fromCache(i, true)
             case AssignExpr(i: Id, "=", _) => {
-                println("dbg " + i.getPositionFrom)
                 val cache = fromCache(i, true)
-                println(cache)
                 res ++= cache
             }
         })
