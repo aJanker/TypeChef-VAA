@@ -26,7 +26,6 @@ trait CFGHelper extends IntraCFG {
 
     // determine recursively all pred
     def getAllPred(i: AST, env: ASTEnv) = {
-        println("i: " + i)
         var r = List[(AST, CFG)]()
         var s = List(i)
         var d = List[AST]()
@@ -38,9 +37,6 @@ trait CFGHelper extends IntraCFG {
 
             if (d.filter(_.eq(c)).isEmpty) {
                 val toAdd = (c, pred(c, env))
-                println("toAdd:" + toAdd)
-                println(c)
-                print("d")
                 r = toAdd :: r
                 s = s ++ r.head._2.map(x => x.entry)
                 d = d ++ List(c)
