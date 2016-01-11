@@ -160,7 +160,7 @@ public abstract class LexerOptions extends Options implements ILexerOptions {
                 String file = g.getOptarg();
                 File f = new File(file);
                 if (!(f.exists() && f.isDirectory()))
-                    System.err.println("Include directory " + file + " does not exist");
+                    System.err.println("Include directory " + file + ", " + f.getAbsolutePath() + " does not exist");
                 else
                     systemIncludePath.add(f.getCanonicalPath());
             } catch (IOException e) {
