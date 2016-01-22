@@ -190,34 +190,58 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
 
 
                     if (opt.warning_double_free) {
+                        stopWatch.start("none")
+                        sa.doubleFree()
+                        sa.doubleFree()
                         stopWatch.start("doublefree")
                         sa.doubleFree()
                     }
                     if (opt.warning_uninitialized_memory) {
+                        stopWatch.start("none")
+                        sa.uninitializedMemory()
+                        sa.uninitializedMemory()
                         stopWatch.start("uninitializedmemory")
                         sa.uninitializedMemory()
                     }
                     if (opt.warning_case_termination) {
+                        stopWatch.start("none")
+                        sa.caseTermination()
+                        sa.caseTermination()
                         stopWatch.start("casetermination")
                         sa.caseTermination()
                     }
                     if (opt.warning_xfree) {
+                        stopWatch.start("none")
+                        sa.xfree()
+                        sa.xfree()
                         stopWatch.start("xfree")
                         sa.xfree()
                     }
                     if (opt.warning_dangling_switch_code) {
+                        stopWatch.start("none")
+                        sa.danglingSwitchCode()
+                        sa.danglingSwitchCode()
                         stopWatch.start("danglingswitchcode")
                         sa.danglingSwitchCode()
                     }
                     if (opt.warning_cfg_in_non_void_func) {
+                        stopWatch.start("none")
+                        sa.cfgInNonVoidFunc()
+                        sa.cfgInNonVoidFunc()
                         stopWatch.start("cfginnonvoidfunc")
                         sa.cfgInNonVoidFunc()
                     }
                     if (opt.warning_stdlib_func_return) {
+                        stopWatch.start("none")
+                        sa.stdLibFuncReturn()
+                        sa.stdLibFuncReturn()
                         stopWatch.start("checkstdlibfuncreturn")
                         sa.stdLibFuncReturn()
                     }
                     if (opt.warning_dead_store) {
+                        stopWatch.start("none")
+                        sa.deadStore()
+                        sa.deadStore()
                         stopWatch.start("deadstore")
                         sa.deadStore()
                     }
