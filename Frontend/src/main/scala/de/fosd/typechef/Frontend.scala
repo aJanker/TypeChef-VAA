@@ -191,13 +191,10 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
 
 
                     if (opt.warning_double_free) {
-                        stopWatch.start("none")
-                        sa.doubleFree()
-                        sa.doubleFree()
                         stopWatch.start("doublefree")
                         val err = sa.doubleFree()
-                        stopWatch.start("none")
 
+                        stopWatch.start("none")
                         if (err.isEmpty) {
                             println("No double frees found!")
                         } else {
@@ -205,9 +202,6 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         }
                     }
                     if (opt.warning_uninitialized_memory) {
-                        stopWatch.start("none")
-                        sa.uninitializedMemory()
-                        sa.uninitializedMemory()
                         stopWatch.start("uninitializedmemory")
                         val err = sa.uninitializedMemory()
                         stopWatch.start("none")
@@ -219,9 +213,6 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         }
                     }
                     if (opt.warning_case_termination) {
-                        stopWatch.start("none")
-                        sa.caseTermination()
-                        sa.caseTermination()
                         stopWatch.start("casetermination")
                         val err = sa.caseTermination()
 
@@ -235,9 +226,6 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
 
                     }
                     if (opt.warning_xfree) {
-                        stopWatch.start("none")
-                        sa.xfree()
-                        sa.xfree()
                         stopWatch.start("xfree")
                         val err = sa.xfree()
                         stopWatch.start("none")
@@ -249,9 +237,6 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         }
                     }
                     if (opt.warning_dangling_switch_code) {
-                        stopWatch.start("none")
-                        sa.danglingSwitchCode()
-                        sa.danglingSwitchCode()
                         stopWatch.start("danglingswitchcode")
                         val err = sa.danglingSwitchCode()
                         stopWatch.start("none")
@@ -264,9 +249,6 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
 
                     }
                     if (opt.warning_cfg_in_non_void_func) {
-                        stopWatch.start("none")
-                        sa.cfgInNonVoidFunc()
-                        sa.cfgInNonVoidFunc()
                         stopWatch.start("cfginnonvoidfunc")
                         val err = sa.cfgInNonVoidFunc()
                         stopWatch.start("none")
@@ -277,9 +259,6 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         }
                     }
                     if (opt.warning_stdlib_func_return) {
-                        stopWatch.start("none")
-                        sa.stdLibFuncReturn()
-                        sa.stdLibFuncReturn()
                         stopWatch.start("checkstdlibfuncreturn")
                         val err = sa.stdLibFuncReturn()
                         stopWatch.start("none")
@@ -291,9 +270,6 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         }
                     }
                     if (opt.warning_dead_store) {
-                        stopWatch.start("none")
-                        sa.deadStore()
-                        sa.deadStore()
                         stopWatch.start("deadstore")
                         val err = sa.deadStore()
                         stopWatch.start("none")
