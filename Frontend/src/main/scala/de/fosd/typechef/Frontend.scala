@@ -188,7 +188,19 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
 
                     val sa = new CIntraAnalysisFrontendF(ast, ts.asInstanceOf[CTypeSystemFrontend with CTypeCache with CDeclUse], fullFM)
 
+                    if (opt.warning_case_termination) {
+                        stopWatch.start("casetermination")
+                        val err = sa.caseTermination()
 
+                        stopWatch.start("none")
+
+                        if (err.isEmpty) {
+                            println("Case statements with code are properly terminated with break statements!")
+                        } else {
+                            println(err.map(_.toString + "\n").reduce(_ + _))
+                        }
+
+                    }
 
                     if (opt.warning_double_free) {
                         stopWatch.start("doublefree")
@@ -212,19 +224,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                             println(err.map(_.toString + "\n").reduce(_ + _))
                         }
                     }
-                    if (opt.warning_case_termination) {
-                        stopWatch.start("casetermination")
-                        val err = sa.caseTermination()
 
-                        stopWatch.start("none")
-
-                        if (err.isEmpty) {
-                            println("Case statements with code are properly terminated with break statements!")
-                        } else {
-                            println(err.map(_.toString + "\n").reduce(_ + _))
-                        }
-
-                    }
                     if (opt.warning_xfree) {
                         stopWatch.start("xfree")
                         val err = sa.xfree()
