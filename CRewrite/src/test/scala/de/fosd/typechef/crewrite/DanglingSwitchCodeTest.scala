@@ -11,7 +11,7 @@ class DanglingSwitchCodeTest extends TestHelper with Matchers with CFGHelper wit
     def danglingSwitchCode(code: String): Boolean = {
         val tunit = prepareAST[TranslationUnit](parseTranslationUnit(code))
         val ds = new CIntraAnalysisFrontendF(tunit, null)
-        ds.danglingSwitchCode()
+        ds.danglingSwitchCode().isEmpty
     }
 
     @Test def test_danglingswitch_simple() {

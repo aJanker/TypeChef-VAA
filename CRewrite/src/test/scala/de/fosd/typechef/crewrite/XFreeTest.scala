@@ -21,7 +21,7 @@ class XFreeTest extends TestHelper with Matchers with CFGHelper with EnforceTree
         val ts = new CTypeSystemFrontend(tunit) with CTypeCache with CDeclUse
         assert(ts.checkASTSilent, "typecheck fails!")
         val xf = new CIntraAnalysisFrontendF(tunit, ts)
-        xf.xfree()
+        xf.xfree().isEmpty
     }
 
     @Test def test_variables() {

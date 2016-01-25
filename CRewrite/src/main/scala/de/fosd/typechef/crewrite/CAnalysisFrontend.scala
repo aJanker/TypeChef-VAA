@@ -78,16 +78,11 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         fanalyze.flatMap(getDegreeFromEdges)
     }
 
-    def deadStore(): Boolean = {
+    def deadStore(): List[TypeChefError] = {
         val err = fanalyze.flatMap(deadStore)
 
-        if (err.isEmpty) {
-            println("No dead stores found!")
-        } else {
-            println(err.map(_.toString + "\n").reduce(_ + _))
-        }
         errors ++= err
-        err.isEmpty
+        err
     }
 
     private def deadStore(fa: (FunctionDef, List[(AST, List[Opt[AST]])])): List[TypeChefError] = {
@@ -133,7 +128,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         err
     }
 
-    def doubleFree(): Boolean = {
+    def doubleFree(): List[TypeChefError] = {
         val casestudy = {
             tunit.getFile match {
                 case None => ""
@@ -147,14 +142,8 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
 
         val err = fanalyze.flatMap(doubleFree(_, casestudy))
 
-        if (err.isEmpty) {
-            println("No double frees found!")
-        } else {
-            println(err.map(_.toString + "\n").reduce(_ + _))
-        }
-
         errors ++= err
-        err.isEmpty
+        err
     }
 
 
@@ -189,17 +178,11 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         err
     }
 
-    def uninitializedMemory(): Boolean = {
+    def uninitializedMemory(): List[TypeChefError] = {
         val err = fanalyze.flatMap(uninitializedMemory)
 
-        if (err.isEmpty) {
-            println("No usages of uninitialized memory found!")
-        } else {
-            println(err.map(_.toString + "\n").reduce(_ + _))
-        }
-
         errors ++= err
-        err.isEmpty
+        err
     }
 
 
@@ -240,17 +223,13 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         err
     }
 
-    def xfree(): Boolean = {
+    def xfree(): List[TypeChefError] = {
         val err = fanalyze.flatMap(xfree)
 
-        if (err.isEmpty) {
-            println("No static allocated memory is freed!")
-        } else {
-            println(err.map(_.toString + "\n").reduce(_ + _))
-        }
+
 
         errors ++= err
-        err.isEmpty
+        err
     }
 
 
@@ -286,17 +265,11 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         err
     }
 
-    def danglingSwitchCode(): Boolean = {
+    def danglingSwitchCode(): List[TypeChefError] = {
         val err = fanalyze.flatMap {x => danglingSwitchCode(x._1)}
 
-        if (err.isEmpty) {
-            println("No dangling code in switch statements found!")
-        } else {
-            println(err.map(_.toString + "\n").reduce(_ + _))
-        }
-
         errors ++= err
-        err.isEmpty
+        err
     }
 
 
@@ -314,17 +287,11 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         })
     }
 
-    def cfgInNonVoidFunc(): Boolean = {
+    def cfgInNonVoidFunc(): List[TypeChefError] = {
         val err = fanalyze.flatMap(cfgInNonVoidFunc)
 
-        if (err.isEmpty) {
-            println("Control flow in non-void functions always ends in return statements!")
-        } else {
-            println(err.map(_.toString + "\n").reduce(_ + _))
-        }
-
         errors ++= err
-        err.isEmpty
+        err
     }
 
     private def cfgInNonVoidFunc(fa: (FunctionDef, List[(AST, List[Opt[AST]])])): List[TypeChefError] = {
@@ -339,17 +306,10 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         )
     }
 
-    def caseTermination(): Boolean = {
+    def caseTermination(): List[TypeChefError] = {
         val err = fanalyze.flatMap(caseTermination)
-
-        if (err.isEmpty) {
-            println("Case statements with code are properly terminated with break statements!")
-        } else {
-            println(err.map(_.toString + "\n").reduce(_ + _))
-        }
-
         errors ++= err
-        err.isEmpty
+        err
     }
 
     private def caseTermination(fa: (FunctionDef, List[(AST, List[Opt[AST]])])): List[TypeChefError] = {
@@ -366,17 +326,11 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         }
     }
 
-    def stdLibFuncReturn(): Boolean = {
+    def stdLibFuncReturn(): List[TypeChefError] = {
         val err = fanalyze.flatMap(stdLibFuncReturn)
 
-        if (err.isEmpty) {
-            println("Return values of stdlib functions are properly checked for errors!")
-        } else {
-            println(err.map(_.toString + "\n").reduce(_ + _))
-        }
-
         errors ++= err
-        err.isEmpty
+        err
     }
 
     private def stdLibFuncReturn(fa: (FunctionDef, List[(AST, List[Opt[AST]])])): List[TypeChefError] = {

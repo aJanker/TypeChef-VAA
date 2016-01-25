@@ -14,7 +14,7 @@ class CFGInNonVoidFuncTest extends TestHelper with Matchers with CFGHelper with 
         val ts = new CTypeSystemFrontend(tunit) with CTypeCache with CDeclUse
         assert(ts.checkASTSilent, "typecheck fails!")
         val cf = new CIntraAnalysisFrontendF(tunit, ts)
-        cf.cfgInNonVoidFunc()
+        cf.cfgInNonVoidFunc().isEmpty
     }
 
     @Test def test_cfgInNonVoidFunc() {

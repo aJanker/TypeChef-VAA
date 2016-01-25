@@ -12,7 +12,7 @@ class CaseTerminationTest extends TestHelper with Matchers with CFGHelper with E
         val ts = new CTypeSystemFrontend(tunit) with CTypeCache with CDeclUse
         assert(ts.checkASTSilent, "typecheck fails!")
         val df = new CIntraAnalysisFrontendF(tunit, ts)
-        df.caseTermination()
+        df.caseTermination().isEmpty
     }
 
     @Test def test_simple() {

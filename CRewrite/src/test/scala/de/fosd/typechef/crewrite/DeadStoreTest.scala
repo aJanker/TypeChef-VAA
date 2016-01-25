@@ -12,7 +12,7 @@ class DeadStoreTest extends TestHelper with Matchers with CFGHelper with Enforce
         val ts = new CTypeSystemFrontend(tunit) with CTypeCache with CDeclUse
         assert(ts.checkASTSilent, "typecheck fails!")
         val df = new CIntraAnalysisFrontendF(tunit, ts)
-        df.deadStore()
+        df.deadStore().isEmpty
     }
 
     @Test def test_simple() {

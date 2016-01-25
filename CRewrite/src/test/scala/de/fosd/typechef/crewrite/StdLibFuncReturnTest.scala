@@ -12,7 +12,7 @@ class StdLibFuncReturnTest extends TestHelper with Matchers with CFGHelper with 
         val ts = new CTypeSystemFrontend(tunit) with CTypeCache with CDeclUse
         assert(ts.checkASTSilent, "typecheck fails!")
         val df = new CIntraAnalysisFrontendF(tunit, ts)
-        df.stdLibFuncReturn()
+        df.stdLibFuncReturn().isEmpty
     }
 
     @Test def test_simple() {

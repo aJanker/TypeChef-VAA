@@ -195,56 +195,114 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         sa.doubleFree()
                         sa.doubleFree()
                         stopWatch.start("doublefree")
-                        sa.doubleFree()
+                        val err = sa.doubleFree()
+                        stopWatch.start("none")
+
+                        if (err.isEmpty) {
+                            println("No double frees found!")
+                        } else {
+                            println(err.map(_.toString + "\n").reduce(_ + _))
+                        }
                     }
                     if (opt.warning_uninitialized_memory) {
                         stopWatch.start("none")
                         sa.uninitializedMemory()
                         sa.uninitializedMemory()
                         stopWatch.start("uninitializedmemory")
-                        sa.uninitializedMemory()
+                        val err = sa.uninitializedMemory()
+                        stopWatch.start("none")
+
+                        if (err.isEmpty) {
+                            println("No usages of uninitialized memory found!")
+                        } else {
+                            println(err.map(_.toString + "\n").reduce(_ + _))
+                        }
                     }
                     if (opt.warning_case_termination) {
                         stopWatch.start("none")
                         sa.caseTermination()
                         sa.caseTermination()
                         stopWatch.start("casetermination")
-                        sa.caseTermination()
+                        val err = sa.caseTermination()
+
+                        stopWatch.start("none")
+
+                        if (err.isEmpty) {
+                            println("Case statements with code are properly terminated with break statements!")
+                        } else {
+                            println(err.map(_.toString + "\n").reduce(_ + _))
+                        }
+
                     }
                     if (opt.warning_xfree) {
                         stopWatch.start("none")
                         sa.xfree()
                         sa.xfree()
                         stopWatch.start("xfree")
-                        sa.xfree()
+                        val err = sa.xfree()
+                        stopWatch.start("none")
+
+                        if (err.isEmpty) {
+                            println("No static allocated memory is freed!")
+                        } else {
+                            println(err.map(_.toString + "\n").reduce(_ + _))
+                        }
                     }
                     if (opt.warning_dangling_switch_code) {
                         stopWatch.start("none")
                         sa.danglingSwitchCode()
                         sa.danglingSwitchCode()
                         stopWatch.start("danglingswitchcode")
-                        sa.danglingSwitchCode()
+                        val err = sa.danglingSwitchCode()
+                        stopWatch.start("none")
+
+                        if (err.isEmpty) {
+                            println("No dangling code in switch statements found!")
+                        } else {
+                            println(err.map(_.toString + "\n").reduce(_ + _))
+                        }
+
                     }
                     if (opt.warning_cfg_in_non_void_func) {
                         stopWatch.start("none")
                         sa.cfgInNonVoidFunc()
                         sa.cfgInNonVoidFunc()
                         stopWatch.start("cfginnonvoidfunc")
-                        sa.cfgInNonVoidFunc()
+                        val err = sa.cfgInNonVoidFunc()
+                        stopWatch.start("none")
+                        if (err.isEmpty) {
+                            println("Control flow in non-void functions always ends in return statements!")
+                        } else {
+                            println(err.map(_.toString + "\n").reduce(_ + _))
+                        }
                     }
                     if (opt.warning_stdlib_func_return) {
                         stopWatch.start("none")
                         sa.stdLibFuncReturn()
                         sa.stdLibFuncReturn()
                         stopWatch.start("checkstdlibfuncreturn")
-                        sa.stdLibFuncReturn()
+                        val err = sa.stdLibFuncReturn()
+                        stopWatch.start("none")
+
+                        if (err.isEmpty) {
+                            println("Return values of stdlib functions are properly checked for errors!")
+                        } else {
+                            println(err.map(_.toString + "\n").reduce(_ + _))
+                        }
                     }
                     if (opt.warning_dead_store) {
                         stopWatch.start("none")
                         sa.deadStore()
                         sa.deadStore()
                         stopWatch.start("deadstore")
-                        sa.deadStore()
+                        val err = sa.deadStore()
+                        stopWatch.start("none")
+
+                        if (err.isEmpty) {
+                            println("No dead stores found!")
+                        } else {
+                            println(err.map(_.toString + "\n").reduce(_ + _))
+                        }
                     }
 
                     if (opt.cfg_interaction_degree) {

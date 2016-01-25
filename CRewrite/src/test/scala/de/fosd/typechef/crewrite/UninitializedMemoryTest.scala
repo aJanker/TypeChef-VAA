@@ -34,7 +34,7 @@ class UninitializedMemoryTest extends TestHelper with Matchers with CFGHelper wi
         val ts = new CTypeSystemFrontend(tunit) with CTypeCache with CDeclUse
         assert(ts.checkASTSilent, "typecheck fails!")
         val um = new CIntraAnalysisFrontendF(tunit, ts)
-        um.uninitializedMemory()
+        um.uninitializedMemory().isEmpty
     }
 
     @Test def test_variables() {

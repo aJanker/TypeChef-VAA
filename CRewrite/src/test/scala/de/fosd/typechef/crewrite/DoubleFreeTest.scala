@@ -20,7 +20,7 @@ class DoubleFreeTest extends TestHelper with Matchers with CFGHelper with Enforc
         val ts = new CTypeSystemFrontend(tunit) with CTypeCache with CDeclUse
         assert(ts.checkASTSilent, "typecheck fails!")
         val df = new CIntraAnalysisFrontendF(tunit, ts)
-        df.doubleFree()
+        df.doubleFree().isEmpty
     }
 
     @Test def test_free() {
