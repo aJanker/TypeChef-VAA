@@ -112,6 +112,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
             try {
                 ast = loadSerializedAST(opt.getSerializedTUnitFilename)
                 ast = prepareAST[TranslationUnit](ast)
+                println("#FEATURES: " + filterAllSingleFeatureExpr(ast).distinct.size)
             } catch {
                 case e: Throwable => println(e.toString); e.printStackTrace(); ast = null
             }

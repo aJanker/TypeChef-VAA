@@ -1,9 +1,8 @@
 package de.fosd.typechef.parser.c
 
 import de.fosd.typechef.conditional._
-
+import de.fosd.typechef.featureexpr.{FeatureExpr, FeatureExprFactory}
 import org.kiama.rewriting.Rewriter._
-import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr}
 
 trait ConditionalNavigation {
 
@@ -83,6 +82,22 @@ trait ConditionalNavigation {
             }
         }
         filterAllFeatureExprHelper(e)
+    }
+
+    def filterAllSingleFeatureExpr(e: Product): List[String] = {
+        def filterAllSingleFeatureExprHelper(a: Any): List[String] = {
+            a match {
+                case Opt(feature, entry) => feature.collectDistinctFeatures.toList ++ (if (entry.isInstanceOf[Product]) entry.asInstanceOf[Product].productIterator.toList.flatMap(filterAllSingleFeatureExprHelper).distinct
+                else List())
+                case Choice(feature, thenBranch, elseBranch) => feature.collectDistinctFeatures.toList ++ feature.not().collectDistinctFeatures.toList ++
+                    thenBranch.asInstanceOf[Product].productIterator.toList.flatMap(filterAllSingleFeatureExprHelper) ++
+                    elseBranch.asInstanceOf[Product].productIterator.toList.flatMap(filterAllSingleFeatureExprHelper).distinct
+                case l: List[_] => l.flatMap(filterAllSingleFeatureExprHelper).distinct
+                case x: Product => x.productIterator.toList.flatMap(filterAllSingleFeatureExprHelper).distinct
+                case _ => List()
+            }
+        }
+        filterAllSingleFeatureExprHelper(e)
     }
 
     // return all Opt and One elements
