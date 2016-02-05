@@ -1,11 +1,7 @@
 package de.fosd.typechef.crewrite
 
-import java.util
-
-import de.fosd.typechef.parser.c._
 import de.fosd.typechef.conditional.Opt
-
-import scala.reflect.internal.util.Collections
+import de.fosd.typechef.parser.c._
 
 // implements a simple analysis that checks whether a case statement associated with a statement
 // terminates under all conditions with a break statement
@@ -24,8 +20,8 @@ class CaseTermination(env: ASTEnv) extends IntraCFG {
         // determine switch to make sure we do not leave the successor element
         val switch = findPriorASTElem[SwitchStatement](c, env)
 
-        // store already visited condition statements of loops to avoid endless recursion
-        var loopCondition: List[AST] = List()
+        // store already visited  statements to avoid endless recursion
+        var visited: List[AST] = List()
 
         // determine starting from the case statement that all successor elements will finally
         // come through a break statement
@@ -39,19 +35,7 @@ class CaseTermination(env: ASTEnv) extends IntraCFG {
                 case Opt(_, _: DefaultStatement) => return false
                 case Opt(_, s) =>
                     if (!isPartOf(s, switch)) return false
-                    else if (!loopCondition.contains(s)) {
-                        parentAST(s, env) match {
-                            case f : ForStatement => loopCondition ::= s
-                            case w : WhileStatement => loopCondition ::= s
-                            case d : DoStatement => loopCondition ::= s
-                            case _ =>
-                        }
-                        wlist ++= succ(s, env)
-                }
-            }
-            if (wlist.size > 25000) {
-                println("Error - hit endless recursion for " +  curelem + " in " + curelem.entry.getPositionFrom)
-                return false;
+                    else if (!visited.exists(s.eq)) wlist ++= succ(s, env).filterNot(_.entry.eq(curelem.entry))
             }
         }
 
