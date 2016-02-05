@@ -37,7 +37,7 @@ class CaseTermination(env: ASTEnv) extends IntraCFG {
                     if (!isPartOf(s, switch)) return false
                     else if (!visited.exists(s.eq)) {
                         visited ::= s
-                        wlist ++= succ(s, env).filterNot(_.entry.eq(curelem.entry))
+                        wlist ++= succ(s, env)
                     }
             }
         }
