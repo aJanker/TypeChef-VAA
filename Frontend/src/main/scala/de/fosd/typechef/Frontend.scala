@@ -5,6 +5,8 @@ import java.io._
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
 import de.fosd.typechef.crewrite._
+import de.fosd.typechef.error.TypeChefError
+import de.fosd.typechef.featureexpr.FeatureExpr
 import de.fosd.typechef.options.{FrontendOptions, FrontendOptionsWithConfigFiles, OptionException}
 import de.fosd.typechef.parser.TokenReader
 import de.fosd.typechef.parser.c.{CTypeContext, TranslationUnit, _}
@@ -112,7 +114,6 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
             try {
                 ast = loadSerializedAST(opt.getSerializedTUnitFilename)
                 ast = prepareAST[TranslationUnit](ast)
-                println("#FEATURES: " + filterAllSingleFeatureExpr(ast).distinct.size)
             } catch {
                 case e: Throwable => println(e.toString); e.printStackTrace(); ast = null
             }
@@ -151,9 +152,6 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                 // some dataflow analyses require typing information
                 val ts = new CTypeSystemFrontend(ast, fullFM, opt) with CTypeCache with CDeclUse
 
-                /** I did some experiments with the TypeChef FeatureModel of Linux, in case I need the routines again, they are saved here. */
-                //Debug_FeatureModelExperiments.experiment(fm_ts)
-
                 if (opt.typecheck || opt.writeInterface || opt.typechecksa) {
                     //PrCDeclUseoductGeneration.typecheckProducts(fm,fm_ts,ast,opt,
                     //logMessage=("Time for lexing(ms): " + (t2-t1) + "\nTime for parsing(ms): " + (t3-t2) + "\n"))
@@ -164,6 +162,11 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                     ts.checkAST(printResults = true)
                     ts.errors.map(errorXML.renderTypeError)
                 }
+
+                /** I did some experiments with the TypeChef FeatureModel of Linux, in case I need the routines again, they are saved here. */
+                //Debug_FeatureModelExperiments.experiment(fm_ts)
+
+
                 if (opt.writeInterface) {
                     stopWatch.start("interfaces")
                     val interface = ts.getInferredInterface().and(opt.getFilePresenceCondition)
@@ -178,7 +181,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                     stopWatch.start("dumpCFG")
 
                     //run without feature model, because otherwise too expensive runtimes in systems such as linux
-                    val cf = new CInterAnalysisFrontend(ast/*, fm_ts*/)
+                    val cf = new CInterAnalysisFrontend(ast /*, fm_ts*/)
                     val writer = new CFGCSVWriter(new FileWriter(new File(opt.getCCFGFilename)))
                     val dotwriter = new DotGraph(new FileWriter(new File(opt.getCCFGDotFilename)))
                     cf.writeCFG(opt.getFile, new ComposedWriter(List(dotwriter, writer)))
@@ -186,43 +189,31 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                 if (opt.staticanalyses) {
                     println("#static analysis")
 
+                    stopWatch.start("init")
                     val sa = new CIntraAnalysisFrontendF(ast, ts.asInstanceOf[CTypeSystemFrontend with CTypeCache with CDeclUse], fullFM)
+                    stopWatch.start("none")
 
                     if (opt.warning_case_termination) {
                         stopWatch.start("casetermination")
                         val err = sa.caseTermination()
-
                         stopWatch.start("none")
 
-                        if (err.isEmpty) {
-                            println("Case statements with code are properly terminated with break statements!")
-                        } else {
-                            println(err.map(_.toString + "\n").reduce(_ + _))
-                        }
-
+                        printErrors(err, "Case statements with code are properly terminated with break statements!")
                     }
 
                     if (opt.warning_double_free) {
                         stopWatch.start("doublefree")
                         val err = sa.doubleFree()
-
                         stopWatch.start("none")
-                        if (err.isEmpty) {
-                            println("No double frees found!")
-                        } else {
-                            println(err.map(_.toString + "\n").reduce(_ + _))
-                        }
+
+                        printErrors(err, "No double frees found!")
                     }
                     if (opt.warning_uninitialized_memory) {
                         stopWatch.start("uninitializedmemory")
                         val err = sa.uninitializedMemory()
                         stopWatch.start("none")
 
-                        if (err.isEmpty) {
-                            println("No usages of uninitialized memory found!")
-                        } else {
-                            println(err.map(_.toString + "\n").reduce(_ + _))
-                        }
+                        printErrors(err, "No usages of uninitialized memory found!")
                     }
 
                     if (opt.warning_xfree) {
@@ -230,61 +221,45 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         val err = sa.xfree()
                         stopWatch.start("none")
 
-                        if (err.isEmpty) {
-                            println("No static allocated memory is freed!")
-                        } else {
-                            println(err.map(_.toString + "\n").reduce(_ + _))
-                        }
+                        printErrors(err, "No static allocated memory is freed!")
                     }
+
                     if (opt.warning_dangling_switch_code) {
                         stopWatch.start("danglingswitchcode")
                         val err = sa.danglingSwitchCode()
                         stopWatch.start("none")
 
-                        if (err.isEmpty) {
-                            println("No dangling code in switch statements found!")
-                        } else {
-                            println(err.map(_.toString + "\n").reduce(_ + _))
-                        }
-
+                        printErrors(err, "No dangling code in switch statements found!")
                     }
+
                     if (opt.warning_cfg_in_non_void_func) {
                         stopWatch.start("cfginnonvoidfunc")
                         val err = sa.cfgInNonVoidFunc()
                         stopWatch.start("none")
-                        if (err.isEmpty) {
-                            println("Control flow in non-void functions always ends in return statements!")
-                        } else {
-                            println(err.map(_.toString + "\n").reduce(_ + _))
-                        }
+
+                        printErrors(err, "Control flow in non-void functions always ends in return statements!")
                     }
+
                     if (opt.warning_stdlib_func_return) {
                         stopWatch.start("checkstdlibfuncreturn")
                         val err = sa.stdLibFuncReturn()
                         stopWatch.start("none")
 
-                        if (err.isEmpty) {
-                            println("Return values of stdlib functions are properly checked for errors!")
-                        } else {
-                            println(err.map(_.toString + "\n").reduce(_ + _))
-                        }
+                        printErrors(err, "Return values of stdlib functions are properly checked for errors!")
                     }
+
                     if (opt.warning_dead_store) {
                         stopWatch.start("deadstore")
                         val err = sa.deadStore()
                         stopWatch.start("none")
 
-                        if (err.isEmpty) {
-                            println("No dead stores found!")
-                        } else {
-                            println(err.map(_.toString + "\n").reduce(_ + _))
-                        }
+                        printErrors(err, "No dead stores found!")
                     }
 
                     if (opt.cfg_interaction_degree) {
                         val cfgEdgeDegrees = sa.calculateCFGEdgeDegree(opt.getSimplifyFM)
                         val writer = new FileWriter(new File(opt.getCFGDegreeFilename))
-                        cfgEdgeDegrees.foreach(cfgEdgeDegree =>  writer.write(cfgEdgeDegree._2 + "\t" + cfgEdgeDegree._1 + "\n"))
+                        cfgEdgeDegrees.foreach(cfgEdgeDegree => writer.write(cfgEdgeDegree._2 + "\t" + cfgEdgeDegree._1 + "\n"))
                         writer.close()
                     }
 
@@ -304,10 +279,10 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         errorWriter.close()
                     }
                 }
-
-
+                stopWatch.start("statistics")
+                println("#TOTAL_FEATURES:\t" + filterAllSingleFeatureExpr(ast).distinct.size)
+                println("#TOTAL_NODES:\t" + countNumberOfASTElements(ast))
             }
-
         }
         stopWatch.start("done")
         errorXML.write()
@@ -317,9 +292,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
             writer.close()
             println(stopWatch)
         }
-
     }
-
 
     def lex(opt: FrontendOptions): TokenReader[CToken, CTypeContext] = {
         val tokens = new lexer.LexerFrontend().run(opt, opt.parse)
@@ -343,4 +316,20 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
     } catch {
         case e: ObjectStreamException => System.err.println("failed loading serialized AST: " + e.getMessage); null
     }
+
+    private def countNumberOfASTElements(ast: AST): Long = {
+        def countNumberOfASTElementsHelper(a: Any): Long = {
+            a match {
+                case l: List[_] => l.map(countNumberOfASTElementsHelper).sum
+                case _: FeatureExpr => 0
+                case p: Product => 1 + p.productIterator.toList.map(countNumberOfASTElementsHelper).sum
+                case _ => 1
+            }
+        }
+        countNumberOfASTElementsHelper(ast)
+    }
+
+    private def printErrors(err: List[TypeChefError], noErrorMSG: String): Unit =
+        if (err.isEmpty) println(noErrorMSG)
+        else println(err.map(_.toString + "\n").reduce(_ + _))
 }

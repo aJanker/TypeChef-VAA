@@ -12,7 +12,7 @@ class CaseTermination(env: ASTEnv) extends IntraCFG {
         // get all successor elements of the case statement
         // and filter out other case statements, as fall through (case after case)
         // is allowed in this analysis
-        var wlist: List[Opt[AST]] = succ(c, env).filterNot({
+        val wlist: List[Opt[AST]] = succ(c, env).filterNot({
             case Opt(_, c@CaseStatement(_)) => true
             case _ => false
         })
@@ -21,27 +21,23 @@ class CaseTermination(env: ASTEnv) extends IntraCFG {
         val switch = findPriorASTElem[SwitchStatement](c, env)
 
         // store already visited  statements to avoid endless recursion
-        var visited: List[AST] = List()
+        val visited: List[AST] = List()
 
         // determine starting from the case statement that all successor elements will finally
         // come through a break statement
-        while (wlist.size > 0) {
-            val curelem = wlist.head
-            wlist = wlist.tail
-
-            curelem match {
-                case Opt(_, _: BreakStatement) =>
-                case Opt(_, _: CaseStatement) => return false
-                case Opt(_, _: DefaultStatement) => return false
-                case Opt(_, s) =>
-                    if (!isPartOf(s, switch)) return false
-                    else if (!visited.exists(s.eq)) {
-                        visited ::= s
-                        wlist ++= succ(s, env)
-                    }
+        def isTermination(succs: List[Opt[AST]], visited: List[AST]) : Boolean = {
+            if (succs.isEmpty) true
+            else succs.head match {
+                    case Opt(_, _: BreakStatement) => isTermination(succs.tail, visited)
+                    case Opt(_, _: CaseStatement) =>  false
+                    case Opt(_, _: DefaultStatement) =>  false
+                    case Opt(_, s) => {}
+                        if (!isPartOf(s, switch))  false
+                        else if (!visited.exists(s.eq)) isTermination(succs.tail ++ succ(s, env), s :: visited)
+                        else isTermination(succs.tail, visited)
             }
         }
 
-        true
+        isTermination(wlist, visited)
     }
 }
