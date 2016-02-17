@@ -2,6 +2,7 @@ package de.fosd.typechef
 
 
 import java.io._
+import java.time.{Duration, Instant}
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
 import de.fosd.typechef.crewrite._
@@ -56,28 +57,25 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
     }
 
     private class StopWatch {
-        var lastStart: Long = 0
+        var lastStart: Instant = Instant.now()
         var currentPeriod: String = "none"
         var currentPeriodId: Int = 0
         var times: Map[(Int, String), Long] = Map()
 
         private def genId(): Int = { currentPeriodId += 1; currentPeriodId }
 
-        private def measure(checkpoint: String) {
-            times = times + ((genId(), checkpoint) -> System.currentTimeMillis())
-        }
-
         def start(period: String) {
-            val now = System.currentTimeMillis()
-            val lastTime = now - lastStart
+            val now = Instant.now()
+            val lastTime = Duration.between(lastStart, now).toMillis
             times = times + ((genId(), currentPeriod) -> lastTime)
-            lastStart = now
             currentPeriod = period
+            lastStart = Instant.now()
         }
 
         def get(period: String): Long = times.filter(v => v._1._2 == period).headOption.map(_._2).getOrElse(0)
 
         override def toString = {
+            def nsToMs(ns : Long) = ns / 1000000
             var res = "timing "
             val switems = times.toList.filterNot(x => x._1._2 == "none" || x._1._2 == "done").sortBy(_._1._1)
 
