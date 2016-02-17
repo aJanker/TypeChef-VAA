@@ -15,7 +15,6 @@ import de.fosd.typechef.typesystem._
 
 object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNavigation {
 
-
     def main(args: Array[String]) {
         // load options
         val opt = new FrontendOptionsWithConfigFiles()
@@ -187,6 +186,8 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                 if (opt.staticanalyses) {
                     println("#static analysis")
 
+                    var ctDegree, dfDegree, umDegree, xfDegree, dscDegree, cfgDegree, stdDegree, dsDegree : (List[(String, FeatureExpr, Int)], Map[Int, Int]) = (List(), Map())
+
                     stopWatch.start("init")
                     val sa = new CIntraAnalysisFrontendF(ast, ts.asInstanceOf[CTypeSystemFrontend with CTypeCache with CDeclUse], fullFM)
                     stopWatch.start("none")
@@ -196,6 +197,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         val err = sa.caseTermination()
                         stopWatch.start("none")
 
+                        ctDegree = sa.getErrorDegrees(err, opt.getSimplifyFM)
                         printErrors(err, "Case statements with code are properly terminated with break statements!")
                     }
 
@@ -204,6 +206,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         val err = sa.doubleFree()
                         stopWatch.start("none")
 
+                        dfDegree = sa.getErrorDegrees(err, opt.getSimplifyFM)
                         printErrors(err, "No double frees found!")
                     }
                     if (opt.warning_uninitialized_memory) {
@@ -211,6 +214,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         val err = sa.uninitializedMemory()
                         stopWatch.start("none")
 
+                        umDegree = sa.getErrorDegrees(err, opt.getSimplifyFM)
                         printErrors(err, "No usages of uninitialized memory found!")
                     }
 
@@ -219,6 +223,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         val err = sa.xfree()
                         stopWatch.start("none")
 
+                        xfDegree = sa.getErrorDegrees(err, opt.getSimplifyFM)
                         printErrors(err, "No static allocated memory is freed!")
                     }
 
@@ -227,6 +232,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         val err = sa.danglingSwitchCode()
                         stopWatch.start("none")
 
+                        dscDegree = sa.getErrorDegrees(err, opt.getSimplifyFM)
                         printErrors(err, "No dangling code in switch statements found!")
                     }
 
@@ -235,6 +241,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         val err = sa.cfgInNonVoidFunc()
                         stopWatch.start("none")
 
+                        cfgDegree = sa.getErrorDegrees(err, opt.getSimplifyFM)
                         printErrors(err, "Control flow in non-void functions always ends in return statements!")
                     }
 
@@ -243,6 +250,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         val err = sa.stdLibFuncReturn()
                         stopWatch.start("none")
 
+                        stdDegree = sa.getErrorDegrees(err, opt.getSimplifyFM)
                         printErrors(err, "Return values of stdlib functions are properly checked for errors!")
                     }
 
@@ -251,12 +259,13 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         val err = sa.deadStore()
                         stopWatch.start("none")
 
+                        dsDegree = sa.getErrorDegrees(err, opt.getSimplifyFM)
                         printErrors(err, "No dead stores found!")
                     }
 
                     if (opt.cfg_interaction_degree) {
                         val cfgEdgeDegrees = sa.calculateCFGEdgeDegree(opt.getSimplifyFM)
-                        val writer = new FileWriter(new File(opt.getCFGDegreeFilename))
+                        val writer = gzipWriter(opt.getCFGDegreeFilename)
                         cfgEdgeDegrees.foreach(cfgEdgeDegree => writer.write(cfgEdgeDegree._2 + "\t" + cfgEdgeDegree._1 + "\n"))
                         writer.close()
                     }
@@ -276,11 +285,12 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         stmtWriter.close()
                         errorWriter.close()
                     }
-                }
+                    stopWatch.start("statistics")
+                    println("#TOTAL_FEATURES:\t" + filterAllSingleFeatureExpr(ast).distinct.size)
+                    println("#TOTAL_NODES:\t" + countNumberOfASTElements(ast))
 
-                stopWatch.start("statistics")
-                println("#TOTAL_FEATURES:\t" + filterAllSingleFeatureExpr(ast).distinct.size)
-                println("#TOTAL_NODES:\t" + countNumberOfASTElements(ast))
+                    // TODO Write CleanReport
+                }
             }
         }
         stopWatch.start("done")

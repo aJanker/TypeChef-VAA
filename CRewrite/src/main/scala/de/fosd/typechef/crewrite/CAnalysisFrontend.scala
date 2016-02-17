@@ -473,6 +473,16 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         })
     }
 
+    def getErrorDegrees(errs: List[TypeChefError], simplifyFM : java.io.File) : (List[(String, FeatureExpr, Int)], Map[Int, Int]) = {
+        val simplification = getSimplifcation(simplifyFM)
+
+        val singleErrDegrees = errs.map(
+            err => (PrettyPrinter.print(err.where.asInstanceOf[AST]) + " @ " + err.where.rangeClean, err.condition, calculateInteractionDegree(err.condition.asInstanceOf[BDDFeatureExpr], simplification)))
+        val degreeMap = singleErrDegrees.map(_._3).groupBy(identity).mapValues(_.size)
+
+        (singleErrDegrees, degreeMap)
+    }
+
     private def writeDegree(stmtDegree: (Opt[AST], Int), writer: Writer) = {
         writer.write(stmtDegree._2.toString)
         writer.write(" \tFeature: ")
