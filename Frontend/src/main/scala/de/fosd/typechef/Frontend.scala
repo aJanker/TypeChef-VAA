@@ -267,9 +267,9 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         val degrees = sa.getInteractionDegrees(opt.getSimplifyFM)
 
                         //write interaction degress
-                        val stmtWriter = new FileWriter(new File(opt.getStmtInteractionDegreeFilename))
-                        val warningWriter = new FileWriter(new File(opt.getWarningStmtInteractionDegreeFilename))
-                        val errorWriter = new FileWriter(new File(opt.getErrorStmtInteractionDegreeFilename))
+                        val stmtWriter = gzipWriter(opt.getStmtInteractionDegreeFilename)
+                        val warningWriter = gzipWriter(opt.getWarningStmtInteractionDegreeFilename)
+                        val errorWriter = gzipWriter(opt.getErrorStmtInteractionDegreeFilename)
                         sa.writeStatementDegrees(degrees._1, stmtWriter)
                         sa.writeWarningDegrees(degrees._2, warningWriter)
                         sa.writeErrorDegrees(degrees._3, errorWriter)
@@ -277,6 +277,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         errorWriter.close()
                     }
                 }
+
                 stopWatch.start("statistics")
                 println("#TOTAL_FEATURES:\t" + filterAllSingleFeatureExpr(ast).distinct.size)
                 println("#TOTAL_NODES:\t" + countNumberOfASTElements(ast))
@@ -330,4 +331,6 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
     private def printErrors(err: List[TypeChefError], noErrorMSG: String): Unit =
         if (err.isEmpty) println(noErrorMSG)
         else println(err.map(_.toString + "\n").reduce(_ + _))
+
+    private def gzipWriter(path: String): BufferedWriter = new BufferedWriter(new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(path)), "UTF-8"))
 }
