@@ -294,13 +294,13 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         w.write("[FILE]\t" + opt.getFile + "\n")
 
                         w.write("[ALLDEGREES]" + "\t")
-                        w.write(sa.getAllDegrees(opt.getSimplifyFM).mkString(",") + "\n")
+                        w.write(sa.getAllDegrees(opt.getSimplifyFM).mkString("; ") + "\n")
 
                         w.write("[ALLWARNINGDEGREES]" + "\t")
-                        w.write(sa.getErrorDegrees(sa.errors, opt.getSimplifyFM)._2.toString.mkString(",") + "\n")
+                        w.write(sa.getErrorDegrees(sa.errors, opt.getSimplifyFM)._2.mkString("; ") + "\n")
 
                         errDegrees.foreach(err => {
-                            w.write("[" + err._1.toUpperCase + "_DEGREE]" + "\t" + err._2._2.toString.mkString(",") + "\n")
+                            w.write("[" + err._1.toUpperCase + "_DEGREE]" + "\t" + err._2._2.mkString("; ") + "\n")
                         })
 
                         errDegrees.foreach(err => err._2._1.foreach(detail => {
