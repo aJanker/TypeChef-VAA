@@ -483,6 +483,24 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         (singleErrDegrees, degreeMap)
     }
 
+    def getAllDegrees(simplifyFM : java.io.File) : Map[Int, Int] = {
+        val simplification = getSimplifcation(simplifyFM)
+
+        val stmtsDegrees: List[(Opt[Statement], Int)] = filterAllASTElems[Statement](tunit).flatMap(stmt => {
+            val stmtFExpr = env.featureExpr(stmt).asInstanceOf[BDDFeatureExpr]
+
+            if (filterAllASTElems[Statement](stmt).size == 1)
+                Some((Opt(stmtFExpr, stmt), calculateInteractionDegree(stmtFExpr, simplification)))
+            else None
+        })
+
+        /* val singleErrDegrees = stmtsDegrees.map(
+            stmt => (PrettyPrinter.print(stmt._1.entry) + " @ " + stmt._1.entry.rangeClean, stmt._1.condition, stmt._2)) */
+        val degreeMap = stmtsDegrees.map(_._2).groupBy(identity).mapValues(_.size)
+
+        degreeMap
+    }
+
     private def writeDegree(stmtDegree: (Opt[AST], Int), writer: Writer) = {
         writer.write(stmtDegree._2.toString)
         writer.write(" \tFeature: ")

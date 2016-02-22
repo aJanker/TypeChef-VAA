@@ -152,80 +152,110 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                 if (opt.staticanalyses) {
                     println("#static analysis")
 
-                    var ctDegree, dfDegree, umDegree, xfDegree, dscDegree, cfgDegree, stdDegree, dsDegree : (List[(String, FeatureExpr, Int)], Map[Int, Int]) = (List(), Map())
+                    var errDegrees = Map[String, (List[(String, FeatureExpr, Int)], Map[Int, Int])]()
+                    var errs = Map[String, List[TypeChefError]]()
 
                     stopWatch.start("init")
                     val sa = new CIntraAnalysisFrontendF(ast, ts.asInstanceOf[CTypeSystemFrontend with CTypeCache with CDeclUse], fullFM)
                     stopWatch.start("none")
 
                     if (opt.warning_case_termination) {
-                        stopWatch.start("casetermination")
+                        val analysis: String = "casetermination"
+                        stopWatch.start(analysis)
+
                         val err = sa.caseTermination()
+                        errs += analysis -> err
+
                         stopWatch.start("none")
 
-                        ctDegree = sa.getErrorDegrees(err, opt.getSimplifyFM)
+                        errDegrees += analysis -> sa.getErrorDegrees(err, opt.getSimplifyFM)
                         printErrors(err, "Case statements with code are properly terminated with break statements!")
                     }
 
                     if (opt.warning_double_free) {
-                        stopWatch.start("doublefree")
+                        val analysis: String = "doublefree"
+                        stopWatch.start(analysis)
+
                         val err = sa.doubleFree()
+                        errs += analysis -> err
+
                         stopWatch.start("none")
 
-                        dfDegree = sa.getErrorDegrees(err, opt.getSimplifyFM)
+                        errDegrees += analysis -> sa.getErrorDegrees(err, opt.getSimplifyFM)
                         printErrors(err, "No double frees found!")
                     }
                     if (opt.warning_uninitialized_memory) {
-                        stopWatch.start("uninitializedmemory")
+                        val analysis: String = "uninitializedmemory"
+                        stopWatch.start(analysis)
+
                         val err = sa.uninitializedMemory()
+                        errs += analysis -> err
+
                         stopWatch.start("none")
 
-                        umDegree = sa.getErrorDegrees(err, opt.getSimplifyFM)
+                        errDegrees += analysis -> sa.getErrorDegrees(err, opt.getSimplifyFM)
                         printErrors(err, "No usages of uninitialized memory found!")
                     }
 
                     if (opt.warning_xfree) {
-                        stopWatch.start("xfree")
+                        val analysis: String = "xfree"
+                        stopWatch.start(analysis)
+
                         val err = sa.xfree()
+                        errs += analysis -> err
+
                         stopWatch.start("none")
 
-                        xfDegree = sa.getErrorDegrees(err, opt.getSimplifyFM)
+                        errDegrees += analysis -> sa.getErrorDegrees(err, opt.getSimplifyFM)
                         printErrors(err, "No static allocated memory is freed!")
                     }
 
                     if (opt.warning_dangling_switch_code) {
-                        stopWatch.start("danglingswitchcode")
+                        val analysis: String = "danglingswitchcode"
+                        stopWatch.start(analysis)
+
                         val err = sa.danglingSwitchCode()
+
+                        errs += analysis -> err
                         stopWatch.start("none")
 
-                        dscDegree = sa.getErrorDegrees(err, opt.getSimplifyFM)
+                        errDegrees += analysis -> sa.getErrorDegrees(err, opt.getSimplifyFM)
                         printErrors(err, "No dangling code in switch statements found!")
                     }
 
                     if (opt.warning_cfg_in_non_void_func) {
-                        stopWatch.start("cfginnonvoidfunc")
+                        val analysis: String = "cfginnonvoidfunc"
+                        stopWatch.start(analysis)
+
                         val err = sa.cfgInNonVoidFunc()
+                        errs += analysis -> err
                         stopWatch.start("none")
 
-                        cfgDegree = sa.getErrorDegrees(err, opt.getSimplifyFM)
+                        errDegrees += analysis -> sa.getErrorDegrees(err, opt.getSimplifyFM)
                         printErrors(err, "Control flow in non-void functions always ends in return statements!")
                     }
 
                     if (opt.warning_stdlib_func_return) {
-                        stopWatch.start("checkstdlibfuncreturn")
+                        val analysis: String = "checkstdlibfuncreturn"
+                        stopWatch.start(analysis)
+
                         val err = sa.stdLibFuncReturn()
+                        errs += analysis -> err
                         stopWatch.start("none")
 
-                        stdDegree = sa.getErrorDegrees(err, opt.getSimplifyFM)
+                        errDegrees += analysis -> sa.getErrorDegrees(err, opt.getSimplifyFM)
                         printErrors(err, "Return values of stdlib functions are properly checked for errors!")
                     }
 
                     if (opt.warning_dead_store) {
-                        stopWatch.start("deadstore")
+                        val analysis: String = "deadstore"
+                        stopWatch.start(analysis)
+
                         val err = sa.deadStore()
+                        errs += analysis -> err
                         stopWatch.start("none")
 
-                        dsDegree = sa.getErrorDegrees(err, opt.getSimplifyFM)
+                        errDegrees += analysis -> sa.getErrorDegrees(err, opt.getSimplifyFM)
                         printErrors(err, "No dead stores found!")
                     }
 
@@ -241,19 +271,47 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         stopWatch.start("interactiondegree")
                         val degrees = sa.getInteractionDegrees(opt.getSimplifyFM)
 
-                        //write interaction degress
-                        val stmtWriter = gzipWriter(opt.getStmtInteractionDegreeFilename)
-                        val warningWriter = gzipWriter(opt.getWarningStmtInteractionDegreeFilename)
-                        val errorWriter = gzipWriter(opt.getErrorStmtInteractionDegreeFilename)
-                        sa.writeStatementDegrees(degrees._1, stmtWriter)
-                        sa.writeWarningDegrees(degrees._2, warningWriter)
-                        sa.writeErrorDegrees(degrees._3, errorWriter)
-                        stmtWriter.close()
-                        errorWriter.close()
+                        stopWatch.start("statistics")
+                        val file: File = new File(opt.getFile + ".c.vaa_sumreport.gz")
+                        file.getParentFile.mkdirs()
+
+                        val fw = gzipWriter(file)
+                        fw.write("[FILE]\t" + opt.getFile + "\n")
+                        fw.write("[FEATURES]\t" + filterAllSingleFeatureExpr(ast).distinct.size + "\n")
+                        fw.write("[NODES]\t" + countNumberOfASTElements(ast))
+                        fw.write("[DATA_FLOW_WARNINGS]\t" + sa.errors.size + "\n")
+                        errs.toList.foreach(err => {
+                            fw.write("[" + err._1.toUpperCase + "_VAA_DATA_FLOW_WARNINGS]" + err._2.size)
+                            fw.write("[" + err._1.toUpperCase + "_VAA_DATA_FLOW_TIMINGS]" + stopWatch.get(err._1))
+                        })
+
+                        fw.close
+
+                        val detailReport: File = new File(opt.getFile + ".c.vaa_detailreport.gz")
+                        detailReport.getParentFile.mkdirs()
+
+                        val w = gzipWriter(file)
+                        w.write("[FILE]\t" + opt.getFile + "\n")
+
+                        w.write("[ALLDEGREES]" + "\t")
+                        w.write(sa.getAllDegrees(opt.getSimplifyFM).toString + "\n")
+
+                        w.write("[ALLWARNINGDEGREES]" + "\t")
+                        w.write(sa.getErrorDegrees(sa.errors, opt.getSimplifyFM)._2.toString + "\n")
+
+                        errDegrees.foreach(err => {
+                            w.write("[" + err._1.toUpperCase + "_DEGREE]" + "\t" + err._2._2.toString + "\n")
+                        })
+
+                        errDegrees.foreach(err => err._2._1.foreach(detail => {
+                            w.write("[" + err._1.toUpperCase + "_DEGREE_DETAIL]" + "\t" + detail._1 + "\t" + detail._2 + "\t" + detail._3 + "\n")
+                        }))
+
+                        w.close
                     }
-                    stopWatch.start("statistics")
-                    println("#TOTAL_FEATURES:\t" + filterAllSingleFeatureExpr(ast).distinct.size)
-                    println("#TOTAL_NODES:\t" + countNumberOfASTElements(ast))
+
+
+
 
                     // TODO Write CleanReport
                 }
@@ -309,4 +367,6 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
         else println(err.map(_.toString + "\n").reduce(_ + _))
 
     private def gzipWriter(path: String): BufferedWriter = new BufferedWriter(new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(path)), "UTF-8"))
+
+    private def gzipWriter(path: File): BufferedWriter = new BufferedWriter(new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(path)), "UTF-8"))
 }
