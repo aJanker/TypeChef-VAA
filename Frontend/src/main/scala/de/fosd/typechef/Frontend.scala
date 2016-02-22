@@ -272,7 +272,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         val degrees = sa.getInteractionDegrees(opt.getSimplifyFM)
 
                         stopWatch.start("statistics")
-                        val file: File = new File(opt.getFile + ".c.vaa_sumreport.gz")
+                        val file: File = new File(opt.getFile + ".vaa_sumreport.gz")
                         file.getParentFile.mkdirs()
 
                         val fw = gzipWriter(file)
@@ -287,20 +287,20 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
 
                         fw.close
 
-                        val detailReport: File = new File(opt.getFile + ".c.vaa_detailreport.gz")
+                        val detailReport: File = new File(opt.getFile + ".vaa_detailreport.gz")
                         detailReport.getParentFile.mkdirs()
 
-                        val w = gzipWriter(file)
+                        val w = gzipWriter(detailReport)
                         w.write("[FILE]\t" + opt.getFile + "\n")
 
                         w.write("[ALLDEGREES]" + "\t")
-                        w.write(sa.getAllDegrees(opt.getSimplifyFM).toString + "\n")
+                        w.write(sa.getAllDegrees(opt.getSimplifyFM).mkString(",") + "\n")
 
                         w.write("[ALLWARNINGDEGREES]" + "\t")
-                        w.write(sa.getErrorDegrees(sa.errors, opt.getSimplifyFM)._2.toString + "\n")
+                        w.write(sa.getErrorDegrees(sa.errors, opt.getSimplifyFM)._2.toString.mkString(",") + "\n")
 
                         errDegrees.foreach(err => {
-                            w.write("[" + err._1.toUpperCase + "_DEGREE]" + "\t" + err._2._2.toString + "\n")
+                            w.write("[" + err._1.toUpperCase + "_DEGREE]" + "\t" + err._2._2.toString.mkString(",") + "\n")
                         })
 
                         errDegrees.foreach(err => err._2._1.foreach(detail => {
