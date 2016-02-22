@@ -2,9 +2,9 @@ package de.fosd.typechef
 
 
 import java.io._
-import java.time.{Duration, Instant}
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
+import de.fosd.typechef.Extras.StopWatch
 import de.fosd.typechef.crewrite._
 import de.fosd.typechef.error.TypeChefError
 import de.fosd.typechef.featureexpr.FeatureExpr
@@ -54,40 +54,6 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
         }
         version
     }
-
-    private class StopWatch {
-        var lastStart: Instant = Instant.now()
-        var currentPeriod: String = "none"
-        var currentPeriodId: Int = 0
-        var times: Map[(Int, String), Long] = Map()
-
-        private def genId(): Int = { currentPeriodId += 1; currentPeriodId }
-
-        def start(period: String) {
-            val now = Instant.now()
-            val lastTime = Duration.between(lastStart, now).toMillis
-            times = times + ((genId(), currentPeriod) -> lastTime)
-            currentPeriod = period
-            lastStart = Instant.now()
-        }
-
-        def get(period: String): Long = times.filter(v => v._1._2 == period).headOption.map(_._2).getOrElse(0)
-
-        override def toString = {
-            def nsToMs(ns : Long) = ns / 1000000
-            var res = "timing "
-            val switems = times.toList.filterNot(x => x._1._2 == "none" || x._1._2 == "done").sortBy(_._1._1)
-
-            if (switems.size > 0) {
-                res = res + "("
-                res = res + switems.map(_._1._2).reduce(_ + ", " + _)
-                res = res + ")\n"
-                res = res + switems.map(_._2.toString).reduce(_ + ";" + _)
-            }
-            res
-        }
-    }
-
 
     def processFile(opt: FrontendOptions) {
         val errorXML = new ErrorXML(opt.getErrorXMLFile)
