@@ -1,8 +1,8 @@
 package de.fosd.typechef.crewrite
 
-import de.fosd.typechef.featureexpr.FeatureExprFactory
 import de.fosd.typechef.conditional.{Choice, Opt}
-import de.fosd.typechef.parser.c.{EnforceTreeHelper, AST}
+import de.fosd.typechef.featureexpr.FeatureExprFactory
+import de.fosd.typechef.parser.c.{AST, EnforceTreeHelper}
 import org.kiama.rewriting.Rewriter._
 
 object ProductDerivation extends EnforceTreeHelper {
@@ -26,7 +26,6 @@ object ProductDerivation extends EnforceTreeHelper {
             case a: AST => a.clone()
         })
         val cast = prod(ast).get.asInstanceOf[T]
-        copyPositions(ast, cast)
         cast
     }
 }
