@@ -281,8 +281,8 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         fw.write("[NODES]\t" + countNumberOfASTElements(ast) + "\n")
                         fw.write("[DATA_FLOW_WARNINGS]\t" + sa.errors.size + "\n")
                         errs.toList.foreach(err => {
-                            fw.write("[" + err._1.toUpperCase + "_VAA_DATA_FLOW_WARNINGS]" + err._2.size + "\n")
-                            fw.write("[" + err._1.toUpperCase + "_VAA_DATA_FLOW_TIMINGS]" + stopWatch.get(err._1) + "\n")
+                            fw.write("[" + err._1.toUpperCase + "_VAA_DATA_FLOW_WARNINGS]\t" + err._2.size + "\n")
+                            fw.write("[" + err._1.toUpperCase + "_VAA_DATA_FLOW_TIMINGS]\t" + stopWatch.get(err._1) + "\n")
                         })
 
                         fw.close
