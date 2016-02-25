@@ -39,7 +39,7 @@ class CInterAnalysisFrontend(tunit: TranslationUnit, fm: FeatureModel = FeatureE
 
         for (f <- fdefs) {
             writer.writeMethodGraph(getAllSucc(f, env).map {
-                x => (x._1, x._2.distinct.filter { y => y.condition.isSatisfiable(fm)}) // filter duplicates and wrong succs
+                x => (x._1, x._2.distinct.filter { y => y.condition.isSatisfiable(fm) }) // filter duplicates and wrong succs
             }, lookupFExpr, f.declarator.getName)
         }
         writer.writeFooter()
@@ -57,20 +57,20 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
     private lazy val dum = ts.getDeclUseMap
 
     private def getDecls(key: Id): List[Id] = {
-        if (! udm.containsKey(key))  List(key)
+        if (!udm.containsKey(key)) List(key)
         else udm.get(key).filter { d => env.featureExpr(d) and env.featureExpr(key) isSatisfiable fm }
     }
 
     private val fanalyze = fdefs.map {
-        x => (x, getAllSucc(x, env).filterNot {x => x._1.isInstanceOf[FunctionDef]})
+        x => (x, getAllSucc(x, env).filterNot { x => x._1.isInstanceOf[FunctionDef] })
     }
 
     var errors: List[TypeChefError] = List()
     var errNodes: List[(TypeChefError, Opt[AST])] = List()
 
-    def calculateCFGEdgeDegree(simplifyFM : java.io.File) : List[(CFGStmt, Int)] = {
+    def calculateCFGEdgeDegree(simplifyFM: java.io.File): List[(CFGStmt, Int)] = {
         val simplification = getSimplifcation(simplifyFM)
-        def getDegreeFromEdges(x : (FunctionDef, List[(AST, CFG)])) =
+        def getDegreeFromEdges(x: (FunctionDef, List[(AST, CFG)])) =
             x._2.flatMap(entry =>
                 entry._2.map(cfgStmt =>
                     (cfgStmt.entry, calculateInteractionDegree(cfgStmt.condition.asInstanceOf[BDDFeatureExpr], simplification))))
@@ -100,31 +100,31 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
                 // code such as "int a;" occurs frequently and issues an error
                 // we filter them out by checking the declaration use map for usages
                 if (dum.containsKey(i) && dum.get(i).size > 0) {}
-                else out.find {case (t, _) => t == i} match {
+                else out.find { case (t, _) => t == i } match {
                     case None => {
                         var idecls = getDecls(i)
                         if (idecls.exists(isPartOf(_, fa._1))) {
                             err ::= new TypeChefError(Severity.Warning, fi, "warning: Variable " + i.name + " is a dead store!", i, "")
-                            errNodes ::= (err.last, Opt(env.featureExpr(i), i))
+                            errNodes ::=(err.last, Opt(env.featureExpr(i), i))
                         }
                     }
                     case Some((x, z)) => {
-                         if (fi.implies(z).not().isSatisfiable(fm)) {
-                                val xdecls = getDecls(x)
-                                val idecls = getDecls(i)
-                                for (ei <- idecls) {
-                                    // with isPartOf we reduce the number of false positives, since we only check local variables and function parameters.
-                                    // an assignment to a global variable might be used in another function
-                                    if (isPartOf(ei, fa._1) && xdecls.exists(_.eq(ei))) {
-                                        err ::= new TypeChefError(Severity.Warning, fi.and(z.not()), "warning: Variable " + i.name + " is a dead store!", i, "")
-                                        errNodes ::=(err.last, Opt(env.featureExpr(i), i))
-                                    }
+                        if (fi.implies(z).not().isSatisfiable(fm)) {
+                            val xdecls = getDecls(x)
+                            val idecls = getDecls(i)
+                            for (ei <- idecls) {
+                                // with isPartOf we reduce the number of false positives, since we only check local variables and function parameters.
+                                // an assignment to a global variable might be used in another function
+                                if (isPartOf(ei, fa._1) && xdecls.exists(_.eq(ei))) {
+                                    err ::= new TypeChefError(Severity.Warning, fi.and(z.not()), "warning: Variable " + i.name + " is a dead store!", i, "")
+                                    errNodes ::=(err.last, Opt(env.featureExpr(i), i))
                                 }
                             }
                         }
                     }
                 }
             }
+        }
         err
     }
 
@@ -161,7 +161,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
                 val in = df.in(s)
 
                 for (((i, _), h) <- in)
-                    g.find { case ((t, _), _) => t == i} match {
+                    g.find { case ((t, _), _) => t == i } match {
                         case None =>
                         case Some(((x, _), _)) => {
                             if (h.isSatisfiable(fm)) {
@@ -201,25 +201,18 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
             if (g.size > 0) {
                 val in = um.in(s)
 
-                for (((i, _), h) <- in)
-                    g.find {case ((t, _), _) => t == i} match {
-                        case None =>
-                        case Some(((x, _), _)) => {
-                            if (h.isSatisfiable(fm)) {
-                                val xdecls = getDecls(x)
-                                val idecls = getDecls(i)
-                                for (ei <- idecls)
-                                    if (xdecls.exists(_.eq(ei))) {
-                                        err ::= new TypeChefError(Severity.Warning, h, "warning: Variable " + x.name + " is used uninitialized!", x, "")
-                                        errNodes ::= (err.last, Opt(h, i))
-                                    }
-
+                for (((i, _), h) <- in if h.isSatisfiable(fm))
+                    for (((x, _), _) <- g if x == i) {
+                        val xdecls = getDecls(x)
+                        val idecls = getDecls(i)
+                        for (ei <- idecls)
+                            if (xdecls.exists(_.eq(ei))) {
+                                err ::= new TypeChefError(Severity.Warning, h, "warning: Variable " + x.name + " is used uninitialized!", x, "")
+                                errNodes ::=(err.last, Opt(h, i))
                             }
-                        }
                     }
             }
         }
-
         err
     }
 
@@ -254,7 +247,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
                                 for (ei <- idecls)
                                     if (xdecls.exists(_.eq(ei))) {
                                         err ::= new TypeChefError(Severity.Warning, h, "warning: Variable " + x.name + " is freed although not dynamically allocted!", x, "")
-                                        errNodes ::= (err.last, Opt(h, x))
+                                        errNodes ::=(err.last, Opt(h, x))
                                     }
                             }
                         }
@@ -266,7 +259,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
     }
 
     def danglingSwitchCode(): List[TypeChefError] = {
-        val err = fanalyze.flatMap {x => danglingSwitchCode(x._1)}
+        val err = fanalyze.flatMap { x => danglingSwitchCode(x._1) }
 
         errors ++= err
         err
@@ -280,7 +273,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         ss.flatMap(s => {
             ds.danglingSwitchCode(s).map(e => {
                 val currentError = new TypeChefError(Severity.Warning, e.feature, "warning: switch statement has dangling code ", e.entry, "")
-                errNodes ::= (currentError, Opt(e.feature, e.entry))
+                errNodes ::=(currentError, Opt(e.feature, e.entry))
                 currentError
             })
 
@@ -300,7 +293,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         cf.cfgInNonVoidFunc(fa._1).map(
             e => {
                 val currentError = new TypeChefError(Severity.Warning, e.feature, "Control flow of non-void function ends here!", e.entry, "")
-                errNodes ::= (currentError, Opt(e.feature, e.entry))
+                errNodes ::=(currentError, Opt(e.feature, e.entry))
                 currentError
             }
         )
@@ -320,7 +313,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
             x => {
                 val currentError = new TypeChefError(Severity.Warning, env.featureExpr(x),
                     "Case statement is not terminated by a break!", x, "")
-                errNodes ::= (currentError, Opt(env.featureExpr(x), x))
+                errNodes ::=(currentError, Opt(env.featureExpr(x), x))
                 currentError
             }
         }
@@ -349,7 +342,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
                 for (e <- cle.checkForPotentialCalls(s)) {
                     err ::= new TypeChefError(Severity.SecurityWarning, env.featureExpr(e), "Return value of " +
                         PrettyPrinter.print(e) + " is not properly checked for (" + errorvalues + ")!", e)
-                    errNodes ::= (err.last, Opt(env.featureExpr(e), e))
+                    errNodes ::=(err.last, Opt(env.featureExpr(e), e))
                 }
 
 
@@ -359,7 +352,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
                 val g = cle.getUsedVariables(s)
                 val in = cle.in(s)
                 for (((e, _), fi) <- in) {
-                    g.find {case ((t, _), _) => t == e} match {
+                    g.find { case ((t, _), _) => t == e } match {
                         case None =>
                         case Some((k@(x, _), _)) => {
                             if (fi.isSatisfiable(fm)) {
@@ -371,7 +364,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
                                     if (xdecls.exists(_.eq(ee)) && !kills.contains(k)) {
                                         err ::= new TypeChefError(Severity.SecurityWarning, fi, "The value of " +
                                             PrettyPrinter.print(e) + " is not properly checked for (" + errorvalues + ")!", e)
-                                            errNodes ::= (err.last, Opt(env.featureExpr(e), e))
+                                        errNodes ::=(err.last, Opt(env.featureExpr(e), e))
                                     }
                                 }
                             }
@@ -383,7 +376,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         err
     }
 
-    private def getSimplifcation(simplifyFM : java.io.File) = (feature : BDDFeatureExpr) =>  {
+    private def getSimplifcation(simplifyFM: java.io.File) = (feature: BDDFeatureExpr) => {
         if (simplifyFM == null) feature
         else if (simplifyFM.getName.endsWith(".model")) {
             val simplifyModel = FeatureToSimplifyModelMap.fill(simplifyFM)
@@ -395,7 +388,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
                 }
             })
             feature.simplify(simpleFM).asInstanceOf[BDDFeatureExpr]
-        } else if(simplifyFM.getName.endsWith(".dimacs")) {
+        } else if (simplifyFM.getName.endsWith(".dimacs")) {
             val simplifyModel = FeatureExprLib.featureModelFactory.createFromDimacsFile(Source.fromFile(simplifyFM))
             // feature.simplify(simplifyModel).asInstanceOf[BDDFeatureExpr]
             feature
@@ -410,12 +403,12 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         }
     }
 
-    def getInteractionDegrees(simplifyFM : java.io.File ) : (List[(Opt[Statement], Int)],
+    def getInteractionDegrees(simplifyFM: java.io.File): (List[(Opt[Statement], Int)],
         List[(Int, TypeChefError)], List[(Opt[AST], Int, TypeChefError)]) = {
         interactionDegrees(getSimplifcation(simplifyFM))
     }
 
-    private def interactionDegrees(simplify : BDDFeatureExpr => BDDFeatureExpr) : (List[(Opt[Statement], Int)],
+    private def interactionDegrees(simplify: BDDFeatureExpr => BDDFeatureExpr): (List[(Opt[Statement], Int)],
         List[(Int, TypeChefError)], List[(Opt[AST], Int, TypeChefError)]) = {
         // calculate the interaction degree of each statement itself
         val stmtsDegrees: List[(Opt[Statement], Int)] = filterAllASTElems[Statement](tunit).flatMap(stmt => {
@@ -428,11 +421,11 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
 
         val warnDegrees: List[(Int, TypeChefError)] =
             ts.getASTerrors(false).filter(Set(Severity.Warning, Severity.SecurityWarning) contains _.severity).flatMap(warning => {
-               val warnFEXpr = warning.condition.asInstanceOf[BDDFeatureExpr] //TODO add ast element
-               Some(calculateInteractionDegree(warnFEXpr, simplify), warning)
+                val warnFEXpr = warning.condition.asInstanceOf[BDDFeatureExpr] //TODO add ast element
+                Some(calculateInteractionDegree(warnFEXpr, simplify), warning)
             })
 
-        val errDegrees : List[(Opt[AST], Int, TypeChefError)] = errNodes.flatMap(node => {
+        val errDegrees: List[(Opt[AST], Int, TypeChefError)] = errNodes.flatMap(node => {
             val stmtFExpr = env.featureExpr(node._2.entry).asInstanceOf[BDDFeatureExpr]
             Some((Opt(stmtFExpr, node._2.entry), calculateInteractionDegree(stmtFExpr, simplify), node._1))
         })
@@ -440,7 +433,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         (stmtsDegrees, warnDegrees, errDegrees)
     }
 
-    def writeWarningDegrees(warnDegrees : List[(Int, TypeChefError)], writer: Writer) = {
+    def writeWarningDegrees(warnDegrees: List[(Int, TypeChefError)], writer: Writer) = {
         warnDegrees.foreach(entry => {
             writer.write(entry._1.toString)
             writer.write(" \tFeature: ")
@@ -473,7 +466,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         })
     }
 
-    def getErrorDegrees(errs: List[TypeChefError], simplifyFM : java.io.File) : (List[(String, FeatureExpr, Int)], Map[Int, Int]) = {
+    def getErrorDegrees(errs: List[TypeChefError], simplifyFM: java.io.File): (List[(String, FeatureExpr, Int)], Map[Int, Int]) = {
         val simplification = getSimplifcation(simplifyFM)
 
         val singleErrDegrees = errs.map(
@@ -483,7 +476,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         (singleErrDegrees, degreeMap)
     }
 
-    def getAllDegrees(simplifyFM : java.io.File) : Map[Int, Int] = {
+    def getAllDegrees(simplifyFM: java.io.File): Map[Int, Int] = {
         val simplification = getSimplifcation(simplifyFM)
 
         val stmtsDegrees: List[(Opt[Statement], Int)] = filterAllASTElems[Statement](tunit).flatMap(stmt => {
@@ -511,7 +504,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         writer.write(stmtDegree._1.entry.toString)
     }
 
-    private def calculateInteractionDegree(fExpr: BDDFeatureExpr, simplify : BDDFeatureExpr => BDDFeatureExpr): Int = {
+    private def calculateInteractionDegree(fExpr: BDDFeatureExpr, simplify: BDDFeatureExpr => BDDFeatureExpr): Int = {
         //interaction degree is the smallest number of variables that need to be set to reproduce the problem
         //we use the shortest path in a BDD as simple way of computing this
 
