@@ -164,7 +164,7 @@ trait CTypeEnv extends CTypes with CTypeSystemInterface with CEnv with CDeclTypi
                     nonEmptyWellformedEnv(structEnv.getFieldsMerged(name, isUnion), Some(name))
                 else false
             }
-            case CAnonymousStruct(members, _) => nonEmptyWellformedEnv(members, None)
+            case CAnonymousStruct(_, members, _) => nonEmptyWellformedEnv(members, None)
             case CUnknown(_) => false
             case CCompound() => true
             case CIgnore() => true

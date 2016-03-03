@@ -135,8 +135,8 @@ trait ASTNavigation {
     def filterASTElems[T <: AST](a: Any, ctx: FeatureExpr, env: ASTEnv)(implicit m: ClassTag[T]): List[T] = {
         a match {
             case p: Product if (m.runtimeClass.isInstance(p) && (env.featureExpr(p) implies ctx isSatisfiable())) => List(p.asInstanceOf[T])
-            case l: List[_] => l.flatMap(filterAllASTElems[T](_, ctx, env))
-            case p: Product => p.productIterator.toList.flatMap(filterAllASTElems[T](_, ctx, env))
+            case l: List[_] => l.flatMap(filterASTElems[T](_, ctx, env))
+            case p: Product => p.productIterator.toList.flatMap(filterASTElems[T](_, ctx, env))
             case _ => List()
         }
     }

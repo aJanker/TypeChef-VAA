@@ -79,7 +79,7 @@ class ExprTypingTest extends FunSuite with CTypeSystem with CEnv with Matchers w
         expr("1") should be(CSigned(CInt()).toCType)
         expr("blub") should be(CUnknown().toCType)
         expr("a") should be(CDouble().toCType.toObj)
-        expr("\"a\"") should be(CPointer(CSignUnspecified(CChar())).toCType)
+        expr("\"a\"") should be(CPointer(CSignUnspecified(CChar())).toCType.toObj)
         expr("'0'") should be(CSignUnspecified(CChar()).toCType)
         expr("&a") should be(CPointer(CDouble()).toCType.toObj)
         expr("*(&a)") should be(CDouble().toCType.toObj)
@@ -116,7 +116,7 @@ class ExprTypingTest extends FunSuite with CTypeSystem with CEnv with Matchers w
         expr("(double)3") should be(CDouble().toCType)
         expr("(void*)foo") should be(CPointer(CVoid()).toCType)
         expr("(int(*)())foo") should be(CPointer(CFunction(List(), CSigned(CInt()))).toCType)
-        expr("(struct str)u") should be(CStruct("str").toCType)
+        expr("(struct str)u") should be(CUnknown().toCType)
         expr("(struct str)s") should be(CStruct("str").toCType)
         expr("(struct b)s") should be(CUnknown().toCType)
     }
@@ -208,7 +208,7 @@ class ExprTypingTest extends FunSuite with CTypeSystem with CEnv with Matchers w
                     #ifdef X
                     2;
                     #endif
-                    })""") should be(Choice(fx, _i, One(CPointer(CSignUnspecified(CChar())).toCType)))
+                    })""") should be(Choice(fx, _i, One(CPointer(CSignUnspecified(CChar())).toCType.toObj)))
     }
 
     test("arrays") {
@@ -232,6 +232,11 @@ class ExprTypingTest extends FunSuite with CTypeSystem with CEnv with Matchers w
         expr("&ig") should be(CPointer(CIgnore()).toCType.toObj)
         expr("*ig") should be(CIgnore().toCType.toObj)
         expr("(double)ig") should be(CDouble().toCType)
+    }
+
+    test("case of anonymous structs") {
+        //false positive in busybox
+        expr("((union { int __in; int __i; }) { .__in =1 }).__i") should be (CSigned(CInt()).toCType.toObj)
     }
 
     //    @Ignore

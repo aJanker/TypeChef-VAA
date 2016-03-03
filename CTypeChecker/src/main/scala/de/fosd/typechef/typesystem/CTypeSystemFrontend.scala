@@ -1,19 +1,19 @@
 package de.fosd.typechef.typesystem
 
 import de.fosd.typechef.conditional._
-import de.fosd.typechef.error._
+import de.fosd.typechef.error.{Severity, _}
 import de.fosd.typechef.featureexpr._
 import de.fosd.typechef.parser.c._
 import de.fosd.typechef.typesystem.linker.CInferInterface
 
 /**
- * checks an AST (from CParser) for type errors (especially dangling references)
- *
- * performs type checking in a single tree-walk, uses lookup functions from various traits
- *
- * @author kaestner
- *
- */
+  * checks an AST (from CParser) for type errors (especially dangling references)
+  *
+  * performs type checking in a single tree-walk, uses lookup functions from various traits
+  *
+  * @author kaestner
+  *
+  */
 
 class CTypeSystemFrontend(iast: TranslationUnit,
                           featureModel: FeatureModel = FeatureExprFactory.default.featureModelFactory.empty,
@@ -28,18 +28,27 @@ class CTypeSystemFrontend(iast: TranslationUnit,
     var errors: List[TypeChefError] = List()
 
     var isSilent = false
-    def makeSilent() = { isSilent=true; this }
+
+    def makeSilent() = {
+        isSilent = true;
+        this
+    }
 
     val DEBUG_PRINT = false
 
-    def dbgPrint(o: Any) { if (DEBUG_PRINT) print(o) }
+    def dbgPrint(o: Any) {
+        if (DEBUG_PRINT) print(o)
+    }
 
-    def dbgPrintln(o: Any) { if (DEBUG_PRINT) println(o) }
+    def dbgPrintln(o: Any) {
+        if (DEBUG_PRINT) println(o)
+    }
 
     val verbose = false
 
 
     var externalDefCounter: Int = 0
+
     override def checkingExternal(externalDef: ExternalDef) {
         externalDefCounter = externalDefCounter + 1
         if (verbose)
@@ -58,11 +67,15 @@ class CTypeSystemFrontend(iast: TranslationUnit,
     }
 
 
+
+
+
+
     /**
-     * Returns true iff no errors were found.
-     * @return
-     */
-    def checkAST(ignoreWarnings: Boolean = true, printResults: Boolean = false): Boolean = {
+      * Returns true iff no errors were found.
+      * @return
+      */
+    def checkAST(ignoreWarnings: Boolean = true, printResults: Boolean = false): List[TypeChefError] = {
 
         errors = List() // clear error list
         typecheckTranslationUnit(iast)
@@ -76,8 +89,11 @@ class CTypeSystemFrontend(iast: TranslationUnit,
                 println("Found " + merrors.size + " type errors: ")
             }
         //println("\n")
-        merrors.isEmpty
+
+        errors
     }
+
+    //does not support separate reporting of warnings for backward compatibility
     def checkASTSilent: Boolean = {
         isSilent = true
         errors = List() // clear error list
@@ -85,13 +101,7 @@ class CTypeSystemFrontend(iast: TranslationUnit,
         errors.isEmpty
     }
 
-    def getASTerrors(ignoreWarnings: Boolean = true): List[TypeChefError] = {
-        isSilent = true
-        errors = List() // clear error list
-        typecheckTranslationUnit(iast)
-        val merrors = if (ignoreWarnings)
-            errors.filterNot(Set(Severity.Warning, Severity.SecurityWarning) contains _.severity)
-        else errors
-        return merrors
-    }
+
 }
+
+

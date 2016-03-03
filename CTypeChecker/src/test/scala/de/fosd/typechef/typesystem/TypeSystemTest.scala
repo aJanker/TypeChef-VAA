@@ -1,6 +1,7 @@
 package de.fosd.typechef.typesystem
 
 
+import de.fosd.typechef.featureexpr.FeatureExprFactory
 import de.fosd.typechef.parser.c._
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
@@ -100,27 +101,13 @@ return 1;
     }
 
     test("typecheck return statements") {
-        assertResult(true) {
-            check("void foo(){ return; }")
-        }
-        assertResult(false) {
-            check("void foo(){ return 1; }")
-        }
-        assertResult(true) {
-            check("int foo(){ return 1; }")
-        }
-        assertResult(false) {
-            check("int * foo(){ return \"abc\"; }")
-        }
-        assertResult(true) {
-            check("int * foo(){ return 0; }")
-        }
-        assertResult(false) {
-            check("int * foo(){ return 1; }") //warning
-        }
-        assertResult(false) {
-            check("int foo(){ return; }")
-        }
+        correct("void foo(){ return; }")
+        warning("void foo(){ return 1; }")
+        correct("int foo(){ return 1; }")
+        warning("int * foo(){ return \"abc\"; }") //warning
+        correct("int * foo(){ return 0; }")
+        warning("int * foo(){ return 1; }") //warning
+        error("int foo(){ return; }")
     }
 
     test("increment on array") {
@@ -360,11 +347,8 @@ return 1;
                 }
                    """)
         }
-        assertResult(true) {
-            check( """
-                        char x[]=__PRETTY_FUNCTION__;
-                   """)
-        }
+        correct( """  const char *x = __PRETTY_FUNCTION__; """)
+
         assertResult(true) {
             check( """
                 typedef __builtin_va_list __gnuc_va_list;
@@ -1158,6 +1142,19 @@ return 1;
             #endif
             }
               """        )
+    }
+
+    test("conditional const type") {
+        errorIf(
+            """
+              |void foo() {
+              |  #ifdef X
+              |  const
+              |  #endif
+              |  int i=0;
+              |  i=3;
+              |}
+            """.stripMargin, FeatureExprFactory.createDefinedExternal("X"))
     }
 }
 

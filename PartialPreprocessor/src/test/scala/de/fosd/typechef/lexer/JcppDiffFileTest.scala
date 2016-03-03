@@ -66,13 +66,14 @@ class JcppDiffFileTest extends FunSuite with DifferentialTestingFramework {
         })
 
 
+
     for ((file, reason) <- ignoredFiles)
-        ignore("ignoring " + file.replace(".", "_") + " due to lexer bug: " + reason) {
+        ignore(file.replace('.', '_') + " - ignored due to lexer bug: " + reason) {
             testFile(file)
         }
 
     for (file <- filesToTest)
-        test(file.replace(".", "_") + " - differential testing") {
+        test(file.replace('.', '_') + " - differential testing") {
             testFile(file)
         }
 

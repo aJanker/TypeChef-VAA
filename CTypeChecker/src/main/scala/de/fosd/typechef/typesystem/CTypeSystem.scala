@@ -1,9 +1,9 @@
 package de.fosd.typechef.typesystem
 
 import de.fosd.typechef.conditional._
+import de.fosd.typechef.error._
 import de.fosd.typechef.featureexpr._
 import de.fosd.typechef.parser.c._
-import de.fosd.typechef.error._
 
 /**
  * checks an AST (from CParser) for type errors (especially dangling references)
@@ -50,6 +50,7 @@ trait CTypeSystem extends CTypes with CEnv with CDeclTyping with CTypeEnv with C
     }
 
 
+
     private def checkFunction(f: CDef, specifiers: List[Opt[Specifier]], declarator: Declarator, oldStyleParameters: List[Opt[OldParameterDeclaration]], stmt: CompoundStatement, featureExpr: FeatureExpr, env: Env): (Conditional[CType], Env) = {
         val oldStyleParam = getOldStyleParameters(oldStyleParameters, featureExpr, env)
         val funType = getFunctionType(specifiers, declarator, oldStyleParam, featureExpr, env).simplify(featureExpr)
@@ -71,6 +72,8 @@ trait CTypeSystem extends CTypes with CEnv with CDeclTyping with CTypeEnv with C
 
         val kind = KDefinition
 
+        checkVoidParameter(funType, featureExpr, f)
+
         //redeclaration?
         checkRedeclaration(declarator.getName, funType, featureExpr, env, declarator, kind)
 
@@ -83,7 +86,9 @@ trait CTypeSystem extends CTypes with CEnv with CDeclTyping with CTypeEnv with C
         addJumpStatements(stmt)
 
         //check body (add parameters to environment)
-        val innerEnv = newEnv.addVars(parameterTypes(declarator, featureExpr, newEnv.incScope(), oldStyleParam), KParameter, newEnv.scope + 1, NoLinkage).setExpectedReturnType(expectedReturnType)
+        val params = parameterTypes(declarator, featureExpr, newEnv.incScope(), oldStyleParam)
+        params.map(p=> checkVoidVariable(p._4, p._2, p._3))
+        val innerEnv = newEnv.addVars(params, KParameter, newEnv.scope + 1, NoLinkage).setExpectedReturnType(expectedReturnType)
         getStmtType(stmt, featureExpr, innerEnv) //ignore changed environment, to enforce scoping!
         checkTypeFunction(specifiers, declarator, oldStyleParameters, featureExpr, env)
         addOldStyleParameters(oldStyleParameters, declarator, featureExpr, env)
@@ -104,8 +109,8 @@ trait CTypeSystem extends CTypes with CEnv with CDeclTyping with CTypeEnv with C
         ConditionalLib.vmapCombinationOp(ctype, prevTypes, fexpr, (f: FeatureExpr, newType: CType, prev: (CType, DeclarationKind, Int, Linkage)) => {
             if (!isValidRedeclaration(normalize(newType), kind, env.scope, normalize(prev._1), prev._2, prev._3))
                 reportTypeError(f, "Invalid redeclaration/redefinition of " + name +
-                    " (was: " + prev._1 + ":" + kind + ":" + env.scope +
-                    ", now: " + newType + ":" + prev._2 + ":" + prev._3 + ")",
+                    " (was: " + prev._1.toText + ":" + kind + ":" + env.scope +
+                    ", now: " + newType.toText + ":" + prev._2 + ":" + prev._3 + ")",
                     where, Severity.RedeclarationError)
         })
     }
@@ -124,14 +129,15 @@ trait CTypeSystem extends CTypes with CEnv with CDeclTyping with CTypeEnv with C
             case (a, b) if containsIgnore(a) || containsIgnore(b) => return true
 
             //two prototypes
-            case (CPointer(CFunction(newParam, newRet)), CPointer(CFunction(prevParam, prevRet))) if (newKind == KDeclaration && prevKind == KDeclaration) =>
+            case (CPointer(CFunction(newParam, newRet)), CPointer(CFunction(prevParam, prevRet))) if newKind == KDeclaration && prevKind == KDeclaration =>
                 //must have same return type and same parameters (for common parameters)
-                return (newRet == prevRet) && (newParam.zip(prevParam).forall(x => x._1 == x._2))
+                //exception: may redefine function that was previously declared without parameters (technically also without an unnamed void parameter, but we cannot distinguish this here)
+                return (newRet equalsWithConst prevRet) && (newParam.length==prevParam.length || prevParam.length==0) && newParam.zip(prevParam).forall(x => x._1 equalsAType x._2)
 
             //function overriding a prototype or vice versa
-            case (CPointer(CFunction(newParam, newRet)), CPointer(CFunction(prevParam, prevRet))) if ((newKind == KDefinition && prevKind == KDeclaration) || (newKind == KDeclaration && prevKind == KDefinition)) =>
-                //must have the exact same atype (ignoring const, volatile and object)
-                return newType.atype == prevType.atype
+            case (CPointer(CFunction(newParam, newRet)), CPointer(CFunction(prevParam, prevRet))) if (newKind == KDefinition && prevKind == KDeclaration) || (newKind == KDeclaration && prevKind == KDefinition) =>
+                //must have the exact same atype (ignoring const, volatile and object); return type must also match for const
+                return (newType.atype == prevType.atype) && (newRet equalsWithConst prevRet)
 
             case _ =>
         }
@@ -141,14 +147,17 @@ trait CTypeSystem extends CTypes with CEnv with CDeclTyping with CTypeEnv with C
         //for now, simple approximation here: if either the old or the new variable is not initialized, we are fine (that does not account for internal linkage etc but okay)
         //global variables
         if (newScope == 0 && prevScope == 0 && (newKind == KDeclaration || prevKind == KDeclaration)) {
-            //valid if exact same type
-            return newType.toValue == prevType.toValue
+            //valid if exact same type (except for object status)
+            return newType equalsWithConstAndVolatile prevType
         }
 
         //local variables (scope>0) may never be redeclared
         //function definitions may never be redeclared
         false
     }
+
+
+
 
     private def isEqualOrIgnore(a: CType, b: CType): Boolean =
         (a == b) || a.isIgnore || b.isIgnore
@@ -158,15 +167,19 @@ trait CTypeSystem extends CTypes with CEnv with CDeclTyping with CTypeEnv with C
         case CPointer(p) => containsIgnore(p)
         case CArray(p, _) => containsIgnore(p)
         case CFunction(p, r) => containsIgnore(r) || p.exists(containsIgnore(_))
-        case CAnonymousStruct(f, _) => f.allTypes.exists(_.exists(containsIgnore(_)))
+        case CAnonymousStruct(_, f, _) => f.allTypes.exists(_.exists(containsIgnore(_)))
         case _ => false
     })
 
     private def checkInitializer(initExpr: Expr, expectedType: Conditional[CType], featureExpr: FeatureExpr, env: Env) {
         val foundType = getExprType(initExpr, featureExpr, env)
         ConditionalLib.vmapCombinationOp(foundType, expectedType, featureExpr, {
-            (f, ft: CType, et: CType) => if (f.isSatisfiable() && !coerce(et, ft) && !ft.isUnknown)
-                issueTypeError(Severity.OtherError, f, "incorrect initializer type. expected " + et + " found " + ft, initExpr)
+            (f, ft: CType, et: CType) =>
+                val c = coerce(et, ft)
+                if (f.isSatisfiable() && c == None && !ft.isUnknown)
+                    issueTypeError(Severity.OtherError, f, "incorrect initializer type. expected " + et + " found " + ft, initExpr)
+                if (f.isSatisfiable() && c.isDefined && !c.get.isEmpty && !ft.isUnknown)
+                    issueTypeError(Severity.Warning, f, c.get + "(incorrect initializer type; expected " + et + " found " + ft+")", initExpr)
         })
     }
 
@@ -307,9 +320,15 @@ trait CTypeSystem extends CTypes with CEnv with CDeclTyping with CTypeEnv with C
                         case Some(expr) =>
                             val foundReturnType = getExprType(expr, featureExpr, env)
                             ConditionalLib.vmapCombinationOp(expectedReturnType, foundReturnType, featureExpr,
-                                (fexpr: FeatureExpr, etype: CType, ftype: CType) =>
-                                    if (!coerce(etype, ftype) && !ftype.isUnknown)
-                                        issueTypeError(Severity.OtherError, fexpr, "incorrect return type, expected " + etype + ", found " + ftype, expr))
+                                (fexpr: FeatureExpr, etype: CType, ftype: CType) => {
+                                    val c=coerce(etype, ftype)
+                                    if (c.isDefined && c.get.nonEmpty  && !ftype.isUnknown)
+                                        reportTypeError(fexpr, c.get + " (" + etype.toText + " <-" + ftype.toText + ")", expr, severity = Severity.Warning)
+                                    if (!c.isDefined && !ftype.isUnknown)
+                                        if (isVoid(etype))
+                                            issueTypeError(Severity.Warning, fexpr, "'return' with a value, in function returning void", expr)
+                                        else issueTypeError(Severity.OtherError, fexpr, "incorrect return type, expected " + etype.toText + ", found " + ftype.toText, expr)
+                                })
                     }
                 }
                 nop

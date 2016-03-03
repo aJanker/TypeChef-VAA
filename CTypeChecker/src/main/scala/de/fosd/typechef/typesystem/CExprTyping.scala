@@ -7,15 +7,15 @@ import de.fosd.typechef.featureexpr.{FeatureExpr, FeatureExprFactory}
 import de.fosd.typechef.parser.c._
 
 /**
- * typing C expressions
- */
+  * typing C expressions
+  */
 trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInterface with CDeclUseInterface {
 
 
     /**
-     * types an expression in an environment, returns a new
-     * environment for all subsequent tokens (eg in a sequence)
-     */
+      * types an expression in an environment, returns a new
+      * environment for all subsequent tokens (eg in a sequence)
+      */
     def getExprType(expr: Expr, featureExpr: FeatureExpr, env: Env): Conditional[CType] = {
         getExprTypeRec(expr, featureExpr, env)
     }
@@ -54,10 +54,9 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                             reportTypeError(featureExpr, "Use \"L,\" not \"l,\" to indicate a long value", c, Severity.SecurityWarning, "long-designator")
 
                         if (v == "0" || v == "'\\0'" || isHexNull(v)) One(CZero())
-                        else
-                        if (v.head == '\'') One(CSignUnspecified(CChar()))
-                        else
-                        if (v.last.toUpper == 'L') One(CSigned(CLong()))
+                        else if (v.head == '\'') One(CSignUnspecified(CChar()))
+                        else if (v.last.toUpper == 'L') One(CSigned(CLong()))
+                        else if (v.contains(".")) One(CDouble())
                         else One(CSigned(CInt()))
                     //variable or function ref
                     case id@Id(name) =>
@@ -109,10 +108,10 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                         }
 
                         et(expr).vflatMap(featureExpr, {
-                            case (f, CType(CAnonymousStruct(fields, _), true, _, _)) =>
+                            case (f, CType(CAnonymousStruct(_, fields, _), true, _, _)) =>
                                 addAnonStructUse(i, fields)
                                 lookup(fields, f).map(_.toObj)
-                            case (f, CType(CAnonymousStruct(fields, _), false, _, _)) =>
+                            case (f, CType(CAnonymousStruct(_, fields, _), false, _, _)) =>
                                 lookup(fields, f)
                             case (f, CType(CStruct(s, isUnion), true, _, _)) =>
                                 addStructUse(i, featureExpr, env, s, isUnion)
@@ -146,14 +145,20 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                                 if (opts.warning_const_assignment && sourceType.isConstant && !targetType.isConstant)
                                     reportTypeError(fexpr, "Do not cast away a const qualification '%s <- %s'; may result in undefined behavior".format(targetType.toText, sourceType.toText), ce, Severity.SecurityWarning, "const-cast")
 
-                                if (targetType == CVoid().toCType ||
-                                    isPointer(targetType) ||
-                                    (isScalar(sourceType) && isScalar(targetType))) targetType
-                                else if (targetType.atype == sourceType.atype) targetType // casting to the same type is fine
-                                else if (isStruct(targetType) && isScalar(sourceType)) targetType // the compiler doesn't seem to mind casts from int to struct
-                                else if (isScalar(targetType) && isPointer(normalize(sourceType))) targetType //cast from pointer to long is valid
-                                else if (isCompound(sourceType) && (isStruct(targetType) || isArray(targetType))) targetType.toObj //workaround for array/struct initializers
+                                if (targetType == CVoid().toCType) targetType
                                 else if (sourceType.isIgnore || targetType.isIgnore || sourceType.isUnknown || targetType.isUnknown) targetType
+                                else if (isCompound(sourceType) && (isStruct(targetType) || isArray(targetType))) targetType.toObj //workaround for array/struct initializers
+                                else if (isAnonymousStruct(targetType) && sourceType.atype!=targetType.atype) //cannot even cast an anonymous struct to itself unless it is from the same (typedef) definition
+                                    reportTypeError(fexpr, "conversion to non-scalar type requested (" + sourceType + " to " + targetType+")", ce)
+                                else if (isIntegral(sourceType) && isPointer(targetType)) targetType
+                                else if (isPointer(sourceType) && isPointer(targetType)) targetType
+                                else if (isFunction(sourceType) && isPointer(targetType)) targetType
+                                else if (isIntegral(sourceType) && isScalar(targetType)) targetType
+                                else if (isArithmetic(sourceType) && isArithmetic(targetType)) targetType
+                                else if (targetType.atype == sourceType.atype) targetType // casting to the same type is fine
+                                else if (isIntegral(targetType) && isPointer(normalize(sourceType))) targetType //cast from pointer to long is valid
+                                else if (isStruct(targetType))    //int -> struct is error // more specific error message
+                                    reportTypeError(fexpr, "conversion to non-scalar type requested (" + sourceType + " to " + targetType+")", ce)
                                 else
                                     reportTypeError(fexpr, "incorrect cast from " + sourceType + " to " + targetType, ce)
                             })
@@ -195,15 +200,21 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                                     reportTypeError(fexpr, "Cannot assign to const '%s'; undefined behavior".format(ltype.toText), ae, Severity.SecurityWarning, "const_assignment")
 
                                 val opType = operationType(op, ltype, rtype, ae, fexpr, env)
+
+                                if (ltype.isConstant && isArithmetic(ltype) && isScalar(opType))
+                                    reportTypeError(fexpr, "assignment of read-only variable", ae)
+
                                 ltype match {
-                                    case CType(t, true, _, _) if (coerce(t, opType)) => {
+                                    case CType(t, true, _, _) if coerce(ltype, opType).isDefined =>
                                         if (opts.warning_implicit_coercion && isForcedCoercion(ltype.atype, rtype.atype))
                                             reportTypeError(fexpr, "Implicit coercion of integer types (%s <- %s), consider a cast".format(ltype.toText, rtype.toText), ae, Severity.SecurityWarning, "implicit_coercion")
                                         if (opts.warning_character_signed && isCharSignCoercion(ltype.atype, rtype.atype))
                                             reportTypeError(fexpr, "Incompatible character types '%s <- %s'; consider a cast".format(ltype.toText, rtype.toText), expr, Severity.SecurityWarning, "char_signness")
+                                        val warning = coerce(ltype, opType).get
+                                        if (warning.nonEmpty)
+                                            reportTypeError(fexpr, warning + " (" + ltype + " " + op + " " + rtype + ")", ae, severity = Severity.Warning)
 
                                         prepareArray(ltype).toValue
-                                    }
                                     case CType(u: CUnknown, _, _, _) => ltype.toValue
                                     case CObj(i@CIgnore()) => ltype.toValue
                                     case e => reportTypeError(fexpr, "incorrect assignment with " + e + " " + op + " " + rtype, ae)
@@ -240,7 +251,7 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
                         val newExpr = PointerDerefExpr(createSum(expr, idx)).setPositionRange(p)
                         et(newExpr)
                     //"a"
-                    case StringLit(_) => One(CPointer(CSignUnspecified(CChar()))) //unspecified sign according to Paolo
+                    case StringLit(v) => One(CType(CPointer(CSignUnspecified(CChar())),true,false,false))
                     //++a, --a
                     case p@UnaryExpr(_, expr) =>
                         val newExpr = AssignExpr(expr, "+=", Constant("1").setPositionRange(p)).setPositionRange(p)
@@ -353,7 +364,7 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
             (thenType.atype, elseType.atype) match {
                 case (CPointer(CVoid()), CPointer(x)) => CPointer(x) //spec
                 case (CPointer(x), CPointer(CVoid())) => CPointer(x) //spec
-                case (t1, t2) if (coerce(t1, t2)) => converse(t1, t2) //spec
+                case (t1, t2) if (coerce(t1, t2).isDefined) => converse(t1, t2) //spec
                 case (t1, t2) if ((isArithmetic(t1) && t2 == CVoid()) || (isArithmetic(t2) && t1 == CVoid())) => CVoid() //tested from gcc
                 case (t1, t2) => reportTypeError(featureExpr, "different address spaces in conditional expression: " + t1 + " and " + t2, where)
             }
@@ -387,7 +398,7 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
             //pointer arithmetic
             case (_, i, _) if i.isIgnore => CIgnore()
             case (_, _, i) if i.isIgnore => CIgnore()
-            case (o, t1, t2) if (pointerArthOp(o) && isArithmetic(t1) && isArithmetic(t2) && coerce(t1, t2)) => converse(t1, t2) //spec
+            case (o, t1, t2) if (pointerArthOp(o) && isArithmetic(t1) && isArithmetic(t2) && coerce(t1, t2)==Some("")) => converse(t1, t2) //spec
             case (o, t1, t2) if (pointerArthOp(o) && isPointer(t1) && isIntegral(t2)) => type1.toValue //spec
             case ("+", t1, t2) if (isIntegral(t1) && isPointer(t2)) => type2.toValue //spec
             case ("-", t1, t2) if (isPointer(t1) && (t1.atype == t2.atype)) => CSigned(CInt()) //spec
@@ -400,19 +411,19 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
 
             //comparisons
             case (op, t1, t2) if (compOp(op) && isArithmetic(t1) && isArithmetic(t2)) => CSigned(CInt()) //spec
-            case (op, t1, t2) if (compOp(op) && isPointer(t1) && isPointer(t2) && coerce(t1, t2)) => CSigned(CInt()) //spec
+            case (op, t1, t2) if (compOp(op) && isPointer(t1) && isPointer(t2) && coerce(t1, t2)==Some("")) => CSigned(CInt()) //spec
 
 
-            case ("*", t1, t2) if (isArithmetic(t1) && isArithmetic(t2) && coerce(t1, t2)) => converse(t1, t2)
-            case ("/", t1, t2) if (isArithmetic(t1) && isArithmetic(t2) && coerce(t1, t2)) => converse(t1, t2)
-            case ("%", t1, t2) if (isIntegral(t1) && isIntegral(t2) && coerce(t1, t2)) => converse(t1, t2)
+            case ("*", t1, t2) if (isArithmetic(t1) && isArithmetic(t2) && coerce(t1, t2)==Some("")) => converse(t1, t2)
+            case ("/", t1, t2) if (isArithmetic(t1) && isArithmetic(t2) && coerce(t1, t2)==Some("")) => converse(t1, t2)
+            case ("%", t1, t2) if (isIntegral(t1) && isIntegral(t2) && coerce(t1, t2)==Some("")) => converse(t1, t2)
             case ("=", t1, t2) if (type1.isObject) => type2.toValue //TODO spec says return t1?
             case (o, t1, t2) if (logicalOp(o) && isScalar(t1) && isScalar(t2)) => CSigned(CInt()) //spec
-            case (o, t1, t2) if (assignOp(o) && type1.isObject && coerce(t1, t2)) => type2.toValue //TODO spec says return t1?
+            case (o, t1, t2) if (assignOp(o) && type1.isObject && coerce(t1, t2)==Some("")) => type2.toValue //TODO spec says return t1?
             case (o, t1, t2) if (pointerArthAssignOp(o) && type1.isObject && isPointer(t1) && isIntegral(t2)) => type1.toValue
 
             //assigning incompatible pointer types to each other is a warning
-            case (op, t1, t2) if (compOp(op) && isPointer(t1) && isPointer(t2) && !coerce(t1, t2)) => CSigned(CInt()) //spec
+            case (op, t1, t2) if (compOp(op) && isPointer(t1) && isPointer(t2) && !(coerce(t1, t2)==Some(""))) => CSigned(CInt()) //spec
                 reportTypeError(featureExpr, "incompatible pointer types " + type1 + " " + op + " " + type2, where, severity = Severity.Warning)
                 CSigned(CInt())
             case (o, t1, t2) =>
@@ -494,7 +505,7 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
 
     private def findIncompatibleParamter(foundTypes: Seq[CType], expectedTypes: Seq[CType]): Seq[Boolean] =
         (foundTypes zip expectedTypes) map {
-            case (ft, et) => coerce(et, ft) || ft.isUnknown
+            case (ft, et) => coerce(et, ft)==Some("") || ft.isUnknown
         }
 
 
@@ -550,7 +561,7 @@ trait CExprTyping extends CTypes with CEnv with CDeclTyping with CTypeSystemInte
         a match {
             case p@PostfixExpr(expr, PointerPostfixSuffix(_, i@Id(id))) =>
                 et(expr).map(_.atype).vflatMap(featureExpr, {
-                    case (f, CAnonymousStruct(fields, _)) =>
+                    case (f, CAnonymousStruct(_, fields, _)) =>
                         addAnonStructUse(i, fields)
                         null
                     case (f, CStruct(s, isUnion)) =>

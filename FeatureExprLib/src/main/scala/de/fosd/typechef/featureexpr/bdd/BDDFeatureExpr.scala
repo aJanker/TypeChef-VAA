@@ -1,11 +1,11 @@
 package de.fosd.typechef.featureexpr.bdd
 
 import de.fosd.typechef.featureexpr._
-import bdd.FExprBuilder._
+import de.fosd.typechef.featureexpr.bdd.FExprBuilder._
 import net.sf.javabdd._
-import collection.mutable.{WeakHashMap, Map}
-import de.fosd.typechef.featureexpr._
-import annotation.tailrec
+
+import scala.annotation.tailrec
+import scala.collection.mutable.{Map, WeakHashMap}
 
 
 object FeatureExprHelper {
@@ -47,7 +47,7 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
     }
     def not(): FeatureExpr = FExprBuilder.not(this)
 
-    def simplify(b:FeatureExpr) : FeatureExpr = new BDDFeatureExpr(this.bdd.simplify(asBDDFeatureExpr(b).bdd))
+    def simplify(b: FeatureExpr): FeatureExpr = FExprBuilder.synchronized {new BDDFeatureExpr(this.bdd.simplify(asBDDFeatureExpr(b).bdd))}
 
     /**
      * frees the space occupied by this bdd in the bdd library.
@@ -72,7 +72,7 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
     // Be careful if that changes, though.
     override def equiv(that: FeatureExpr) = FExprBuilder.biimp(this, asBDDFeatureExpr(that))
 
-    def getSatisfiableAssignment(featureModel: FeatureModel, interestingFeatures: Set[SingleFeatureExpr], preferDisabledFeatures: Boolean): Option[(List[SingleFeatureExpr], List[SingleFeatureExpr])] = {
+    def getSatisfiableAssignment(featureModel: FeatureModel, interestingFeatures: Set[SingleFeatureExpr], preferDisabledFeatures: Boolean): Option[(List[SingleFeatureExpr], List[SingleFeatureExpr])] = FExprBuilder.synchronized {
         val fm = asBDDFeatureModel(featureModel)
         // optimization: if the interestingFeatures-Set is empty and this FeatureExpression is TRUE, we will always return empty sets
         // here we assume that the featureModel is satisfiable (which is checked at FM-instantiation)
@@ -127,7 +127,7 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
      * x.isSatisfiable(fm) is short for x.and(fm).isSatisfiable
      * but is faster because FM is cached
      */
-    def isSatisfiable(f: FeatureModel): Boolean = {
+    def isSatisfiable(f: FeatureModel): Boolean = FExprBuilder.synchronized {
         val fm = asBDDFeatureModel(f)
 
         if (bdd.isOne) true //assuming a valid feature model
@@ -156,7 +156,7 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
      *
      * the difference is only relevant when dimacs-feature models are involved
      */
-    def isSatisfiable2(f: FeatureModel): Boolean = {
+    def isSatisfiable2(f: FeatureModel): Boolean = FExprBuilder.synchronized {
         val fm = asBDDFeatureModel(f)
 
         if (bdd.isOne) true //assuming a valid feature model
@@ -177,13 +177,13 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
     private[featureexpr] def equal1Level(that: FeatureExpr) = this eq that
 
     final override def equals(that: Any) = that match {
-        case x: BDDFeatureExpr => bdd.equals(x.bdd)
+        case x: BDDFeatureExpr => FExprBuilder.synchronized {bdd.equals(x.bdd)}
         case _ => super.equals(that)
     }
-    override def hashCode = bdd.hashCode
+    override def hashCode = FExprBuilder.synchronized {bdd.hashCode}
 
 
-    protected def calcSize: Int = bdd.nodeCount
+    protected def calcSize: Int = FExprBuilder.synchronized {bdd.nodeCount}
 
     /**
      * heuristic to determine whether a feature expression is small
@@ -202,7 +202,7 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
      * Converts this formula to a textual expression.
      */
     def toTextExpr: String =
-        toSATFeatureExpr().toTextExpr
+        FExprBuilder.synchronized {toSATFeatureExpr().toTextExpr}
 
     /**
      * Iterator[Array[(Byte,String)]]
@@ -210,7 +210,7 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
      * Each element of the clause-array is a single feature.
      * The feature is given as tuple (a,b): a==0 means the feature is negated, b is the name of the feature.
      */
-    def getBddAllSat: Iterator[Array[(Byte, String)]] = {
+    def getBddAllSat: Iterator[Array[(Byte, String)]] = FExprBuilder.synchronized {
         def clause(d: Array[Byte]): Array[(Byte, String)] = d.zip(0 to (d.length - 1)).filter(_._1 >= 0).map(
             x => (x._1, FExprBuilder.lookupFeatureName(x._2))
         )
@@ -221,7 +221,7 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
         toSATFeatureExpr().toScalaString
 
     override def toString: String =
-        toSATFeatureExpr().toString
+        FExprBuilder.synchronized {toSATFeatureExpr().toString}
 
     def toTextExprDNF: String =
         printbdd(bdd, "1", "0", " && ", " || ", i => "definedEx(" + FExprBuilder.lookupFeatureName(i) + ")")
@@ -237,7 +237,7 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
             (v and toSATFeatureExpr(bdd.high())) or (v.not and toSATFeatureExpr(bdd.low()))
         }
 
-    private def printbdd(bdd: BDD, one: String, zero: String, and: String, or: String, toName: (Int) => String): String =
+    private def printbdd(bdd: BDD, one: String, zero: String, and: String, or: String, toName: (Int) => String): String = FExprBuilder.synchronized {
         if (bdd.isOne()) one
         else if (bdd.isZero()) zero
         else {
@@ -247,8 +247,9 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
 
             return bddAllSat.map(clause(_)).mkString(or)
         }
+    }
 
-    private def bddAllSat: Iterator[Array[Byte]] = toScalaAllSat(bdd.allsat())
+    private def bddAllSat: Iterator[Array[Byte]] = FExprBuilder.synchronized {toScalaAllSat(bdd.allsat())}
 
     private def toScalaAllSat(allsat: java.util.List[_]): Iterator[Array[Byte]] =
         scala.collection.JavaConversions.asScalaIterator(allsat.asInstanceOf[java.util.List[Array[Byte]]].iterator())
@@ -273,7 +274,7 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
      *
      * introduces 3 additional variables for every node in the BDD
      */
-    private def toCNFClauses(topbdd: BDD): Iterator[Seq[Int]] = {
+    private def toCNFClauses(topbdd: BDD): Iterator[Seq[Int]] = FExprBuilder.synchronized {
         var maxId = FExprBuilder.maxFeatureId
         def genId = { maxId += 1; maxId }
 
@@ -348,7 +349,7 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
      *
      * new implementation without allsat
      */
-    private def collectDistinctFeatureIds: collection.immutable.Set[Int] = {
+    private def collectDistinctFeatureIds: collection.immutable.Set[Int] = FExprBuilder.synchronized {
         var bddKnown: Set[BDD] = Set()
         var bddTodo: Set[BDD] = Set(bdd)
 
@@ -378,8 +379,8 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
      * purposes
      */
     def countDistinctFeatures: Int = collectDistinctFeatureIds.size
-    def evaluate(selectedFeatures: Set[String]): Boolean = FExprBuilder.evalBdd(bdd, selectedFeatures)
-    def getConfIfSimpleAndExpr(): Option[(Set[SingleFeatureExpr], Set[SingleFeatureExpr])] = {
+    def evaluate(selectedFeatures: Set[String]): Boolean = FExprBuilder.synchronized {FExprBuilder.evalBdd(bdd, selectedFeatures)}
+    def getConfIfSimpleAndExpr(): Option[(Set[SingleFeatureExpr], Set[SingleFeatureExpr])] = FExprBuilder.synchronized {
         // this should be no simpleBDDFeatureExpr, because there the function is inherited from SingleFeatureExpr
         assert(!this.isInstanceOf[SingleFeatureExpr])
         var enabled: Set[SingleFeatureExpr] = Set()
@@ -410,7 +411,7 @@ class BDDFeatureExpr(private[featureexpr] val bdd: BDD) extends FeatureExpr {
         }
         return Some(enabled, disabled)
     }
-    def getConfIfSimpleOrExpr(): Option[(Set[SingleFeatureExpr], Set[SingleFeatureExpr])] = {
+    def getConfIfSimpleOrExpr(): Option[(Set[SingleFeatureExpr], Set[SingleFeatureExpr])] = FExprBuilder.synchronized {
         // this should be no simpleBDDFeatureExpr, because there the function is inherited from SingleFeatureExpr
         assert(!this.isInstanceOf[SingleFeatureExpr])
         var enabled: Set[SingleFeatureExpr] = Set()
@@ -493,16 +494,16 @@ private[bdd] object FExprBuilder {
     private val featureBDDs: Map[Int, BDD] = Map()
 
 
-    def and(a: BDDFeatureExpr, b: BDDFeatureExpr): BDDFeatureExpr = new BDDFeatureExpr(a.bdd and b.bdd)
-    def or(a: BDDFeatureExpr, b: BDDFeatureExpr): BDDFeatureExpr = new BDDFeatureExpr(a.bdd or b.bdd)
-    def imp(a: BDDFeatureExpr, b: BDDFeatureExpr): BDDFeatureExpr = new BDDFeatureExpr(a.bdd imp b.bdd)
-    def biimp(a: BDDFeatureExpr, b: BDDFeatureExpr): BDDFeatureExpr = new BDDFeatureExpr(a.bdd biimp b.bdd)
-    def xor(a: BDDFeatureExpr, b: BDDFeatureExpr): BDDFeatureExpr = new BDDFeatureExpr(a.bdd xor b.bdd)
-    def unique(a: BDDFeatureExpr, b: SingleBDDFeatureExpr): BDDFeatureExpr = new BDDFeatureExpr(a.bdd.unique(b.bdd))
+    def and(a: BDDFeatureExpr, b: BDDFeatureExpr): BDDFeatureExpr = this.synchronized {new BDDFeatureExpr(a.bdd and b.bdd)}
+    def or(a: BDDFeatureExpr, b: BDDFeatureExpr): BDDFeatureExpr = this.synchronized {new BDDFeatureExpr(a.bdd or b.bdd)}
+    def imp(a: BDDFeatureExpr, b: BDDFeatureExpr): BDDFeatureExpr = this.synchronized {new BDDFeatureExpr(a.bdd imp b.bdd)}
+    def biimp(a: BDDFeatureExpr, b: BDDFeatureExpr): BDDFeatureExpr = this.synchronized {new BDDFeatureExpr(a.bdd biimp b.bdd)}
+    def xor(a: BDDFeatureExpr, b: BDDFeatureExpr): BDDFeatureExpr = this.synchronized {new BDDFeatureExpr(a.bdd xor b.bdd)}
+    def unique(a: BDDFeatureExpr, b: SingleBDDFeatureExpr): BDDFeatureExpr = this.synchronized {new BDDFeatureExpr(a.bdd.unique(b.bdd))}
 
-    def not(a: BDDFeatureExpr): BDDFeatureExpr = new BDDFeatureExpr(a.bdd.not())
+    def not(a: BDDFeatureExpr): BDDFeatureExpr = this.synchronized {new BDDFeatureExpr(a.bdd.not())}
 
-    def definedExternal(name: String): SingleBDDFeatureExpr = {
+    def definedExternal(name: String): SingleBDDFeatureExpr = this.synchronized {
         val id: Int = featureIds.get(name) match {
             case Some(id) => id
             case _ =>
