@@ -1,7 +1,7 @@
 package de.fosd.typechef.typesystem.generated
 
-import org.junit._
 import de.fosd.typechef.typesystem._
+import org.junit._
 
 /** generated tests! do not modify! */
 class GeneratedReturnConstantTests extends TestHelperTS {

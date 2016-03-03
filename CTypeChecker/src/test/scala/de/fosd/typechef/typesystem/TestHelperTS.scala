@@ -1,8 +1,8 @@
 package de.fosd.typechef.typesystem
 
 import de.fosd.typechef.error.TypeChefError
-import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureExpr}
-import de.fosd.typechef.parser.c.{TranslationUnit, TestHelper}
+import de.fosd.typechef.featureexpr.{FeatureExpr, FeatureExprFactory}
+import de.fosd.typechef.parser.c.{TestHelper, TranslationUnit}
 
 
 trait TestHelperTS extends TestHelper {

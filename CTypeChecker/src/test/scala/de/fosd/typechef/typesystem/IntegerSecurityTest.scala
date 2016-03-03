@@ -3,8 +3,8 @@ package de.fosd.typechef.typesystem
 import de.fosd.typechef.featureexpr.FeatureExprFactory
 import de.fosd.typechef.parser.c._
 import org.junit.runner.RunWith
-import org.scalatest.{Matchers, FunSuite}
 import org.scalatest.junit.JUnitRunner
+import org.scalatest.{FunSuite, Matchers}
 
 @RunWith(classOf[JUnitRunner])
 class IntegerSecurityTest extends FunSuite with Matchers with TestHelperTSConditional {

@@ -1,11 +1,12 @@
 package de.fosd.typechef.typesystem
 
-import java.{util => ju, lang => jl}
-import org.junit._
-import java.io.{InputStream, FileNotFoundException}
-import de.fosd.typechef.parser.c.{ExternalDef, TestHelper, TranslationUnit}
-import de.fosd.typechef.lexer.{LexerException, InternalException}
+import java.io.{FileNotFoundException, InputStream}
+import java.{lang => jl, util => ju}
+
 import de.fosd.typechef.featureexpr.{FeatureExprFactory, FeatureModel}
+import de.fosd.typechef.lexer.{InternalException, LexerException}
+import de.fosd.typechef.parser.c.{ExternalDef, TestHelper, TranslationUnit}
+import org.junit._
 
 class SparseFileTest extends TestHelper {
 

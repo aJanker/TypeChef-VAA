@@ -1,11 +1,12 @@
 package de.fosd.typechef.featureexpr
 
-import de.fosd.typechef.featureexpr.bdd.{BDDFeatureExpr, BDDFeatureModel}
-import org.scalacheck._
-import Gen._
-import FeatureExprFactory.bdd._
-import Prop.propBoolean
 import java.io._
+
+import de.fosd.typechef.featureexpr.FeatureExprFactory.bdd._
+import de.fosd.typechef.featureexpr.bdd.{BDDFeatureExpr, BDDFeatureModel}
+import org.scalacheck.Gen._
+import org.scalacheck.Prop.propBoolean
+import org.scalacheck._
 
 object FeatureExprAutoCheckBDD extends Properties("FeatureExpr-BDD") {
     def feature(a: String) = createDefinedExternal(a)

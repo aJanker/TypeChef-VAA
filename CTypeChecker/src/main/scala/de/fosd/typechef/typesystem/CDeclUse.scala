@@ -11,7 +11,6 @@ import org.apache.logging.log4j.LogManager
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
-
 import scala.reflect.ClassTag
 
 
@@ -145,7 +144,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
     //               if no function declaration exists, we add the function definition as def
     override def addDefinition(definition: AST, env: Env, feature: FeatureExpr, isFunctionDeclarator: Boolean = false) {
         def isKnownFunctionInEnv(id : Id, env: Env) : Boolean =  {
-            val cTypes = ConditionalLib.items(env.varEnv.lookupType(id.name)).filter { x =>
+            val cTypes = env.varEnv.lookupType(id.name).toList.filter { x =>
                 feature.equivalentTo(FeatureExprFactory.True) || feature.implies(x._1).isTautology() }
 
             cTypes.map(_._2).exists {

@@ -420,7 +420,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         })
 
         val warnDegrees: List[(Int, TypeChefError)] =
-            ts.getASTerrors(false).filter(Set(Severity.Warning, Severity.SecurityWarning) contains _.severity).flatMap(warning => {
+            ts.checkAST(false).filter(Set(Severity.Warning, Severity.SecurityWarning) contains _.severity).flatMap(warning => {
                 val warnFEXpr = warning.condition.asInstanceOf[BDDFeatureExpr] //TODO add ast element
                 Some(calculateInteractionDegree(warnFEXpr, simplify), warning)
             })
