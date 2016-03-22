@@ -262,6 +262,7 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                             case k =>
                         }
                     })
+                case _ =>
             }
         }
     }
