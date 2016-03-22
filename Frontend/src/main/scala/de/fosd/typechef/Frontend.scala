@@ -120,7 +120,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
 
                     fa.foreach(f => {
                             val allFeatures = filterAllSingleFeatureExpr(f)
-                            fw.write(f.getName + ";" + allFeatures.size + ";" + allFeatures + ";\n")
+                            fw.write(f.getName + ";" + allFeatures.size + ";" + allFeatures.mkString("[", ", ", "]") + ";\n")
                         })
 
                     fw.close
