@@ -118,12 +118,10 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                     val fa = filterAllASTElems[FunctionDef](ast)
                     if (fa.nonEmpty) fw.write("Function;Features;Names\n")
 
-                    fa foreach {
-                        case f => {
+                    fa.foreach(f => {
                             val allFeatures = filterAllSingleFeatureExpr(f)
-                            fw.write(f.getName + ";" + allFeatures.size + ";" + allFeatures + ";")
-                        }
-                    }
+                            fw.write(f.getName + ";" + allFeatures.size + ";" + allFeatures + ";\n")
+                        })
 
                     fw.close
                 }
