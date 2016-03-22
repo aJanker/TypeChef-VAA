@@ -30,7 +30,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
             writePI = false,
             printInclude = false,
             printVersion = false,
-            defaultPC = true;
+            defaultPC = true,
+            printFeaturesPerFunction = false;
     
     private final static char F_PARSE = Options.genOptionId();
     private final static char F_INTERFACE = Options.genOptionId();
@@ -46,11 +47,12 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
     private final static char F_HIDEPARSERRESULTS = Options.genOptionId();
     private final static char F_BDD = Options.genOptionId();
     private final static char F_ERRORXML = Options.genOptionId();
-    private static final char TY_DEBUG_INCLUDES = genOptionId();
-    private static final char TY_VERSION = genOptionId();
-    private static final char TY_HELP = genOptionId();
+    private final static char TY_DEBUG_INCLUDES = genOptionId();
+    private final static char TY_VERSION = genOptionId();
+    private final static char TY_HELP = genOptionId();
     private final static char F_DISABLEPC = Options.genOptionId();
     private final static char F_SIMPLIFYFM = Options.genOptionId();
+    private final static char F_PRINTFEATURESPERFUNCTION = Options.genOptionId();
     private final File _autoErrorXMLFile = new File(".");
     private final String serializeTUnitFileExtension = ".tunit";
     protected File errorXMLFile = null;
@@ -77,6 +79,9 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
 
                 new Option("dumpcfg", LongOpt.NO_ARGUMENT, F_DUMPCFG, null,
                         "Lex, parse, and dump control flow graph"),
+
+                new Option("printFeaturesPerFunction", LongOpt.NO_ARGUMENT, F_PRINTFEATURESPERFUNCTION, null,
+                        "Writes out the amount of features per function"),
 
                 new Option("output", LongOpt.REQUIRED_ARGUMENT, 'o', "file",
                         "Path to output files (no extension, creates .pi, .macrodbg etc files)."),
@@ -184,6 +189,8 @@ public class FrontendOptions extends CAnalysisOptions implements ParserOptions {
         } else if (c == F_SIMPLIFYFM) {
             checkFileExists(g.getOptarg());
             simplifyFM = new File(g.getOptarg());
+        } else if (c == F_PRINTFEATURESPERFUNCTION){
+            printFeaturesPerFunction = true;
         } else
             return super.interpretOption(c, g);
 

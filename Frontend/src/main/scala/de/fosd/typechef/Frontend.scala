@@ -112,6 +112,22 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
 
             if (ast != null) {
 
+                if (opt.printFeaturesPerFunction) {
+                    val fw = new FileWriter(new File(opt.getFile + "-features_typechef.csv"))
+
+                    val fa = filterAllASTElems[FunctionDef](ast)
+                    if (fa.nonEmpty) fw.write("Function;Features;Names\n")
+
+                    fa foreach {
+                        case f => {
+                            val allFeatures = filterAllSingleFeatureExpr(f)
+                            fw.write(f.getName + ";" + allFeatures.size + ";" + allFeatures + ";")
+                        }
+                    }
+
+                    fw.close
+                }
+
                 // some dataflow analyses require typing information
                 val ts = new CTypeSystemFrontend(ast, fullFM, opt) with CTypeCache with CDeclUse
 
