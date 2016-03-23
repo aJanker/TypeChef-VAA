@@ -507,12 +507,14 @@ trait CDeclUse extends CDeclUseInterface with CEnv with CEnvCache {
                             offsetDesignators.foreach(x => x match {
                                 case Opt(ft, OffsetofMemberDesignatorID(offsetId: Id)) =>
                                     addStructUse(offsetId, ft, env, name.name, false)
+                                case _ =>
                             })
                         //addTypeUse(name, env, ft)
                         case Opt(ft, StructOrUnionSpecifier(isUnion, Some(i: Id), _, _, _)) =>
                             offsetDesignators.foreach(x => x match {
                                 case Opt(ft, OffsetofMemberDesignatorID(offsetId: Id)) =>
                                     addStructUse(offsetId, ft, env, offsetId.name, isUnion)
+                                case _ =>
                             })
                             addStructDeclUse(i, env, isUnion, ft)
                         case _ =>
