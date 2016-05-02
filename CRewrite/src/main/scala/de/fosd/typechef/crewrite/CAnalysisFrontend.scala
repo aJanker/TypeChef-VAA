@@ -103,7 +103,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
                 else out.find { case (t, _) => t == i } match {
                     case None => {
                         var idecls = getDecls(i)
-                        if (idecls.exists(isPartOf(_, fa._1))) {
+                        if (idecls.exists(isPartOf(_, fa._1)) && fi.isSatisfiable(fm)) {
                             err ::= new TypeChefError(Severity.Warning, fi, "warning: Variable " + i.name + " is a dead store!", i, "")
                             errNodes ::=(err.last, Opt(env.featureExpr(i), i))
                         }
@@ -116,8 +116,8 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
                                 // with isPartOf we reduce the number of false positives, since we only check local variables and function parameters.
                                 // an assignment to a global variable might be used in another function
                                 if (isPartOf(ei, fa._1) && xdecls.exists(_.eq(ei))) {
-                                    err ::= new TypeChefError(Severity.Warning, fi.and(z.not()), "warning: Variable " + i.name + " is a dead store!", i, "")
-                                    errNodes ::=(err.last, Opt(env.featureExpr(i), i))
+                                    err ::= new TypeChefError(Severity.Warning, fi.implies(z).not(), "warning: Variable " + i.name + " is a dead store!", i, "")
+                                    errNodes ::=(err.last, Opt(fi.implies(z).not(), i))
                                 }
                             }
                         }
@@ -168,8 +168,10 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
                                 var xdecls = getDecls(x)
                                 var idecls = getDecls(i)
                                 for (ei <- idecls)
-                                    if (xdecls.exists(_.eq(ei)))
+                                    if (xdecls.exists(_.eq(ei))) {
                                         err ::= new TypeChefError(Severity.Warning, h, "warning: Variable " + x.name + " is freed multiple times!", x, "")
+                                        errNodes ::=(err.last, Opt(h, x))
+                                    }
                             }
                         }
                     }
@@ -271,10 +273,12 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         val ds = new DanglingSwitchCode(env)
 
         ss.flatMap(s => {
-            ds.danglingSwitchCode(s).map(e => {
-                val currentError = new TypeChefError(Severity.Warning, e.feature, "warning: switch statement has dangling code ", e.entry, "")
-                errNodes ::=(currentError, Opt(e.feature, e.entry))
-                currentError
+            ds.danglingSwitchCode(s).flatMap(e => {
+                if (e.condition.isSatisfiable(fm)) {
+                    val currentError = new TypeChefError(Severity.Warning, e.condition, "warning: switch statement has dangling code ", e.entry, "")
+                    errNodes ::=(currentError, Opt(e.condition, e.entry))
+                    Some(currentError)
+                } else None
             })
 
         })
@@ -290,11 +294,13 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
     private def cfgInNonVoidFunc(fa: (FunctionDef, List[(AST, List[Opt[AST]])])): List[TypeChefError] = {
         val cf = new CFGInNonVoidFunc(env, ts)
 
-        cf.cfgInNonVoidFunc(fa._1).map(
+        cf.cfgInNonVoidFunc(fa._1).flatMap(
             e => {
-                val currentError = new TypeChefError(Severity.Warning, e.feature, "Control flow of non-void function ends here!", e.entry, "")
-                errNodes ::=(currentError, Opt(e.feature, e.entry))
-                currentError
+                if (e.condition.isSatisfiable(fm)) {
+                    val currentError = new TypeChefError(Severity.Warning, e.condition, "Control flow of non-void function ends here!", e.entry, "")
+                    errNodes ::=(currentError, Opt(e.condition, e.entry))
+                    Some(currentError)
+                } else None
             }
         )
     }
@@ -309,12 +315,16 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         val casestmts = filterAllASTElems[CaseStatement](fa._1)
         val ct = new CaseTermination(env)
 
-        casestmts.filterNot(ct.isTerminating).map {
+        casestmts.filterNot(ct.isTerminating).flatMap {
             x => {
-                val currentError = new TypeChefError(Severity.Warning, env.featureExpr(x),
-                    "Case statement is not terminated by a break!", x, "")
-                errNodes ::=(currentError, Opt(env.featureExpr(x), x))
-                currentError
+                val condition = env.featureExpr(x)
+
+                if (condition.isSatisfiable(fm)) {
+                    val currentError = new TypeChefError(Severity.Warning, env.featureExpr(x),
+                        "Case statement is not terminated by a break!", x, "")
+                    errNodes ::=(currentError, Opt(env.featureExpr(x), x))
+                    Some(currentError)
+                } else None
             }
         }
     }
@@ -340,9 +350,12 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
 
                 // check CFG element directly; without dataflow analysis
                 for (e <- cle.checkForPotentialCalls(s)) {
-                    err ::= new TypeChefError(Severity.SecurityWarning, env.featureExpr(e), "Return value of " +
-                        PrettyPrinter.print(e) + " is not properly checked for (" + errorvalues + ")!", e)
-                    errNodes ::=(err.last, Opt(env.featureExpr(e), e))
+                    val conditon = env.featureExpr(e)
+                    if (conditon.isSatisfiable(fm)) {
+                        err ::= new TypeChefError(Severity.SecurityWarning, conditon, "Return value of " +
+                            PrettyPrinter.print(e) + " is not properly checked for (" + errorvalues + ")!", e)
+                        errNodes ::=(err.last, Opt(conditon, e))
+                    }
                 }
 
 
