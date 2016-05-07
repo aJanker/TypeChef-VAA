@@ -140,7 +140,7 @@ sealed abstract class StdLibFuncReturn(env: ASTEnv, dum: DeclUseMap, udm: UseDec
 
 }
 
-class StdLibFuncReturn_Null(env: ASTEnv, dum: UseDeclMap, udm: UseDeclMap, fm: FeatureModel, f: FunctionDef) extends StdLibFuncReturn(env, dum, udm, fm, f) {
+class StdLibFuncReturn_Null(env: ASTEnv, dum: DeclUseMap, udm: UseDeclMap, fm: FeatureModel, f: FunctionDef) extends StdLibFuncReturn(env, dum, udm, fm, f) {
 
     val function: List[String] = List(
         "aligned_alloc",

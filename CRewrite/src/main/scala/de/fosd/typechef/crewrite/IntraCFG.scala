@@ -446,7 +446,7 @@ trait IntraCFG extends ASTNavigation with ConditionalNavigation {
 
             case t@BreakStatement() => {
                 val e2b = findPriorASTElem2BreakStatement(t, env)
-                assert(e2b.isDefined, "break statement should always occur within a for, do-while, while, or switch statement")
+                assert(e2b.isDefined, "break statement should always occur within a for, do-while, while, or switch statement " + t.getPositionFrom + "\n"+ PrettyPrinter.print(parentAST(parentAST(t, env), env)))
                 getStmtSucc(e2b.get, ctx, oldres, env)
             }
             case t@ContinueStatement() => {
