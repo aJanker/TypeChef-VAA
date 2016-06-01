@@ -1,7 +1,7 @@
 TypeChef
 ========
 
-Fork of the [TypeChef](https://github.com/ckaestne/TypeChef) project containing customisations required for [Hercules](https://github.com/joliebig/Hercules) and [Morpheus](https://github.com/joliebig/Morpheus). 
+Fork of the [TypeChef](https://github.com/ckaestne/TypeChef) project containing customisations required for our comparison of variability-aware and sampling-based static analyses. 
 TypeChef is a research project with the goal of analyzing 
 ifdef variability in C code with the goal of finding
 variability-induced bugs in large-scale real-world systems,
