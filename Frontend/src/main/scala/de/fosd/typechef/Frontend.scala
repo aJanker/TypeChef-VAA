@@ -8,6 +8,7 @@ import de.fosd.typechef.Extras.StopWatch
 import de.fosd.typechef.crewrite._
 import de.fosd.typechef.error.TypeChefError
 import de.fosd.typechef.featureexpr.FeatureExpr
+import de.fosd.typechef.featureexpr.bdd.BDDFeatureExpr
 import de.fosd.typechef.options.{FrontendOptions, FrontendOptionsWithConfigFiles, OptionException}
 import de.fosd.typechef.parser.TokenReader
 import de.fosd.typechef.parser.c.{CTypeContext, TranslationUnit, _}
@@ -280,6 +281,32 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                         writer.close()
                     }
 
+                    if (opt.method_interaction_degree){
+                        println("#calculate degrees for each method")
+
+                        val simplification = sa.getSimplifcation(opt.getSimplifyFM)
+                        val env = sa.env
+                        val file: File = new File(opt.getFile + ".vaa_method_degrees.gz")
+                        file.getParentFile.mkdirs()
+
+                        val fw = gzipWriter(file)
+
+                        sa.errNodes.map(_._2).foreach(err => {
+                            val fDef = sa.findPriorASTElem[FunctionDef](err.entry, env)
+
+                            fDef match {
+                                case None => println("No function definition found for: " + err.entry)
+                                case Some(f) => {
+                                    val fDefDegree = sa.calculateInteractionDegree(env.featureExpr(f).asInstanceOf[BDDFeatureExpr], simplification)
+                                    val warnDegree = sa.calculateInteractionDegree(env.featureExpr(err.entry).asInstanceOf[BDDFeatureExpr], simplification)
+                                    fw.write(f.getName + ";" + fDefDegree + ";" + warnDegree)
+                                }
+                            }
+                        })
+
+                        fw.close()
+                    }
+
                     if (opt.interaction_degree) {
                         println("#calculate degrees")
                         stopWatch.start("interactiondegree")
@@ -323,11 +350,6 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
 
                         w.close
                     }
-
-
-
-
-                    // TODO Write CleanReport
                 }
             }
         }

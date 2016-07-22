@@ -18,8 +18,8 @@ import scala.io.Source
 
 sealed abstract class CAnalysisFrontend(tunit: TranslationUnit) extends CFGHelper {
 
-    protected val env = CASTEnv.createASTEnv(tunit)
-    protected val fdefs = filterAllASTElems[FunctionDef](tunit)
+    val env = CASTEnv.createASTEnv(tunit)
+    val fdefs = filterAllASTElems[FunctionDef](tunit)
 }
 
 class CInterAnalysisFrontend(tunit: TranslationUnit, fm: FeatureModel = FeatureExprFactory.empty) extends CAnalysisFrontend(tunit) with InterCFG {
@@ -373,7 +373,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         err
     }
 
-    private def getSimplifcation(simplifyFM: java.io.File) = (feature: BDDFeatureExpr) => {
+    def getSimplifcation(simplifyFM: java.io.File) = (feature: BDDFeatureExpr) => {
         if (simplifyFM == null) feature
         else if (simplifyFM.getName.endsWith(".model")) {
             val simplifyModel = FeatureToSimplifyModelMap.fill(simplifyFM)
@@ -501,7 +501,7 @@ class CIntraAnalysisFrontendF(tunit: TranslationUnit, ts: CTypeSystemFrontend wi
         writer.write(stmtDegree._1.entry.toString)
     }
 
-    private def calculateInteractionDegree(fExpr: BDDFeatureExpr, simplify: BDDFeatureExpr => BDDFeatureExpr): Int = {
+    def calculateInteractionDegree(fExpr: BDDFeatureExpr, simplify: BDDFeatureExpr => BDDFeatureExpr): Int = {
         //interaction degree is the smallest number of variables that need to be set to reproduce the problem
         //we use the shortest path in a BDD as simple way of computing this
 
