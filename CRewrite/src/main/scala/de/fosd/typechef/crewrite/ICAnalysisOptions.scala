@@ -8,7 +8,7 @@ trait ICAnalysisOptions {
 
     // for convenience: group all dataflow analyses
     def staticanalyses = {
-        typechecksa || warning_case_termination || warning_dangling_switch_code || interaction_degree || cfg_interaction_degree
+        typechecksa || warning_case_termination || warning_dangling_switch_code || interaction_degree || cfg_interaction_degree || method_interaction_degree
     }
 
     // for convenience: groups all dataflow analyses that need typechecking information!
@@ -67,6 +67,9 @@ trait ICAnalysisOptions {
 
     // -A cfgdegree
     def cfg_interaction_degree = false
+
+    // -A method_degree
+    def method_interaction_degree = false
 }
 
 trait CAnalysisOptionProvider {
