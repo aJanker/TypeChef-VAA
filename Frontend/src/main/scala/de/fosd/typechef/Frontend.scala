@@ -299,7 +299,7 @@ object Frontend extends EnforceTreeHelper with ASTNavigation with ConditionalNav
                                 case Some(f) => {
                                     val fDefDegree = sa.calculateInteractionDegree(env.featureExpr(f).asInstanceOf[BDDFeatureExpr], simplification)
                                     val warnDegree = sa.calculateInteractionDegree(env.featureExpr(err.entry).asInstanceOf[BDDFeatureExpr], simplification)
-                                    fw.write(f.getName + ";" + fDefDegree + ";" + warnDegree)
+                                    fw.write(f.getName + ";" + fDefDegree + ";" + warnDegree + "\n")
                                 }
                             }
                         })
